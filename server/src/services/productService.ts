@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { Product, IProduct, Availability, Store } from '../models';
+import { availabilityService } from './availabilityService';
 
 export interface ProductFilters {
   q?: string;
@@ -106,7 +107,7 @@ export const productService = {
     };
   },
 
-  async getProductById(id: string): Promise<ProductDetail | null> {
+  async getProductById(id: string, options: { refreshAvailability?: boolean } = {}): Promise<ProductDetail | null> {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return null;
     }
@@ -116,23 +117,29 @@ export const productService = {
       return null;
     }
 
-    // Get availability with store info
-    const availabilities = await Availability.find({ productId: product._id }).lean();
-    const storeIds = availabilities.map((a) => a.storeId);
+    // Get availability - will fetch from API if stale or if force refresh requested
+    const storeAvailabilities = await availabilityService.getProductAvailability(
+      product._id.toString(),
+      { forceRefresh: options.refreshAvailability }
+    );
+
+    // Get store details for all stores
+    const storeIds = storeAvailabilities.map((a) => new mongoose.Types.ObjectId(a.storeId));
     const stores = await Store.find({ _id: { $in: storeIds } }).lean();
     const storeMap = new Map(stores.map((s) => [s._id.toString(), s]));
 
-    const availabilityInfo: AvailabilityInfo[] = availabilities.map((a) => {
-      const store = storeMap.get(a.storeId.toString());
+    // Convert to AvailabilityInfo format
+    const availabilityInfo: AvailabilityInfo[] = storeAvailabilities.map((avail) => {
+      const store = storeMap.get(avail.storeId);
       return {
-        storeId: a.storeId.toString(),
-        storeName: store?.name || 'Unknown Store',
+        storeId: avail.storeId,
+        storeName: avail.storeName || store?.name || 'Unknown Store',
         storeType: store?.type || 'unknown',
         regionOrScope: store?.regionOrScope || 'Unknown',
-        status: a.status,
-        priceRange: a.priceRange,
-        lastConfirmedAt: a.lastConfirmedAt,
-        source: a.source,
+        status: avail.available ? 'known' : 'unknown',
+        priceRange: avail.priceRange,
+        lastConfirmedAt: avail.lastUpdated,
+        source: 'api_fetch', // Will be updated based on actual source
       };
     });
 

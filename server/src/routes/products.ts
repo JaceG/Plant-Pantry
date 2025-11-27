@@ -37,7 +37,11 @@ router.get('/categories', async (req: Request, res: Response, next: NextFunction
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const product = await productService.getProductById(id);
+    const { refresh } = req.query; // Optional: ?refresh=true to force API fetch
+    
+    const product = await productService.getProductById(id, {
+      refreshAvailability: refresh === 'true',
+    });
 
     if (!product) {
       throw new HttpError('Product not found', 404);

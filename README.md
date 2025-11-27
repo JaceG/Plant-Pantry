@@ -72,7 +72,12 @@ PORT=5000
 CLIENT_URL=http://localhost:5173
 ```
 
-Seed the database with sample products:
+Seed the database with **real vegan products from Open Food Facts**:
+```bash
+npm run seed:openfoodfacts
+```
+
+Or use the original sample data (faster, no API calls):
 ```bash
 npm run seed
 ```
@@ -142,11 +147,12 @@ Visit **http://localhost:5173** to start browsing vegan products!
 
 ### Server
 ```bash
-npm run dev      # Start development server with hot reload
-npm run build    # Build TypeScript to JavaScript
-npm start        # Run production server
-npm run seed     # Seed database with sample data
-npm run lint     # Run ESLint
+npm run dev               # Start development server with hot reload
+npm run build             # Build TypeScript to JavaScript
+npm start                 # Run production server
+npm run seed              # Seed database with sample data
+npm run seed:openfoodfacts  # Seed with real data from Open Food Facts API
+npm run lint              # Run ESLint
 ```
 
 ### Client
@@ -168,6 +174,14 @@ The app uses a cohesive, nature-inspired design:
 | `--color-mint` | `#E8F0E6` | Backgrounds, highlights |
 | `--color-cream` | `#FDFCF7` | Page backgrounds |
 | `--color-terracotta` | `#D16B55` | Error states, alerts |
+
+## 📊 Data Sources
+
+Product data can be seeded from:
+- **[Open Food Facts](https://world.openfoodfacts.org)** - A free, open database of food products with 3M+ items
+  - Licensed under [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/1-0/)
+  - Uses `ingredients_analysis_tags=en:vegan` to filter vegan products
+  - API Documentation: https://openfoodfacts.github.io/openfoodfacts-server/api/
 
 ## 🗺️ Roadmap
 

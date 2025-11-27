@@ -1,7 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export type AvailabilityStatus = 'known' | 'user_reported' | 'unknown';
-export type AvailabilitySource = 'seed_data' | 'user_contribution';
+export type AvailabilitySource = 'seed_data' | 'user_contribution' | 'api_fetch' | 'store_api';
 
 export interface IAvailability extends Document {
   _id: mongoose.Types.ObjectId;
@@ -10,7 +10,9 @@ export interface IAvailability extends Document {
   status: AvailabilityStatus;
   priceRange?: string;
   lastConfirmedAt?: Date;
+  lastFetchedAt?: Date; // When we last fetched from API
   source: AvailabilitySource;
+  isStale?: boolean; // Flag if data is older than threshold
 }
 
 const availabilitySchema = new Schema<IAvailability>(
@@ -39,10 +41,17 @@ const availabilitySchema = new Schema<IAvailability>(
     lastConfirmedAt: {
       type: Date,
     },
+    lastFetchedAt: {
+      type: Date,
+    },
     source: {
       type: String,
-      enum: ['seed_data', 'user_contribution'],
+      enum: ['seed_data', 'user_contribution', 'api_fetch', 'store_api'],
       default: 'seed_data',
+    },
+    isStale: {
+      type: Boolean,
+      default: false,
     },
   },
   {
