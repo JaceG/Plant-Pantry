@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react';
-import { ProductList, SearchBar, CategoryFilter } from '../components';
+import { ProductList, SearchBar, FilterSidebar } from '../components';
 import { useProducts, useCategories } from '../hooks';
 import './HomeScreen.css';
 
 export function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   
   const { products, loading, error, totalCount, fetchProducts } = useProducts();
   const { categories, loading: categoriesLoading } = useCategories();
@@ -13,17 +14,37 @@ export function HomeScreen() {
   const handleSearch = useCallback(
     (query: string) => {
       setSearchQuery(query);
-      fetchProducts({ q: query || undefined, category: selectedCategory || undefined });
+      fetchProducts({ 
+        q: query || undefined, 
+        category: selectedCategory || undefined,
+        tag: selectedTag || undefined,
+      });
     },
-    [fetchProducts, selectedCategory]
+    [fetchProducts, selectedCategory, selectedTag]
   );
 
   const handleCategorySelect = useCallback(
     (category: string | null) => {
       setSelectedCategory(category);
-      fetchProducts({ q: searchQuery || undefined, category: category || undefined });
+      fetchProducts({ 
+        q: searchQuery || undefined, 
+        category: category || undefined,
+        tag: selectedTag || undefined,
+      });
     },
-    [fetchProducts, searchQuery]
+    [fetchProducts, searchQuery, selectedTag]
+  );
+
+  const handleTagSelect = useCallback(
+    (tag: string | null) => {
+      setSelectedTag(tag);
+      fetchProducts({ 
+        q: searchQuery || undefined, 
+        category: selectedCategory || undefined,
+        tag: tag || undefined,
+      });
+    },
+    [fetchProducts, searchQuery, selectedCategory]
   );
 
   return (
@@ -51,16 +72,18 @@ export function HomeScreen() {
       </section>
 
       <main className="main-content">
-        <div className="filters-section">
-          <CategoryFilter
+        <div className="content-layout">
+          <FilterSidebar
             categories={categories}
             selectedCategory={selectedCategory}
-            onSelect={handleCategorySelect}
+            selectedTag={selectedTag}
+            onCategorySelect={handleCategorySelect}
+            onTagSelect={handleTagSelect}
             loading={categoriesLoading}
           />
-        </div>
 
-        <div className="results-header">
+          <div className="products-section">
+            <div className="results-header">
           <h2 className="results-title">
             {searchQuery || selectedCategory ? 'Search Results' : 'All Products'}
           </h2>
@@ -78,15 +101,17 @@ export function HomeScreen() {
           </div>
         )}
 
-        <ProductList
-          products={products}
-          loading={loading}
-          emptyMessage={
-            searchQuery
-              ? `No products found for "${searchQuery}"`
-              : 'No products available'
-          }
-        />
+            <ProductList
+              products={products}
+              loading={loading}
+              emptyMessage={
+                searchQuery || selectedCategory || selectedTag
+                  ? `No products found matching your filters`
+                  : 'No products available'
+              }
+            />
+          </div>
+        </div>
       </main>
     </div>
   );

@@ -116,8 +116,22 @@
   padding: var(--spacing-xl) var(--spacing-lg);
 }
 
-.filters-section {
-  margin-bottom: var(--spacing-lg);
+.content-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: var(--spacing-xl);
+  align-items: start;
+}
+
+.products-section {
+  min-width: 0; /* Prevents grid overflow */
+}
+
+@media (max-width: 768px) {
+  .content-layout {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
 }
 
 .results-header {
