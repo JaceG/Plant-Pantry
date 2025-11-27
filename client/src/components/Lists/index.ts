@@ -1,0 +1,2 @@
+export { ShoppingListItemCard } from './ShoppingListItemCard';
+

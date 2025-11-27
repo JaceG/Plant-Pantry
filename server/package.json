@@ -7,6 +7,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "seed": "ts-node-dev src/scripts/seed.ts",
     "lint": "eslint . --ext .ts"
   },
   "keywords": ["plant-pantry", "backend", "express", "mongodb"],

@@ -1,9 +1,11 @@
-import express, { Express, Request, Response } from 'express';
+import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { connectDB } from './config/database';
+import { healthRoutes, productRoutes, storeRoutes, listRoutes } from './routes';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 dotenv.config();
 
@@ -20,18 +22,20 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check route
-app.get('/api/health', (req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', message: 'Plant Pantry API is running' });
-});
+// API Routes
+app.use('/api/health', healthRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/stores', storeRoutes);
+app.use('/api/lists', listRoutes);
 
-// API Routes will go here
-// app.use('/api/plants', plantRoutes);
+// Error handlers
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 // Connect to MongoDB and start server
 connectDB().then(() => {
   app.listen(PORT, () => {
-    console.log(`🌱 Plant Pantry server running on port ${PORT}`);
+    console.log(`🌱 PlantPantry server running on port ${PORT}`);
   });
 }).catch((error) => {
   console.error('Failed to connect to database:', error);
