@@ -134,13 +134,13 @@ export function ProductDetailScreen() {
           </div>
         </div>
 
-        {product.availability.length > 0 && (
-          <section className="availability-section">
-            <h2 className="section-title">
-              <span className="title-icon">📍</span>
-              Where to Buy
-            </h2>
-            
+        <section className="availability-section">
+          <h2 className="section-title">
+            <span className="title-icon">📍</span>
+            Where to Buy
+          </h2>
+          
+          {product.availability.length > 0 ? (
             <div className="availability-grid">
               {product.availability.map((avail) => (
                 <div key={avail.storeId} className="availability-card">
@@ -160,8 +160,15 @@ export function ProductDetailScreen() {
                 </div>
               ))}
             </div>
-          </section>
-        )}
+          ) : (
+            <div className="availability-empty">
+              <p>Availability information is not yet available for this product.</p>
+              <p className="availability-empty-note">
+                Store availability data will be added soon. Check back later!
+              </p>
+            </div>
+          )}
+        </section>
       </div>
 
       {toast && (

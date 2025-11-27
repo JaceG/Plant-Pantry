@@ -303,5 +303,27 @@
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--color-forest);
+  margin-top: var(--spacing-xs);
+}
+
+.availability-empty {
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--color-stone);
+}
+
+.availability-empty p {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  margin: 0 0 var(--spacing-sm) 0;
+}
+
+.availability-empty-note {
+  font-size: 0.875rem;
+  color: var(--color-stone);
+  font-style: italic;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-forest);
 }
 

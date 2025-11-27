@@ -123,10 +123,21 @@ export const productService = {
       { forceRefresh: options.refreshAvailability }
     );
 
-    // Get store details for all stores
-    const storeIds = storeAvailabilities.map((a) => new mongoose.Types.ObjectId(a.storeId));
-    const stores = await Store.find({ _id: { $in: storeIds } }).lean();
-    const storeMap = new Map(stores.map((s) => [s._id.toString(), s]));
+    // Get store details for all stores (only if we have availability)
+    let stores: any[] = [];
+    let storeMap = new Map<string, any>();
+    
+    if (storeAvailabilities.length > 0) {
+      const storeIds = storeAvailabilities
+        .map((a) => a.storeId)
+        .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+      
+      if (storeIds.length > 0) {
+        stores = await Store.find({ _id: { $in: storeIds } }).lean();
+        storeMap = new Map(stores.map((s) => [s._id.toString(), s]));
+      }
+    }
 
     // Convert to AvailabilityInfo format
     const availabilityInfo: AvailabilityInfo[] = storeAvailabilities.map((avail) => {

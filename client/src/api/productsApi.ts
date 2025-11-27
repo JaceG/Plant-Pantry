@@ -20,8 +20,9 @@ export const productsApi = {
     return httpClient.get<ProductListResponse>(`/products${query}`);
   },
   
-  getProductById(id: string): Promise<{ product: ProductDetail }> {
-    return httpClient.get<{ product: ProductDetail }>(`/products/${id}`);
+  getProductById(id: string, refreshAvailability?: boolean): Promise<{ product: ProductDetail }> {
+    const query = refreshAvailability ? '?refresh=true' : '';
+    return httpClient.get<{ product: ProductDetail }>(`/products/${id}${query}`);
   },
   
   getCategories(): Promise<CategoriesResponse> {
