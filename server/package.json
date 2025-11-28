@@ -15,6 +15,7 @@
     "import:products-only": "ts-node-dev src/scripts/importProductsOnly.ts",
     "convert:csv-to-json": "ts-node-dev src/scripts/convertCSVtoJSON.ts",
     "create:availability": "ts-node-dev src/scripts/createSeedAvailability.ts",
+    "cleanup:fake-availability": "ts-node-dev src/scripts/cleanupFakeAvailability.ts",
     "lint": "eslint . --ext .ts"
   },
   "keywords": [

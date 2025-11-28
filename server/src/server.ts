@@ -1,13 +1,14 @@
+// Load environment variables FIRST before any other imports
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import dotenv from 'dotenv';
 import { connectDB } from './config/database';
 import { healthRoutes, productRoutes, storeRoutes, listRoutes, userProductRoutes } from './routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
-
-dotenv.config();
 
 const app: Express = express();
 const PORT = process.env.PORT || 5000;
@@ -28,6 +29,16 @@ app.use('/api/products', productRoutes);
 app.use('/api/user-products', userProductRoutes);
 app.use('/api/stores', storeRoutes);
 app.use('/api/lists', listRoutes);
+
+// GET /api/config/google-api-key - Get Google API key for frontend (public endpoint)
+app.get('/api/config/google-api-key', (req, res) => {
+  const apiKey = process.env.GOOGLE_API_KEY;
+  if (!apiKey) {
+    return res.status(503).json({ error: 'Google API key not configured' });
+  }
+  // Return the API key - it's safe to expose as it should be restricted by domain/IP in Google Cloud Console
+  res.json({ apiKey });
+});
 
 // Error handlers
 app.use(notFoundHandler);

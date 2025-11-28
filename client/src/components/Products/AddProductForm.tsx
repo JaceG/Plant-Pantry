@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userProductsApi } from '../../api/userProductsApi';
+import { productsApi } from '../../api/productsApi';
 import { CreateUserProductInput } from '../../types/product';
 import { Button } from '../Common';
 import { Toast } from '../Common/Toast';
 import { useToast } from '../Common/useToast';
+import { AutocompleteInput } from './AutocompleteInput';
+import { StoreAvailabilitySelector } from './StoreAvailabilitySelector';
 import './AddProductForm.css';
 
 export function AddProductForm() {
@@ -22,10 +25,36 @@ export function AddProductForm() {
     imageUrl: '',
     nutritionSummary: '',
     ingredientSummary: '',
+    storeAvailabilities: [],
   });
 
   const [newCategory, setNewCategory] = useState('');
   const [newTag, setNewTag] = useState('');
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [loadingOptions, setLoadingOptions] = useState(true);
+
+  // Fetch available categories and tags on mount
+  useEffect(() => {
+    const fetchOptions = async () => {
+      try {
+        const [categoriesRes, tagsRes] = await Promise.all([
+          productsApi.getCategories(),
+          productsApi.getTags(),
+        ]);
+        setAvailableCategories(categoriesRes.categories);
+        setAvailableTags(tagsRes.tags);
+      } catch (error) {
+        console.error('Failed to fetch categories/tags:', error);
+        showToast('Failed to load categories and tags', 'error');
+      } finally {
+        setLoadingOptions(false);
+      }
+    };
+
+    fetchOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -43,13 +72,12 @@ export function AddProductForm() {
     }));
   };
 
-  const addCategory = () => {
-    if (newCategory.trim() && !formData.categories?.includes(newCategory.trim())) {
+  const handleCategorySelect = (category: string) => {
+    if (!formData.categories?.includes(category)) {
       setFormData((prev) => ({
         ...prev,
-        categories: [...(prev.categories || []), newCategory.trim()],
+        categories: [...(prev.categories || []), category],
       }));
-      setNewCategory('');
     }
   };
 
@@ -60,13 +88,12 @@ export function AddProductForm() {
     }));
   };
 
-  const addTag = () => {
-    if (newTag.trim() && !formData.tags?.includes(newTag.trim())) {
+  const handleTagSelect = (tag: string) => {
+    if (!formData.tags?.includes(tag)) {
       setFormData((prev) => ({
         ...prev,
-        tags: [...(prev.tags || []), newTag.trim()],
+        tags: [...(prev.tags || []), tag],
       }));
-      setNewTag('');
     }
   };
 
@@ -196,23 +223,17 @@ export function AddProductForm() {
           <h2>Categories</h2>
           
           <div className="form-group">
-            <div className="tag-input-group">
-              <input
-                type="text"
-                value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addCategory();
-                  }
-                }}
-                placeholder="Add category (e.g., en:plant-based-milks)"
-              />
-              <Button type="button" onClick={addCategory} variant="secondary" size="small">
-                Add
-              </Button>
-            </div>
+            <label>Search and select from existing categories</label>
+            <AutocompleteInput
+              value={newCategory}
+              onChange={setNewCategory}
+              onSelect={handleCategorySelect}
+              options={availableCategories}
+              placeholder="Search categories (e.g., en:plant-based-milks)"
+              disabled={loadingOptions}
+              allowNew={true}
+              newItemLabel="Add new category"
+            />
             {formData.categories && formData.categories.length > 0 && (
               <div className="tag-list">
                 {formData.categories.map((cat) => (
@@ -236,23 +257,17 @@ export function AddProductForm() {
           <h2>Tags</h2>
           
           <div className="form-group">
-            <div className="tag-input-group">
-              <input
-                type="text"
-                value={newTag}
-                onChange={(e) => setNewTag(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addTag();
-                  }
-                }}
-                placeholder="Add tag (e.g., organic, gluten-free)"
-              />
-              <Button type="button" onClick={addTag} variant="secondary" size="small">
-                Add
-              </Button>
-            </div>
+            <label>Search and select from existing tags</label>
+            <AutocompleteInput
+              value={newTag}
+              onChange={setNewTag}
+              onSelect={handleTagSelect}
+              options={availableTags}
+              placeholder="Search tags (e.g., organic, gluten-free)"
+              disabled={loadingOptions}
+              allowNew={true}
+              newItemLabel="Add new tag"
+            />
             {formData.tags && formData.tags.length > 0 && (
               <div className="tag-list">
                 {formData.tags.map((tag) => (
@@ -269,6 +284,25 @@ export function AddProductForm() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+
+        <div className="form-section">
+          <h2>Where to Buy</h2>
+          
+          <div className="form-group">
+            <p className="form-help-text">
+              Add stores where this product is available. You can search existing stores or add new ones using Google Places.
+            </p>
+            <StoreAvailabilitySelector
+              value={formData.storeAvailabilities || []}
+              onChange={(availabilities) => {
+                setFormData((prev) => ({
+                  ...prev,
+                  storeAvailabilities: availabilities,
+                }));
+              }}
+            />
           </div>
         </div>
 

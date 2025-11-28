@@ -27,6 +27,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       imageUrl,
       nutritionSummary,
       ingredientSummary,
+      storeAvailabilities,
     } = req.body;
 
     // Validation
@@ -46,6 +47,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       imageUrl,
       nutritionSummary,
       ingredientSummary,
+      storeAvailabilities: storeAvailabilities || [],
     });
 
     res.status(201).json({ product });

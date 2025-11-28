@@ -1,6 +1,12 @@
 import mongoose from 'mongoose';
-import { UserProduct } from '../models';
+import { UserProduct, Availability, Store } from '../models';
 import { ProductSummary, ProductDetail, AvailabilityInfo } from './productService';
+
+export interface StoreAvailabilityInput {
+  storeId: string;
+  priceRange?: string;
+  status?: 'known' | 'user_reported' | 'unknown';
+}
 
 export interface CreateUserProductInput {
   userId: string;
@@ -14,6 +20,7 @@ export interface CreateUserProductInput {
   imageUrl?: string;
   nutritionSummary?: string;
   ingredientSummary?: string;
+  storeAvailabilities?: StoreAvailabilityInput[];
 }
 
 export interface UpdateUserProductInput {
@@ -51,7 +58,27 @@ export const userProductService = {
       status: 'approved',
     });
 
-    return this.mapToProductDetail(product);
+    // Create availability entries if provided
+    if (input.storeAvailabilities && input.storeAvailabilities.length > 0) {
+      const availabilityEntries = input.storeAvailabilities.map((avail) => ({
+        productId: product._id,
+        storeId: new mongoose.Types.ObjectId(avail.storeId),
+        status: (avail.status || 'user_reported') as 'known' | 'user_reported' | 'unknown',
+        priceRange: avail.priceRange,
+        lastConfirmedAt: new Date(),
+        source: 'user_contribution' as const,
+        isStale: false,
+      }));
+
+      await Availability.insertMany(availabilityEntries, { ordered: false }).catch((error: any) => {
+        // Ignore duplicate key errors
+        if (error.code !== 11000) {
+          console.error('Error creating availability entries:', error);
+        }
+      });
+    }
+
+    return await this.mapToProductDetail(product);
   },
 
   /**
@@ -67,7 +94,7 @@ export const userProductService = {
       return null;
     }
 
-    return this.mapToProductDetail(product);
+    return await this.mapToProductDetail(product);
   },
 
   /**
@@ -118,7 +145,7 @@ export const userProductService = {
       return null;
     }
 
-    return this.mapToProductDetail(product);
+    return await this.mapToProductDetail(product);
   },
 
   /**
@@ -140,7 +167,38 @@ export const userProductService = {
   /**
    * Map UserProduct to ProductDetail format
    */
-  mapToProductDetail(product: any): ProductDetail {
+  async mapToProductDetail(product: any): Promise<ProductDetail> {
+    // Fetch availability for this product
+    const availabilities = await Availability.find({
+      productId: product._id instanceof mongoose.Types.ObjectId ? product._id : new mongoose.Types.ObjectId(product._id),
+    }).lean();
+
+    const storeIds = availabilities
+      .map((a) => a.storeId)
+      .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+
+    const stores = storeIds.length > 0
+      ? await Store.find({ _id: { $in: storeIds } }).lean()
+      : [];
+
+    const storeMap = new Map(stores.map((s) => [s._id.toString(), s]));
+
+    const availabilityInfo: AvailabilityInfo[] = availabilities.map((avail) => {
+      const storeIdStr = avail.storeId.toString();
+      const store = storeMap.get(storeIdStr);
+      return {
+        storeId: storeIdStr,
+        storeName: store?.name || 'Unknown Store',
+        storeType: store?.type || 'unknown',
+        regionOrScope: store?.regionOrScope || 'Unknown',
+        status: avail.status || 'unknown',
+        priceRange: avail.priceRange,
+        lastConfirmedAt: avail.lastConfirmedAt,
+        source: avail.source || 'user_contribution',
+      };
+    });
+
     return {
       id: product._id.toString(),
       name: product.name,
@@ -155,7 +213,7 @@ export const userProductService = {
       ingredientSummary: product.ingredientSummary,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
-      availability: [], // User products don't have availability initially
+      availability: availabilityInfo,
       // Add metadata to distinguish from API products
       _source: 'user_contribution',
       _userId: product.userId?.toString(),

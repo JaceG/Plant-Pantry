@@ -8,6 +8,16 @@ export interface IStore extends Document {
   type: StoreType;
   regionOrScope: string;
   websiteUrl?: string;
+  // Google Maps/Places integration
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  googlePlaceId?: string; // Google Places API place_id
+  phoneNumber?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +40,42 @@ const storeSchema = new Schema<IStore>(
       trim: true,
     },
     websiteUrl: {
+      type: String,
+      trim: true,
+    },
+    address: {
+      type: String,
+      trim: true,
+    },
+    city: {
+      type: String,
+      trim: true,
+    },
+    state: {
+      type: String,
+      trim: true,
+    },
+    zipCode: {
+      type: String,
+      trim: true,
+    },
+    country: {
+      type: String,
+      trim: true,
+      default: 'US',
+    },
+    latitude: {
+      type: Number,
+    },
+    longitude: {
+      type: Number,
+    },
+    googlePlaceId: {
+      type: String,
+      trim: true,
+      index: true,
+    },
+    phoneNumber: {
       type: String,
       trim: true,
     },

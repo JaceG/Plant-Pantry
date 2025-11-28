@@ -4,4 +4,7 @@ export { SearchBar } from './SearchBar';
 export { CategoryFilter } from './CategoryFilter';
 export { FilterSidebar } from './FilterSidebar';
 export { AddProductForm } from './AddProductForm';
+export { AutocompleteInput } from './AutocompleteInput';
+export { StoreAvailabilitySelector } from './StoreAvailabilitySelector';
+export { StoreMap } from './StoreMap';
 

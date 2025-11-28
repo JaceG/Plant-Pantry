@@ -45,6 +45,12 @@ export interface ProductDetail {
   _userId?: string;
 }
 
+export interface StoreAvailabilityInput {
+  storeId: string;
+  priceRange?: string;
+  status?: 'known' | 'user_reported' | 'unknown';
+}
+
 export interface CreateUserProductInput {
   name: string;
   brand: string;
@@ -56,6 +62,7 @@ export interface CreateUserProductInput {
   imageUrl?: string;
   nutritionSummary?: string;
   ingredientSummary?: string;
+  storeAvailabilities?: StoreAvailabilityInput[];
 }
 
 export interface ProductFilters {
@@ -68,5 +75,9 @@ export interface ProductFilters {
 
 export interface CategoriesResponse {
   categories: string[];
+}
+
+export interface TagsResponse {
+  tags: string[];
 }
 

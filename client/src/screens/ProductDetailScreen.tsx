@@ -1,7 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button, Toast } from '../components';
+import { StoreMap } from '../components/Products/StoreMap';
 import { useProductDetail, useShoppingList } from '../hooks';
+import { storesApi } from '../api/storesApi';
+import { Store } from '../types/store';
 import './ProductDetailScreen.css';
 
 export function ProductDetailScreen() {
@@ -11,6 +14,32 @@ export function ProductDetailScreen() {
   const { getOrCreateDefaultList, addItem, addingItem } = useShoppingList();
   
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [stores, setStores] = useState<Store[]>([]);
+
+  // Load store details for availability
+  useEffect(() => {
+    if (!product || product.availability.length === 0) {
+      setStores([]);
+      return;
+    }
+
+    const loadStores = async () => {
+      try {
+        const storePromises = product.availability.map((avail) =>
+          storesApi.getStoreById(avail.storeId).catch(() => null)
+        );
+        const storeResults = await Promise.all(storePromises);
+        const loadedStores = storeResults
+          .filter((result): result is { store: Store } => result !== null)
+          .map((result) => result.store);
+        setStores(loadedStores);
+      } catch (error) {
+        console.error('Failed to load stores:', error);
+      }
+    };
+
+    loadStores();
+  }, [product]);
 
   const handleAddToList = useCallback(async () => {
     if (!product) return;
@@ -147,25 +176,32 @@ export function ProductDetailScreen() {
           </h2>
           
           {product.availability.length > 0 ? (
-            <div className="availability-grid">
-              {product.availability.map((avail) => (
-                <div key={avail.storeId} className="availability-card">
-                  <div className="store-header">
-                    <span className="store-type">
-                      {storeTypeLabels[avail.storeType] || avail.storeType}
-                    </span>
-                    <span className={`availability-status status-${avail.status}`}>
-                      {avail.status === 'known' ? 'Available' : avail.status}
-                    </span>
-                  </div>
-                  <h4 className="store-name">{avail.storeName}</h4>
-                  <span className="store-region">{avail.regionOrScope}</span>
-                  {avail.priceRange && (
-                    <span className="store-price">{avail.priceRange}</span>
-                  )}
+            <>
+              {stores.length > 0 && stores.some((s) => s.latitude && s.longitude) && (
+                <div className="availability-map-container">
+                  <StoreMap stores={stores} height="400px" />
                 </div>
-              ))}
-            </div>
+              )}
+              <div className="availability-grid">
+                {product.availability.map((avail) => (
+                  <div key={avail.storeId} className="availability-card">
+                    <div className="store-header">
+                      <span className="store-type">
+                        {storeTypeLabels[avail.storeType] || avail.storeType}
+                      </span>
+                      <span className={`availability-status status-${avail.status}`}>
+                        {avail.status === 'known' ? 'Available' : avail.status}
+                      </span>
+                    </div>
+                    <h4 className="store-name">{avail.storeName}</h4>
+                    <span className="store-region">{avail.regionOrScope}</span>
+                    {avail.priceRange && (
+                      <span className="store-price">{avail.priceRange}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
           ) : (
             <div className="availability-empty">
               <p>Availability information is not yet available for this product.</p>

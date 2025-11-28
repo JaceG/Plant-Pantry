@@ -97,6 +97,14 @@
   flex: 1;
 }
 
+.form-group label:not(.checkbox-group label) {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+}
+
 .tag-list {
   display: flex;
   flex-wrap: wrap;
@@ -145,6 +153,13 @@
 .checkbox-group input[type="checkbox"] {
   width: auto;
   cursor: pointer;
+}
+
+.form-help-text {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 1rem;
+  line-height: 1.5;
 }
 
 .form-actions {

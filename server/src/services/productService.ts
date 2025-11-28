@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { Product, IProduct, Availability, Store } from '../models';
+import { Product, IProduct, Availability, Store, UserProduct } from '../models';
 import { availabilityService } from './availabilityService';
 
 export interface ProductFilters {
@@ -63,7 +63,7 @@ export const productService = {
       const { q, category, tag, page = 1, pageSize = 20 } = filters;
       const skip = (page - 1) * pageSize;
 
-      // Build query
+      // Build query for both Product and UserProduct collections
       const query: Record<string, unknown> = {};
 
       if (q) {
@@ -82,28 +82,52 @@ export const productService = {
         query.tags = tag;
       }
 
-      const [products, totalCount] = await Promise.all([
+      // Query both Product and UserProduct collections
+      // Only include approved user products
+      const userProductQuery = {
+        ...query,
+        status: 'approved', // Only show approved user products
+      };
+
+      const [apiProducts, userProducts, apiCount, userCount] = await Promise.all([
         Product.find(query)
           .select('name brand sizeOrVariant imageUrl categories tags')
-          .skip(skip)
-          .limit(pageSize)
-          .sort({ name: 1 })
+          .lean(),
+        UserProduct.find(userProductQuery)
+          .select('name brand sizeOrVariant imageUrl categories tags')
           .lean(),
         Product.countDocuments(query),
+        UserProduct.countDocuments(userProductQuery),
       ]);
 
-      const items: ProductSummary[] = products.map((p) => ({
-        id: p._id.toString(),
-        name: p.name,
-        brand: p.brand,
-        sizeOrVariant: p.sizeOrVariant,
-        imageUrl: p.imageUrl,
-        categories: p.categories || [],
-        tags: p.tags || [],
-      }));
+      // Combine and sort all products
+      const allProducts = [
+        ...apiProducts.map((p) => ({
+          id: p._id.toString(),
+          name: p.name,
+          brand: p.brand,
+          sizeOrVariant: p.sizeOrVariant,
+          imageUrl: p.imageUrl,
+          categories: p.categories || [],
+          tags: p.tags || [],
+        })),
+        ...userProducts.map((p) => ({
+          id: p._id.toString(),
+          name: p.name,
+          brand: p.brand,
+          sizeOrVariant: p.sizeOrVariant,
+          imageUrl: p.imageUrl,
+          categories: p.categories || [],
+          tags: p.tags || [],
+        })),
+      ].sort((a, b) => a.name.localeCompare(b.name));
+
+      // Apply pagination after sorting
+      const totalCount = apiCount + userCount;
+      const paginatedItems = allProducts.slice(skip, skip + pageSize);
 
       return {
-        items,
+        items: paginatedItems,
         page,
         pageSize,
         totalCount,
@@ -119,15 +143,30 @@ export const productService = {
       return null;
     }
 
-    const product = await Product.findById(id).lean();
+    // Try to find in Product collection first (API-sourced products)
+    let product = await Product.findById(id).lean();
+    let isUserProduct = false;
+
+    // If not found, try UserProduct collection (user-contributed products)
     if (!product) {
-      return null;
+      const userProduct = await UserProduct.findById(id).lean();
+      if (userProduct) {
+        product = userProduct as any;
+        isUserProduct = true;
+      } else {
+        return null;
+      }
     }
 
-    // Get availability - will fetch from API if stale or if force refresh requested
+    // Get availability
+    // For user products: fetch from database (user-contributed)
+    // For API products: always fetch fresh from APIs (no caching)
     const storeAvailabilities = await availabilityService.getProductAvailability(
       product._id.toString(),
-      { forceRefresh: options.refreshAvailability }
+      {
+        forceRefresh: options.refreshAvailability,
+        isUserProduct: isUserProduct,
+      }
     );
 
     // Get store details for all stores (only if we have availability)
@@ -176,12 +215,33 @@ export const productService = {
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
       availability: availabilityInfo,
+      _source: isUserProduct ? 'user_contribution' : 'api',
+      _userId: isUserProduct ? (product as any).userId?.toString() : undefined,
     };
   },
 
   async getCategories(): Promise<string[]> {
-    const categories = await Product.distinct('categories');
-    return categories.sort();
+    // Get categories from both Product and approved UserProduct collections
+    const [apiCategories, userCategories] = await Promise.all([
+      Product.distinct('categories'),
+      UserProduct.distinct('categories', { status: 'approved' }),
+    ]);
+    
+    // Combine and deduplicate
+    const allCategories = [...new Set([...apiCategories, ...userCategories])];
+    return allCategories.sort();
+  },
+
+  async getTags(): Promise<string[]> {
+    // Get tags from both Product and approved UserProduct collections
+    const [apiTags, userTags] = await Promise.all([
+      Product.distinct('tags'),
+      UserProduct.distinct('tags', { status: 'approved' }),
+    ]);
+    
+    // Combine and deduplicate
+    const allTags = [...new Set([...apiTags, ...userTags])];
+    return allTags.sort();
   },
 };
 

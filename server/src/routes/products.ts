@@ -15,6 +15,17 @@ router.get('/categories', async (req: Request, res: Response, next: NextFunction
   }
 });
 
+// GET /api/products/tags - List all tags (must come before /:id)
+router.get('/tags', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tags = await productService.getTags();
+    res.json({ tags });
+  } catch (error) {
+    console.error('Error in GET /api/products/tags:', error);
+    next(error);
+  }
+});
+
 // GET /api/products - List products with optional filters
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {

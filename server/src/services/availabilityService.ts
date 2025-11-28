@@ -28,14 +28,16 @@ export interface AvailabilityFetchResult {
 
 export const availabilityService = {
   /**
-   * Get availability for a product, creating on-demand if it doesn't exist
-   * In the future, this will fetch from store APIs
+   * Get availability for a product
+   * 
+   * For API-sourced products: Always fetch fresh from APIs (no caching)
+   * For user-contributed products: Return saved availability from database
    */
   async getProductAvailability(
     productId: string,
-    options: { forceRefresh?: boolean } = {}
+    options: { forceRefresh?: boolean; isUserProduct?: boolean } = {}
   ): Promise<StoreAvailability[]> {
-    const { forceRefresh = false } = options;
+    const { forceRefresh = false, isUserProduct = false } = options;
 
     // Validate productId is a valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(productId)) {
@@ -43,192 +45,90 @@ export const availabilityService = {
       return [];
     }
 
-    // Check if we have cached availability (don't populate to avoid ObjectId issues)
-    let cached = await Availability.find({ productId: new mongoose.Types.ObjectId(productId) })
-      .lean();
+    // For user-contributed products, return saved availability from database
+    if (isUserProduct) {
+      const userAvailability = await Availability.find({
+        productId: new mongoose.Types.ObjectId(productId),
+        source: 'user_contribution',
+      }).lean();
 
-    // If no availability exists, create it on-demand
-    if (cached.length === 0) {
-      await this.createOnDemandAvailability(productId);
-      // Fetch again after creating
-      cached = await Availability.find({ productId: new mongoose.Types.ObjectId(productId) })
-        .populate('storeId')
-        .lean();
-    }
-
-    // Check if data is stale
-    const isStale = cached.some(
-      (a) =>
-        !a.lastFetchedAt ||
-        new Date().getTime() - new Date(a.lastFetchedAt).getTime() >
-          STALE_THRESHOLD_HOURS * 60 * 60 * 1000
-    );
-
-    // If data is stale or force refresh, try to fetch from API
-    if ((isStale || forceRefresh) && cached.length > 0) {
-      // Try to fetch fresh data from store APIs
-      const freshData = await this.fetchFromStoreAPIs(productId);
-      if (freshData && freshData.length > 0) {
-        await this.updateAvailability(productId, freshData);
-        // Return fresh data
-        const validStoreIds = freshData
-          .map((a) => a.storeId)
-          .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
-          .map((id) => new mongoose.Types.ObjectId(id));
-        
-        const stores = validStoreIds.length > 0
-          ? await Store.find({ _id: { $in: validStoreIds } }).lean()
-          : [];
-        const storeMap = new Map(stores.map((s) => [s._id.toString(), s]));
-        
-        return freshData.map((avail) => {
-          const store = storeMap.get(avail.storeId);
-          return {
-            storeId: avail.storeId,
-            storeName: avail.storeName || store?.name || 'Unknown Store',
-            available: avail.available,
-            priceRange: avail.priceRange,
-            lastUpdated: avail.lastUpdated || new Date(),
-          };
-        });
+      if (userAvailability.length === 0) {
+        return [];
       }
-    }
 
-    // Return cached availability
-    // Extract storeIds properly (handle both populated and non-populated cases)
-    const storeIds = cached
-      .map((a) => {
-        // If populated, storeId is an object with _id
+      const storeIds = userAvailability
+        .map((a) => {
+          if (a.storeId && typeof a.storeId === 'object' && '_id' in a.storeId) {
+            return (a.storeId as any)._id || a.storeId;
+          }
+          return a.storeId;
+        })
+        .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+
+      const stores = storeIds.length > 0
+        ? await Store.find({ _id: { $in: storeIds } }).lean()
+        : [];
+
+      const storeMap = new Map(stores.map((s) => [s._id.toString(), s]));
+
+      return userAvailability.map((a) => {
+        let storeIdStr: string;
         if (a.storeId && typeof a.storeId === 'object' && '_id' in a.storeId) {
-          return (a.storeId as any)._id || a.storeId;
+          storeIdStr = (a.storeId as any)._id?.toString() || String(a.storeId);
+        } else {
+          storeIdStr = (a.storeId as any)?.toString() || String(a.storeId);
         }
-        // Otherwise it's already an ObjectId
-        return a.storeId;
-      })
-      .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
-      .map((id) => new mongoose.Types.ObjectId(id));
 
-    const stores = storeIds.length > 0
-      ? await Store.find({ _id: { $in: storeIds } }).lean()
-      : [];
+        const store = storeMap.get(storeIdStr);
+        return {
+          storeId: storeIdStr,
+          storeName: store?.name || 'Unknown Store',
+          available: a.status === 'known' || a.status === 'user_reported',
+          priceRange: a.priceRange,
+          lastUpdated: a.lastFetchedAt || a.lastConfirmedAt,
+        };
+      });
+    }
 
-    const storeMap = new Map(stores.map((s) => [s._id.toString(), s]));
+    // For API-sourced products: Always fetch fresh from APIs (no caching)
+    // Don't check database, don't cache results
+    const freshData = await this.fetchFromStoreAPIs(productId);
+    if (freshData && freshData.length > 0) {
+      // Return fresh data without saving to database
+      const validStoreIds = freshData
+        .map((a) => a.storeId)
+        .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+      
+      const stores = validStoreIds.length > 0
+        ? await Store.find({ _id: { $in: validStoreIds } }).lean()
+        : [];
+      const storeMap = new Map(stores.map((s) => [s._id.toString(), s]));
+      
+      return freshData.map((avail) => {
+        const store = storeMap.get(avail.storeId);
+        return {
+          storeId: avail.storeId,
+          storeName: avail.storeName || store?.name || 'Unknown Store',
+          available: avail.available,
+          priceRange: avail.priceRange,
+          lastUpdated: avail.lastUpdated || new Date(),
+        };
+      });
+    }
 
-    return cached.map((a) => {
-      // Extract storeId properly
-      let storeIdStr: string;
-      if (a.storeId && typeof a.storeId === 'object' && '_id' in a.storeId) {
-        storeIdStr = (a.storeId as any)._id?.toString() || String(a.storeId);
-      } else {
-        storeIdStr = (a.storeId as any)?.toString() || String(a.storeId);
-      }
-
-      const store = storeMap.get(storeIdStr);
-      return {
-        storeId: storeIdStr,
-        storeName: store?.name || 'Unknown Store',
-        available: a.status === 'known',
-        priceRange: a.priceRange,
-        lastUpdated: a.lastFetchedAt || a.lastConfirmedAt,
-      };
-    });
+    // No availability found from APIs
+    return [];
   },
 
   /**
-   * Create availability on-demand when a product is viewed
-   * This simulates what would come from store APIs
+   * REMOVED: createOnDemandAvailability
+   * 
+   * This function was removed because we no longer cache API-sourced availability.
+   * We now fetch fresh data from APIs on each product view.
+   * Only user-contributed availability is stored in the database.
    */
-  async createOnDemandAvailability(productId: string): Promise<void> {
-    // Validate productId
-    if (!mongoose.Types.ObjectId.isValid(productId)) {
-      console.error(`Cannot create availability for invalid productId: ${productId}`);
-      return;
-    }
-
-    // Ensure stores exist
-    let stores = await Store.find();
-    if (stores.length === 0) {
-      // Create default stores if they don't exist
-      stores = await Store.insertMany([
-        {
-          name: 'Whole Foods Market',
-          type: 'brick_and_mortar',
-          regionOrScope: 'US - Nationwide',
-          websiteUrl: 'https://www.wholefoodsmarket.com',
-        },
-        {
-          name: 'Target',
-          type: 'brick_and_mortar',
-          regionOrScope: 'US - Nationwide',
-          websiteUrl: 'https://www.target.com',
-        },
-        {
-          name: "Trader Joe's",
-          type: 'brick_and_mortar',
-          regionOrScope: 'US - Select Locations',
-          websiteUrl: 'https://www.traderjoes.com',
-        },
-        {
-          name: 'Sprouts Farmers Market',
-          type: 'brick_and_mortar',
-          regionOrScope: 'US - West & Southwest',
-          websiteUrl: 'https://www.sprouts.com',
-        },
-        {
-          name: 'Amazon Fresh',
-          type: 'online_retailer',
-          regionOrScope: 'US - Online',
-          websiteUrl: 'https://www.amazon.com/fresh',
-        },
-        {
-          name: 'Thrive Market',
-          type: 'online_retailer',
-          regionOrScope: 'US - Online',
-          websiteUrl: 'https://thrivemarket.com',
-        },
-        {
-          name: 'iHerb',
-          type: 'online_retailer',
-          regionOrScope: 'Worldwide - Online',
-          websiteUrl: 'https://www.iherb.com',
-        },
-      ]);
-    }
-
-    // Randomly assign product to 2-5 stores
-    const numStores = Math.floor(Math.random() * 4) + 2;
-    const shuffledStores = [...stores].sort(() => Math.random() - 0.5);
-    const selectedStores = shuffledStores.slice(0, numStores);
-
-    const priceRanges = [
-      '$3.99-$4.99',
-      '$4.99-$6.99',
-      '$5.99-$7.99',
-      '$6.99-$9.99',
-      '$8.99-$12.99',
-    ];
-
-    const availabilityEntries = selectedStores.map((store) => ({
-      productId: new mongoose.Types.ObjectId(productId),
-      storeId: store._id instanceof mongoose.Types.ObjectId ? store._id : new mongoose.Types.ObjectId(store._id),
-      status: 'known' as const,
-      priceRange: priceRanges[Math.floor(Math.random() * priceRanges.length)],
-      lastConfirmedAt: new Date(),
-      lastFetchedAt: new Date(),
-      source: 'api_fetch' as const,
-      isStale: false,
-    }));
-
-    // Insert availability entries (ignore duplicates)
-    try {
-      await Availability.insertMany(availabilityEntries, { ordered: false });
-    } catch (error: any) {
-      // Ignore duplicate key errors (product might have been viewed by another user)
-      if (error.code !== 11000) {
-        throw error;
-      }
-    }
-  },
 
   /**
    * Fetch availability from store APIs
@@ -255,14 +155,25 @@ export const availabilityService = {
   },
 
   /**
-   * Update availability in database after fetching from API
+   * Update availability in database
+   * 
+   * NOTE: This is only used for user-contributed availability.
+   * API-sourced availability is NOT cached in the database.
    */
   async updateAvailability(
     productId: string,
-    availabilities: StoreAvailability[]
+    availabilities: StoreAvailability[],
+    source: 'user_contribution' = 'user_contribution'
   ): Promise<void> {
     const productObjectId = new mongoose.Types.ObjectId(productId);
     const now = new Date();
+
+    // Only update if source is user_contribution
+    // API data should not be cached
+    if (source !== 'user_contribution') {
+      console.warn('Attempted to cache API availability - this is not allowed');
+      return;
+    }
 
     // Update or create availability entries
     for (const avail of availabilities) {
@@ -278,7 +189,7 @@ export const availabilityService = {
           priceRange: avail.priceRange || avail.price,
           lastFetchedAt: now,
           lastConfirmedAt: now,
-          source: 'api_fetch',
+          source: 'user_contribution',
           isStale: false,
         },
         { upsert: true, new: true }

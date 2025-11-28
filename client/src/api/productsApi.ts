@@ -1,5 +1,5 @@
 import { httpClient } from './httpClient';
-import { ProductListResponse, ProductDetail, ProductFilters, CategoriesResponse } from '../types';
+import { ProductListResponse, ProductDetail, ProductFilters, CategoriesResponse, TagsResponse } from '../types';
 
 function buildQueryString(filters: ProductFilters): string {
   const params = new URLSearchParams();
@@ -27,6 +27,10 @@ export const productsApi = {
   
   getCategories(): Promise<CategoriesResponse> {
     return httpClient.get<CategoriesResponse>('/products/categories');
+  },
+  
+  getTags(): Promise<TagsResponse> {
+    return httpClient.get<TagsResponse>('/products/tags');
   },
 };
 
