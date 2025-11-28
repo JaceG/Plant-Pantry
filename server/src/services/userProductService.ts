@@ -21,6 +21,7 @@ export interface CreateUserProductInput {
   nutritionSummary?: string;
   ingredientSummary?: string;
   storeAvailabilities?: StoreAvailabilityInput[];
+  sourceProductId?: string; // If editing an API product
 }
 
 export interface UpdateUserProductInput {
@@ -35,14 +36,24 @@ export interface UpdateUserProductInput {
   nutritionSummary?: string;
   ingredientSummary?: string;
   status?: 'pending' | 'approved' | 'rejected';
+  storeAvailabilities?: StoreAvailabilityInput[];
 }
 
 export const userProductService = {
   /**
-   * Create a new user-contributed product
+   * Create a new user-contributed product or edit of an API product
    */
   async createProduct(input: CreateUserProductInput): Promise<ProductDetail> {
-    const product = await UserProduct.create({
+    // Check if this is an edit of an existing API product
+    let existingEdit = null;
+    if (input.sourceProductId) {
+      existingEdit = await UserProduct.findOne({
+        sourceProductId: new mongoose.Types.ObjectId(input.sourceProductId),
+        status: 'approved',
+      });
+    }
+
+    const productData: any = {
       userId: new mongoose.Types.ObjectId(input.userId),
       name: input.name,
       brand: input.brand,
@@ -56,7 +67,24 @@ export const userProductService = {
       ingredientSummary: input.ingredientSummary,
       source: 'user_contribution',
       status: 'approved',
-    });
+    };
+
+    if (input.sourceProductId) {
+      productData.sourceProductId = new mongoose.Types.ObjectId(input.sourceProductId);
+      productData.editedBy = new mongoose.Types.ObjectId(input.userId);
+    }
+
+    // If editing an existing product, update it; otherwise create new
+    let product;
+    if (existingEdit) {
+      product = await UserProduct.findByIdAndUpdate(
+        existingEdit._id,
+        { $set: productData },
+        { new: true }
+      );
+    } else {
+      product = await UserProduct.create(productData);
+    }
 
     // Create availability entries if provided
     if (input.storeAvailabilities && input.storeAvailabilities.length > 0) {
@@ -126,23 +154,61 @@ export const userProductService = {
   async updateProduct(
     id: string,
     userId: string,
-    input: UpdateUserProductInput
+    input: UpdateUserProductInput,
+    isAdmin: boolean = false
   ): Promise<ProductDetail | null> {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return null;
     }
 
+    // Build query: admins can edit any product, regular users can only edit their own
+    const query: any = {
+      _id: new mongoose.Types.ObjectId(id),
+    };
+    
+    if (!isAdmin) {
+      query.userId = new mongoose.Types.ObjectId(userId); // Ensure user owns it
+    }
+
+    // Separate storeAvailabilities from other product fields
+    const { storeAvailabilities, ...productUpdateData } = input;
+
     const product = await UserProduct.findOneAndUpdate(
-      {
-        _id: new mongoose.Types.ObjectId(id),
-        userId: new mongoose.Types.ObjectId(userId), // Ensure user owns it
-      },
-      { $set: input },
+      query,
+      { $set: productUpdateData },
       { new: true, lean: true }
     );
 
     if (!product) {
       return null;
+    }
+
+    // Update availability entries if provided
+    if (storeAvailabilities !== undefined) {
+      const productId = new mongoose.Types.ObjectId(id);
+      
+      // Delete existing availability entries for this product
+      await Availability.deleteMany({ productId });
+
+      // Create new availability entries if any are provided
+      if (storeAvailabilities.length > 0) {
+        const availabilityEntries = storeAvailabilities.map((avail) => ({
+          productId,
+          storeId: new mongoose.Types.ObjectId(avail.storeId),
+          status: (avail.status || 'user_reported') as 'known' | 'user_reported' | 'unknown',
+          priceRange: avail.priceRange,
+          lastConfirmedAt: new Date(),
+          source: 'user_contribution' as const,
+          isStale: false,
+        }));
+
+        await Availability.insertMany(availabilityEntries, { ordered: false }).catch((error: any) => {
+          // Ignore duplicate key errors
+          if (error.code !== 11000) {
+            console.error('Error creating availability entries:', error);
+          }
+        });
+      }
     }
 
     return await this.mapToProductDetail(product);

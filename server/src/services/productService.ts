@@ -143,18 +143,33 @@ export const productService = {
       return null;
     }
 
-    // Try to find in Product collection first (API-sourced products)
-    let product = await Product.findById(id).lean();
+    const productId = new mongoose.Types.ObjectId(id);
+    let product: any = null;
     let isUserProduct = false;
 
-    // If not found, try UserProduct collection (user-contributed products)
-    if (!product) {
-      const userProduct = await UserProduct.findById(id).lean();
-      if (userProduct) {
-        product = userProduct as any;
-        isUserProduct = true;
-      } else {
-        return null;
+    // First, check if there's an edited version (UserProduct with sourceProductId matching this ID)
+    const editedProduct = await UserProduct.findOne({
+      sourceProductId: productId,
+      status: 'approved',
+    }).lean();
+
+    if (editedProduct) {
+      // Return the edited version instead of the original
+      product = editedProduct;
+      isUserProduct = true;
+    } else {
+      // No edited version found, check Product collection (API-sourced)
+      product = await Product.findById(id).lean();
+      
+      // If not found in Product, try UserProduct by ID (user-contributed products)
+      if (!product) {
+        const userProduct = await UserProduct.findById(id).lean();
+        if (userProduct) {
+          product = userProduct;
+          isUserProduct = true;
+        } else {
+          return null;
+        }
       }
     }
 

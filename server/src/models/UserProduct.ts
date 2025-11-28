@@ -25,6 +25,8 @@ export interface IUserProduct extends Document {
   // Metadata
   source: 'user_contribution';
   status: 'pending' | 'approved' | 'rejected'; // For moderation if needed
+  sourceProductId?: mongoose.Types.ObjectId; // If this is an edit of an API product, reference the original
+  editedBy?: mongoose.Types.ObjectId; // Who edited it (for admin edits)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -91,6 +93,15 @@ const userProductSchema = new Schema<IUserProduct>(
       type: String,
       enum: ['pending', 'approved', 'rejected'],
       default: 'approved', // Auto-approve for MVP, can add moderation later
+    },
+    sourceProductId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Product',
+      index: true,
+    },
+    editedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
     },
   },
   {

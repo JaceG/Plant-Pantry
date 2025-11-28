@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { userProductService } from '../services';
 import { HttpError } from '../middleware/errorHandler';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, adminMiddleware } from '../middleware/auth';
 
 const router = Router();
 
@@ -28,6 +28,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       nutritionSummary,
       ingredientSummary,
       storeAvailabilities,
+      sourceProductId, // For editing API products
     } = req.body;
 
     // Validation
@@ -48,6 +49,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       nutritionSummary,
       ingredientSummary,
       storeAvailabilities: storeAvailabilities || [],
+      sourceProductId, // For editing API products
     });
 
     res.status(201).json({ product });
@@ -95,6 +97,9 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
       throw new HttpError('User not authenticated', 401);
     }
 
+    // Check if user is admin
+    const isAdmin = req.user?.role === 'admin';
+
     const { id } = req.params;
     const {
       name,
@@ -107,6 +112,7 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
       imageUrl,
       nutritionSummary,
       ingredientSummary,
+      storeAvailabilities,
     } = req.body;
 
     const product = await userProductService.updateProduct(id, userId, {
@@ -120,7 +126,8 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
       imageUrl,
       nutritionSummary,
       ingredientSummary,
-    });
+      storeAvailabilities,
+    }, isAdmin);
 
     if (!product) {
       throw new HttpError('Product not found or you do not have permission', 404);
@@ -148,6 +155,59 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     }
 
     res.json({ message: 'Product deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/user-products/edit-api-product - Edit an API product (admin only)
+router.post('/edit-api-product', authMiddleware, adminMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      throw new HttpError('User not authenticated', 401);
+    }
+
+    const {
+      sourceProductId,
+      name,
+      brand,
+      description,
+      sizeOrVariant,
+      categories,
+      tags,
+      isStrictVegan,
+      imageUrl,
+      nutritionSummary,
+      ingredientSummary,
+      storeAvailabilities,
+    } = req.body;
+
+    // Validation
+    if (!sourceProductId) {
+      throw new HttpError('sourceProductId is required', 400);
+    }
+    if (!name || !brand) {
+      throw new HttpError('Name and brand are required', 400);
+    }
+
+    const product = await userProductService.createProduct({
+      userId,
+      name,
+      brand,
+      description,
+      sizeOrVariant,
+      categories: categories || [],
+      tags: tags || ['vegan'],
+      isStrictVegan: isStrictVegan !== false,
+      imageUrl,
+      nutritionSummary,
+      ingredientSummary,
+      storeAvailabilities: storeAvailabilities || [],
+      sourceProductId, // This marks it as an edit of an API product
+    });
+
+    res.status(201).json({ product });
   } catch (error) {
     next(error);
   }

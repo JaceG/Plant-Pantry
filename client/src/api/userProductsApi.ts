@@ -21,5 +21,9 @@ export const userProductsApi = {
   deleteProduct(id: string): Promise<{ message: string }> {
     return httpClient.delete<{ message: string }>(`/user-products/${id}`);
   },
+
+  editApiProduct(input: CreateUserProductInput & { sourceProductId: string }): Promise<{ product: ProductDetail }> {
+    return httpClient.post<{ product: ProductDetail }>('/user-products/edit-api-product', input);
+  },
 };
 

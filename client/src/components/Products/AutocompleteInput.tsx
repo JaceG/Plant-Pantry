@@ -156,7 +156,7 @@ export function AutocompleteInput({
             const optionIndex = showAddNew ? index + 1 : index;
             return (
               <div
-                key={option}
+                key={`${option}-${index}`}
                 className={`autocomplete-option ${
                   optionIndex === highlightedIndex ? 'highlighted' : ''
                 }`}

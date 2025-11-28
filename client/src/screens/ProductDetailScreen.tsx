@@ -2,19 +2,24 @@ import { useState, useCallback, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button, Toast } from '../components';
 import { StoreMap } from '../components/Products/StoreMap';
+import { EditProductForm } from '../components/Products/EditProductForm';
 import { useProductDetail, useShoppingList } from '../hooks';
+import { useAuth } from '../context/AuthContext';
 import { storesApi } from '../api/storesApi';
 import { Store } from '../types/store';
+import { ProductDetail } from '../types/product';
 import './ProductDetailScreen.css';
 
 export function ProductDetailScreen() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { product, loading, error } = useProductDetail(id);
+  const { product, loading, error, refresh } = useProductDetail(id);
   const { getOrCreateDefaultList, addItem, addingItem } = useShoppingList();
+  const { isAdmin } = useAuth();
   
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   // Load store details for availability
   useEffect(() => {
@@ -62,6 +67,16 @@ export function ProductDetailScreen() {
     }
   }, [product, getOrCreateDefaultList, addItem]);
 
+  const handleEditSave = useCallback(async (updatedProduct: ProductDetail) => {
+    setIsEditMode(false);
+    await refresh();
+    setToast({ message: 'Product updated successfully!', type: 'success' });
+  }, [refresh]);
+
+  const handleEditCancel = useCallback(() => {
+    setIsEditMode(false);
+  }, []);
+
   if (loading) {
     return (
       <div className="product-detail-screen">
@@ -90,6 +105,21 @@ export function ProductDetailScreen() {
     );
   }
 
+  // Show edit form if in edit mode
+  if (isEditMode) {
+    return (
+      <div className="product-detail-screen">
+        <div className="detail-container">
+          <EditProductForm
+            product={product}
+            onSave={handleEditSave}
+            onCancel={handleEditCancel}
+          />
+        </div>
+      </div>
+    );
+  }
+
   const storeTypeLabels: Record<string, string> = {
     brick_and_mortar: '🏪 Store',
     online_retailer: '🌐 Online',
@@ -103,6 +133,18 @@ export function ProductDetailScreen() {
           <Link to="/">Products</Link>
           <span className="separator">/</span>
           <span>{product.brand}</span>
+          {isAdmin && (
+            <>
+              <span className="separator">/</span>
+              <button
+                onClick={() => setIsEditMode(true)}
+                className="edit-button-link"
+                title="Edit product"
+              >
+                ✏️ Edit
+              </button>
+            </>
+          )}
         </nav>
 
         <div className="detail-grid">
@@ -126,6 +168,12 @@ export function ProductDetailScreen() {
               <div className="user-contributed-badge">
                 <span className="badge-icon">👤</span>
                 <span>User Contributed</span>
+              </div>
+            )}
+            {product._source === 'api' && isAdmin && (
+              <div className="admin-edit-badge">
+                <span className="badge-icon">⚙️</span>
+                <span>API Product - Click Edit to modify</span>
               </div>
             )}
 
@@ -162,6 +210,15 @@ export function ProductDetailScreen() {
             )}
 
             <div className="detail-actions">
+              {isAdmin && (
+                <Button
+                  onClick={() => setIsEditMode(true)}
+                  variant="secondary"
+                  size="lg"
+                >
+                  ✏️ Edit Product
+                </Button>
+              )}
               <Button onClick={handleAddToList} isLoading={addingItem} size="lg">
                 Add to Shopping List
               </Button>
