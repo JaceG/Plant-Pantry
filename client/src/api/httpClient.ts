@@ -1,9 +1,13 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
+// Token storage key
+const TOKEN_KEY = 'plantpantry_token';
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
   body?: unknown;
   headers?: Record<string, string>;
+  skipAuth?: boolean;
 }
 
 class HttpError extends Error {
@@ -16,13 +20,36 @@ class HttpError extends Error {
   }
 }
 
+// Get stored auth token
+function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+// Set auth token
+function setToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+// Remove auth token
+function removeToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, headers = {} } = options;
+  const { method = 'GET', body, headers = {}, skipAuth = false } = options;
+  
+  // Add auth token if available and not skipped
+  const token = getToken();
+  const authHeaders: Record<string, string> = {};
+  if (token && !skipAuth) {
+    authHeaders['Authorization'] = `Bearer ${token}`;
+  }
   
   const config: RequestInit = {
     method,
     headers: {
       'Content-Type': 'application/json',
+      ...authHeaders,
       ...headers,
     },
   };
@@ -66,21 +93,26 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
 }
 
 export const httpClient = {
-  get<T>(endpoint: string): Promise<T> {
-    return request<T>(endpoint);
+  get<T>(endpoint: string, options?: { skipAuth?: boolean }): Promise<T> {
+    return request<T>(endpoint, options);
   },
   
-  post<T>(endpoint: string, body: unknown): Promise<T> {
-    return request<T>(endpoint, { method: 'POST', body });
+  post<T>(endpoint: string, body: unknown, options?: { skipAuth?: boolean }): Promise<T> {
+    return request<T>(endpoint, { method: 'POST', body, ...options });
   },
   
-  put<T>(endpoint: string, body: unknown): Promise<T> {
-    return request<T>(endpoint, { method: 'PUT', body });
+  put<T>(endpoint: string, body: unknown, options?: { skipAuth?: boolean }): Promise<T> {
+    return request<T>(endpoint, { method: 'PUT', body, ...options });
   },
   
-  delete<T>(endpoint: string): Promise<T> {
-    return request<T>(endpoint, { method: 'DELETE' });
+  delete<T>(endpoint: string, options?: { skipAuth?: boolean }): Promise<T> {
+    return request<T>(endpoint, { method: 'DELETE', ...options });
   },
+  
+  // Auth token management
+  setToken,
+  getToken,
+  removeToken,
 };
 
 export { HttpError };

@@ -1,12 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { userProductService } from '../services';
 import { HttpError } from '../middleware/errorHandler';
-import { demoUserMiddleware } from '../middleware/demoUser';
+import { authMiddleware } from '../middleware/auth';
 
 const router = Router();
 
-// All routes require authentication (using demo user for MVP)
-router.use(demoUserMiddleware);
+// All routes require authentication
+router.use(authMiddleware);
 
 // POST /api/user-products - Create a new user product
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {

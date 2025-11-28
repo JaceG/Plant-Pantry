@@ -7,7 +7,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { connectDB } from './config/database';
-import { healthRoutes, productRoutes, storeRoutes, listRoutes, userProductRoutes } from './routes';
+import { healthRoutes, productRoutes, storeRoutes, listRoutes, userProductRoutes, authRoutes, adminRoutes } from './routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 const app: Express = express();
@@ -25,6 +25,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // API Routes
 app.use('/api/health', healthRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/user-products', userProductRoutes);
 app.use('/api/stores', storeRoutes);

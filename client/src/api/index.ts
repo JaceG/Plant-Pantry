@@ -3,4 +3,6 @@ export { productsApi } from './productsApi';
 export { userProductsApi } from './userProductsApi';
 export { storesApi } from './storesApi';
 export { listsApi } from './listsApi';
+export { authApi } from './authApi';
+export { adminApi } from './adminApi';
 

@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { storeService } from '../services';
 import { googlePlacesService } from '../services/googlePlacesService';
 import { HttpError } from '../middleware/errorHandler';
-import { demoUserMiddleware } from '../middleware/demoUser';
+import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth';
 
 const router = Router();
 
@@ -40,7 +40,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // POST /api/stores - Create a new store (requires auth)
-router.post('/', demoUserMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const {
       name,

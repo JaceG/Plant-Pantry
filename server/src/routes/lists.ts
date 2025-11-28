@@ -1,12 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { listService } from '../services';
 import { HttpError } from '../middleware/errorHandler';
-import { demoUserMiddleware } from '../middleware/demoUser';
+import { authMiddleware } from '../middleware/auth';
 
 const router = Router();
 
-// Apply demo user middleware to all list routes
-router.use(demoUserMiddleware);
+// Apply authentication to all list routes
+router.use(authMiddleware);
 
 // POST /api/lists - Create a new shopping list
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
