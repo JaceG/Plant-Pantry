@@ -93,6 +93,12 @@ export function ProductDetailScreen() {
             <span className="detail-brand">{product.brand}</span>
             <h1 className="detail-name">{product.name}</h1>
             <span className="detail-size">{product.sizeOrVariant}</span>
+            {product._source === 'user_contribution' && (
+              <div className="user-contributed-badge">
+                <span className="badge-icon">👤</span>
+                <span>User Contributed</span>
+              </div>
+            )}
 
             <div className="detail-tags">
               {product.tags.map((tag) => (

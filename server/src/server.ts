@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { connectDB } from './config/database';
-import { healthRoutes, productRoutes, storeRoutes, listRoutes } from './routes';
+import { healthRoutes, productRoutes, storeRoutes, listRoutes, userProductRoutes } from './routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -25,6 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 // API Routes
 app.use('/api/health', healthRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/user-products', userProductRoutes);
 app.use('/api/stores', storeRoutes);
 app.use('/api/lists', listRoutes);
 

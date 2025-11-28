@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Header } from './components';
-import { HomeScreen, ProductDetailScreen, ShoppingListScreen } from './screens';
+import { HomeScreen, ProductDetailScreen, ShoppingListScreen, AddProductScreen } from './screens';
 import { listsApi } from './api';
 import './App.css';
 
@@ -30,6 +30,7 @@ function App() {
           <Routes>
             <Route path="/" element={<HomeScreen />} />
             <Route path="/products/:id" element={<ProductDetailScreen />} />
+            <Route path="/add-product" element={<AddProductScreen />} />
             <Route path="/lists" element={<ShoppingListScreen />} />
             <Route path="/lists/:id" element={<ShoppingListScreen />} />
           </Routes>

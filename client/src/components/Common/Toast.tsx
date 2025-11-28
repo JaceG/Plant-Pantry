@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import './Toast.css';
 
-interface ToastProps {
+export interface ToastProps {
   message: string;
   type?: 'success' | 'error' | 'info';
   duration?: number;

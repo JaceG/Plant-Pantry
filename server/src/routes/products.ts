@@ -4,6 +4,17 @@ import { HttpError } from '../middleware/errorHandler';
 
 const router = Router();
 
+// GET /api/products/categories - List all categories (must come before /:id)
+router.get('/categories', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const categories = await productService.getCategories();
+    res.json({ categories });
+  } catch (error) {
+    console.error('Error in GET /api/products/categories:', error);
+    next(error);
+  }
+});
+
 // GET /api/products - List products with optional filters
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -19,21 +30,12 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
     res.json(result);
   } catch (error) {
+    console.error('Error in GET /api/products:', error);
     next(error);
   }
 });
 
-// GET /api/products/categories - List all categories
-router.get('/categories', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const categories = await productService.getCategories();
-    res.json({ categories });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// GET /api/products/:id - Get product details with availability
+// GET /api/products/:id - Get product details with availability (must come last)
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;

@@ -26,6 +26,14 @@ export function Header({ defaultListId }: HeaderProps) {
           </Link>
           
           <Link
+            to="/add-product"
+            className={`nav-link ${location.pathname === '/add-product' ? 'active' : ''}`}
+          >
+            <span className="nav-icon">➕</span>
+            <span className="nav-text">Add Product</span>
+          </Link>
+          
+          <Link
             to={defaultListId ? `/lists/${defaultListId}` : '/lists'}
             className={`nav-link ${location.pathname.startsWith('/lists') ? 'active' : ''}`}
           >

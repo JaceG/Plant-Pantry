@@ -41,6 +41,21 @@ export interface ProductDetail {
   createdAt: string;
   updatedAt: string;
   availability: AvailabilityInfo[];
+  _source?: 'api' | 'user_contribution';
+  _userId?: string;
+}
+
+export interface CreateUserProductInput {
+  name: string;
+  brand: string;
+  description?: string;
+  sizeOrVariant?: string;
+  categories?: string[];
+  tags?: string[];
+  isStrictVegan?: boolean;
+  imageUrl?: string;
+  nutritionSummary?: string;
+  ingredientSummary?: string;
 }
 
 export interface ProductFilters {

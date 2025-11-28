@@ -51,8 +51,9 @@ export function useProducts(initialFilters: ProductFilters = {}): UseProductsRet
         totalCount: response.totalCount,
         hasMore: response.items.length < response.totalCount,
       });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch products';
+    } catch (err: any) {
+      console.error('Error fetching products:', err);
+      const message = err?.message || err?.error || 'Failed to fetch products';
       setState((prev) => ({ ...prev, loading: false, error: message }));
     }
   }, []);

@@ -1,4 +1,5 @@
 export { Product, IProduct } from './Product';
+export { UserProduct, IUserProduct } from './UserProduct';
 export { Store, IStore, StoreType } from './Store';
 export { Availability, IAvailability, AvailabilityStatus, AvailabilitySource } from './Availability';
 export { User, IUser } from './User';

@@ -53,58 +53,65 @@ export interface ProductDetail {
   createdAt: Date;
   updatedAt: Date;
   availability: AvailabilityInfo[];
+  _source?: 'api' | 'user_contribution'; // Metadata to distinguish sources
+  _userId?: string; // For user products
 }
 
 export const productService = {
   async getProducts(filters: ProductFilters): Promise<ProductListResult> {
-    const { q, category, tag, page = 1, pageSize = 20 } = filters;
-    const skip = (page - 1) * pageSize;
+    try {
+      const { q, category, tag, page = 1, pageSize = 20 } = filters;
+      const skip = (page - 1) * pageSize;
 
-    // Build query
-    const query: Record<string, unknown> = {};
+      // Build query
+      const query: Record<string, unknown> = {};
 
-    if (q) {
-      // Use regex for simple search (text index requires special handling)
-      query.$or = [
-        { name: { $regex: q, $options: 'i' } },
-        { brand: { $regex: q, $options: 'i' } },
-      ];
+      if (q) {
+        // Use regex for simple search (text index requires special handling)
+        query.$or = [
+          { name: { $regex: q, $options: 'i' } },
+          { brand: { $regex: q, $options: 'i' } },
+        ];
+      }
+
+      if (category) {
+        query.categories = category;
+      }
+
+      if (tag) {
+        query.tags = tag;
+      }
+
+      const [products, totalCount] = await Promise.all([
+        Product.find(query)
+          .select('name brand sizeOrVariant imageUrl categories tags')
+          .skip(skip)
+          .limit(pageSize)
+          .sort({ name: 1 })
+          .lean(),
+        Product.countDocuments(query),
+      ]);
+
+      const items: ProductSummary[] = products.map((p) => ({
+        id: p._id.toString(),
+        name: p.name,
+        brand: p.brand,
+        sizeOrVariant: p.sizeOrVariant,
+        imageUrl: p.imageUrl,
+        categories: p.categories || [],
+        tags: p.tags || [],
+      }));
+
+      return {
+        items,
+        page,
+        pageSize,
+        totalCount,
+      };
+    } catch (error) {
+      console.error('Error in productService.getProducts:', error);
+      throw error;
     }
-
-    if (category) {
-      query.categories = category;
-    }
-
-    if (tag) {
-      query.tags = tag;
-    }
-
-    const [products, totalCount] = await Promise.all([
-      Product.find(query)
-        .select('name brand sizeOrVariant imageUrl categories tags')
-        .skip(skip)
-        .limit(pageSize)
-        .sort({ name: 1 })
-        .lean(),
-      Product.countDocuments(query),
-    ]);
-
-    const items: ProductSummary[] = products.map((p) => ({
-      id: p._id.toString(),
-      name: p.name,
-      brand: p.brand,
-      sizeOrVariant: p.sizeOrVariant,
-      imageUrl: p.imageUrl,
-      categories: p.categories,
-      tags: p.tags,
-    }));
-
-    return {
-      items,
-      page,
-      pageSize,
-      totalCount,
-    };
   },
 
   async getProductById(id: string, options: { refreshAvailability?: boolean } = {}): Promise<ProductDetail | null> {

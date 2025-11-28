@@ -37,8 +37,21 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
     const response = await fetch(url, config);
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new HttpError(errorData.error || `HTTP Error: ${response.status}`, response.status);
+      let errorMessage = `HTTP Error: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.message || errorMessage;
+      } catch {
+        // If response isn't JSON, try to get text
+        try {
+          const text = await response.text();
+          errorMessage = text || errorMessage;
+        } catch {
+          // If we can't read the response, use status-based message
+          errorMessage = `HTTP ${response.status}: ${response.statusText || 'Unknown error'}`;
+        }
+      }
+      throw new HttpError(errorMessage, response.status);
     }
     
     return response.json();
@@ -47,7 +60,8 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
       throw error;
     }
     console.error('API request failed:', error);
-    throw new HttpError('Network error or server unavailable', 0);
+    const message = error instanceof Error ? error.message : 'Network error or server unavailable';
+    throw new HttpError(message, 0);
   }
 }
 
