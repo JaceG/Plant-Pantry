@@ -41,6 +41,23 @@ export interface PendingProduct {
   createdAt: string;
 }
 
+export interface AdminProduct {
+  id: string;
+  name: string;
+  brand: string;
+  sizeOrVariant: string;
+  categories: string[];
+  tags: string[];
+  imageUrl?: string;
+  archived: boolean;
+  archivedAt?: string;
+  source: 'api' | 'user_contribution';
+  userId?: string;
+  userEmail?: string;
+  userDisplayName?: string;
+  createdAt?: string;
+}
+
 export interface AdminUser {
   id: string;
   email: string;
@@ -103,6 +120,22 @@ export const adminApi = {
 
   deleteStore(storeId: string): Promise<{ message: string }> {
     return httpClient.delete<{ message: string }>(`/admin/stores/${storeId}`);
+  },
+
+  getArchivedProducts(page: number = 1, pageSize: number = 20): Promise<PaginatedResponse<AdminProduct>> {
+    return httpClient.get<PaginatedResponse<AdminProduct>>(`/admin/products/archived?page=${page}&pageSize=${pageSize}`);
+  },
+
+  getUserGeneratedProducts(page: number = 1, pageSize: number = 20): Promise<PaginatedResponse<AdminProduct>> {
+    return httpClient.get<PaginatedResponse<AdminProduct>>(`/admin/products/user-generated?page=${page}&pageSize=${pageSize}`);
+  },
+
+  archiveProduct(productId: string): Promise<{ message: string }> {
+    return httpClient.post<{ message: string }>(`/admin/products/${productId}/archive`, {});
+  },
+
+  unarchiveProduct(productId: string): Promise<{ message: string }> {
+    return httpClient.post<{ message: string }>(`/admin/products/${productId}/unarchive`, {});
   },
 };
 

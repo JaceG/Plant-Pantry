@@ -6,6 +6,7 @@ import { EditProductForm } from '../components/Products/EditProductForm';
 import { useProductDetail, useShoppingList } from '../hooks';
 import { useAuth } from '../context/AuthContext';
 import { storesApi } from '../api/storesApi';
+import { adminApi } from '../api/adminApi';
 import { Store } from '../types/store';
 import { ProductDetail } from '../types/product';
 import './ProductDetailScreen.css';
@@ -20,6 +21,7 @@ export function ProductDetailScreen() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [archiving, setArchiving] = useState(false);
 
   // Load store details for availability
   useEffect(() => {
@@ -76,6 +78,40 @@ export function ProductDetailScreen() {
   const handleEditCancel = useCallback(() => {
     setIsEditMode(false);
   }, []);
+
+  const handleArchive = useCallback(async () => {
+    if (!product || !isAdmin) return;
+    
+    if (!window.confirm('Are you sure you want to archive this product? It will no longer appear on the main site.')) {
+      return;
+    }
+
+    setArchiving(true);
+    try {
+      await adminApi.archiveProduct(product.id);
+      setToast({ message: 'Product archived successfully', type: 'success' });
+      await refresh();
+    } catch (err) {
+      setToast({ message: 'Failed to archive product', type: 'error' });
+    } finally {
+      setArchiving(false);
+    }
+  }, [product, isAdmin, refresh]);
+
+  const handleUnarchive = useCallback(async () => {
+    if (!product || !isAdmin) return;
+
+    setArchiving(true);
+    try {
+      await adminApi.unarchiveProduct(product.id);
+      setToast({ message: 'Product unarchived successfully', type: 'success' });
+      await refresh();
+    } catch (err) {
+      setToast({ message: 'Failed to unarchive product', type: 'error' });
+    } finally {
+      setArchiving(false);
+    }
+  }, [product, isAdmin, refresh]);
 
   if (loading) {
     return (
@@ -164,6 +200,17 @@ export function ProductDetailScreen() {
             <span className="detail-brand">{product.brand}</span>
             <h1 className="detail-name">{product.name}</h1>
             <span className="detail-size">{product.sizeOrVariant}</span>
+            {product._archived && (
+              <div className="archived-badge-product">
+                <span className="badge-icon">📦</span>
+                <span>Archived</span>
+                {product._archivedAt && (
+                  <span className="archived-date">
+                    (Archived {new Date(product._archivedAt).toLocaleDateString()})
+                  </span>
+                )}
+              </div>
+            )}
             {product._source === 'user_contribution' && (
               <div className="user-contributed-badge">
                 <span className="badge-icon">👤</span>
@@ -211,17 +258,40 @@ export function ProductDetailScreen() {
 
             <div className="detail-actions">
               {isAdmin && (
-                <Button
-                  onClick={() => setIsEditMode(true)}
-                  variant="secondary"
-                  size="lg"
-                >
-                  ✏️ Edit Product
+                <>
+                  <Button
+                    onClick={() => setIsEditMode(true)}
+                    variant="secondary"
+                    size="lg"
+                  >
+                    ✏️ Edit Product
+                  </Button>
+                  {product._archived ? (
+                    <Button
+                      onClick={handleUnarchive}
+                      isLoading={archiving}
+                      variant="primary"
+                      size="lg"
+                    >
+                      ↻ Unarchive Product
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleArchive}
+                      isLoading={archiving}
+                      variant="secondary"
+                      size="lg"
+                    >
+                      📦 Archive Product
+                    </Button>
+                  )}
+                </>
+              )}
+              {!product._archived && (
+                <Button onClick={handleAddToList} isLoading={addingItem} size="lg">
+                  Add to Shopping List
                 </Button>
               )}
-              <Button onClick={handleAddToList} isLoading={addingItem} size="lg">
-                Add to Shopping List
-              </Button>
             </div>
           </div>
         </div>

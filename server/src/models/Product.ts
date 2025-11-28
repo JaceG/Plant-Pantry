@@ -12,6 +12,9 @@ export interface IProduct extends Document {
   imageUrl?: string;
   nutritionSummary?: string;
   ingredientSummary?: string;
+  archived: boolean;
+  archivedAt?: Date;
+  archivedBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -62,6 +65,18 @@ const productSchema = new Schema<IProduct>(
     ingredientSummary: {
       type: String,
       trim: true,
+    },
+    archived: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    archivedAt: {
+      type: Date,
+    },
+    archivedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
     },
   },
   {

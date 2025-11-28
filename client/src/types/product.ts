@@ -43,6 +43,8 @@ export interface ProductDetail {
   availability: AvailabilityInfo[];
   _source?: 'api' | 'user_contribution';
   _userId?: string;
+  _archived?: boolean;
+  _archivedAt?: string;
 }
 
 export interface StoreAvailabilityInput {

@@ -203,6 +203,24 @@
   margin-bottom: var(--spacing-md);
 }
 
+.archived-badge-product {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: rgba(107, 114, 128, 0.1);
+  color: #6b7280;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+  border-radius: 20px;
+  font-size: 0.875rem;
+  margin-bottom: var(--spacing-md);
+}
+
+.archived-badge-product .archived-date {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
 .badge-icon {
   font-size: 1rem;
 }

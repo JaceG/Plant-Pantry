@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { productService } from '../services';
 import { HttpError } from '../middleware/errorHandler';
+import { optionalAuthMiddleware } from '../middleware/auth';
 
 const router = Router();
 
@@ -47,13 +48,18 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // GET /api/products/:id - Get product details with availability (must come last)
-router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+// Use optionalAuthMiddleware to check if user is admin (allows viewing archived products)
+router.get('/:id', optionalAuthMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { refresh } = req.query; // Optional: ?refresh=true to force API fetch
     
+    // Allow admins to view archived products
+    const isAdmin = req.user?.role === 'admin';
+    
     const product = await productService.getProductById(id, {
       refreshAvailability: refresh === 'true',
+      allowArchived: isAdmin, // Admins can view archived products
     });
 
     if (!product) {

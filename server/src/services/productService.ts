@@ -83,20 +83,28 @@ export const productService = {
       }
 
       // Query both Product and UserProduct collections
-      // Only include approved user products
+      // Only include approved, non-archived user products
+      // Exclude archived products from public listings
       const userProductQuery = {
         ...query,
         status: 'approved', // Only show approved user products
+        archived: { $ne: true }, // Exclude archived products
+      };
+
+      // Exclude archived API products
+      const apiProductQuery = {
+        ...query,
+        archived: { $ne: true }, // Exclude archived products
       };
 
       const [apiProducts, userProducts, apiCount, userCount] = await Promise.all([
-        Product.find(query)
+        Product.find(apiProductQuery)
           .select('name brand sizeOrVariant imageUrl categories tags')
           .lean(),
         UserProduct.find(userProductQuery)
           .select('name brand sizeOrVariant imageUrl categories tags')
           .lean(),
-        Product.countDocuments(query),
+        Product.countDocuments(apiProductQuery),
         UserProduct.countDocuments(userProductQuery),
       ]);
 
@@ -138,7 +146,7 @@ export const productService = {
     }
   },
 
-  async getProductById(id: string, options: { refreshAvailability?: boolean } = {}): Promise<ProductDetail | null> {
+  async getProductById(id: string, options: { refreshAvailability?: boolean; allowArchived?: boolean } = {}): Promise<ProductDetail | null> {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return null;
     }
@@ -147,10 +155,14 @@ export const productService = {
     let product: any = null;
     let isUserProduct = false;
 
+    // Build query conditions - allow archived if requested (for admins)
+    const archivedCondition = options.allowArchived ? {} : { archived: { $ne: true } };
+
     // First, check if there's an edited version (UserProduct with sourceProductId matching this ID)
     const editedProduct = await UserProduct.findOne({
       sourceProductId: productId,
       status: 'approved',
+      ...archivedCondition,
     }).lean();
 
     if (editedProduct) {
@@ -159,11 +171,17 @@ export const productService = {
       isUserProduct = true;
     } else {
       // No edited version found, check Product collection (API-sourced)
-      product = await Product.findById(id).lean();
+      product = await Product.findOne({
+        _id: productId,
+        ...archivedCondition,
+      }).lean();
       
       // If not found in Product, try UserProduct by ID (user-contributed products)
       if (!product) {
-        const userProduct = await UserProduct.findById(id).lean();
+        const userProduct = await UserProduct.findOne({
+          _id: productId,
+          ...archivedCondition,
+        }).lean();
         if (userProduct) {
           product = userProduct;
           isUserProduct = true;
@@ -232,14 +250,19 @@ export const productService = {
       availability: availabilityInfo,
       _source: isUserProduct ? 'user_contribution' : 'api',
       _userId: isUserProduct ? (product as any).userId?.toString() : undefined,
+      _archived: product.archived || false,
+      _archivedAt: product.archivedAt ? (product.archivedAt instanceof Date ? product.archivedAt.toISOString() : product.archivedAt) : undefined,
     };
   },
 
   async getCategories(): Promise<string[]> {
-    // Get categories from both Product and approved UserProduct collections
+    // Get categories from both Product and approved, non-archived UserProduct collections
     const [apiCategories, userCategories] = await Promise.all([
-      Product.distinct('categories'),
-      UserProduct.distinct('categories', { status: 'approved' }),
+      Product.distinct('categories', { archived: { $ne: true } }),
+      UserProduct.distinct('categories', { 
+        status: 'approved',
+        archived: { $ne: true },
+      }),
     ]);
     
     // Combine and deduplicate
@@ -248,10 +271,13 @@ export const productService = {
   },
 
   async getTags(): Promise<string[]> {
-    // Get tags from both Product and approved UserProduct collections
+    // Get tags from both Product and approved, non-archived UserProduct collections
     const [apiTags, userTags] = await Promise.all([
-      Product.distinct('tags'),
-      UserProduct.distinct('tags', { status: 'approved' }),
+      Product.distinct('tags', { archived: { $ne: true } }),
+      UserProduct.distinct('tags', { 
+        status: 'approved',
+        archived: { $ne: true },
+      }),
     ]);
     
     // Combine and deduplicate

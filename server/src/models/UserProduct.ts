@@ -27,6 +27,9 @@ export interface IUserProduct extends Document {
   status: 'pending' | 'approved' | 'rejected'; // For moderation if needed
   sourceProductId?: mongoose.Types.ObjectId; // If this is an edit of an API product, reference the original
   editedBy?: mongoose.Types.ObjectId; // Who edited it (for admin edits)
+  archived: boolean;
+  archivedAt?: Date;
+  archivedBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -100,6 +103,18 @@ const userProductSchema = new Schema<IUserProduct>(
       index: true,
     },
     editedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    archived: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    archivedAt: {
+      type: Date,
+    },
+    archivedBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',
     },

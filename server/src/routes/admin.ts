@@ -155,5 +155,81 @@ router.delete('/stores/:id', async (req: Request, res: Response, next: NextFunct
   }
 });
 
+/**
+ * GET /api/admin/products/archived
+ * Get archived products only
+ */
+router.get('/products/archived', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 20;
+    
+    const result = await adminService.getArchivedProducts(page, pageSize);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/products/user-generated
+ * Get user-generated products only
+ */
+router.get('/products/user-generated', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 20;
+    
+    const result = await adminService.getUserGeneratedProducts(page, pageSize);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/products/:id/archive
+ * Archive a product
+ */
+router.post('/products/:id/archive', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+    
+    if (!userId) {
+      throw new HttpError('User not authenticated', 401);
+    }
+    
+    const success = await adminService.archiveProduct(id, userId);
+    
+    if (!success) {
+      throw new HttpError('Product not found', 404);
+    }
+    
+    res.json({ message: 'Product archived successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/products/:id/unarchive
+ * Unarchive a product
+ */
+router.post('/products/:id/unarchive', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const success = await adminService.unarchiveProduct(id);
+    
+    if (!success) {
+      throw new HttpError('Product not found', 404);
+    }
+    
+    res.json({ message: 'Product unarchived successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
 

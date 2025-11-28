@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Product, UserProduct, Store, User, Availability } from '../models';
 
 export interface DashboardStats {
@@ -294,6 +295,206 @@ export const adminService = {
       await Availability.deleteMany({ storeId });
     }
     return !!result;
+  },
+
+  /**
+   * Archive a product (API or UserProduct)
+   */
+  async archiveProduct(productId: string, archivedBy: string): Promise<boolean> {
+    const productIdObj = new mongoose.Types.ObjectId(productId);
+    const archivedById = new mongoose.Types.ObjectId(archivedBy);
+
+    // Try to archive in UserProduct first (user-contributed or edited products)
+    let result = await UserProduct.findByIdAndUpdate(
+      productIdObj,
+      {
+        archived: true,
+        archivedAt: new Date(),
+        archivedBy: archivedById,
+      },
+      { new: true }
+    );
+
+    // If not found in UserProduct, try Product (API-sourced)
+    if (!result) {
+      result = await Product.findByIdAndUpdate(
+        productIdObj,
+        {
+          archived: true,
+          archivedAt: new Date(),
+          archivedBy: archivedById,
+        },
+        { new: true }
+      );
+    }
+
+    return !!result;
+  },
+
+  /**
+   * Unarchive a product (API or UserProduct)
+   */
+  async unarchiveProduct(productId: string): Promise<boolean> {
+    const productIdObj = new mongoose.Types.ObjectId(productId);
+
+    // Try to unarchive in UserProduct first
+    let result = await UserProduct.findByIdAndUpdate(
+      productIdObj,
+      {
+        $set: { archived: false },
+        $unset: { archivedAt: '', archivedBy: '' },
+      },
+      { new: true }
+    );
+
+    // If not found in UserProduct, try Product
+    if (!result) {
+      result = await Product.findByIdAndUpdate(
+        productIdObj,
+        {
+          $set: { archived: false },
+          $unset: { archivedAt: '', archivedBy: '' },
+        },
+        { new: true }
+      );
+    }
+
+    return !!result;
+  },
+
+  /**
+   * Get archived products only
+   */
+  async getArchivedProducts(
+    page: number = 1,
+    pageSize: number = 20
+  ): Promise<{
+    items: any[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const skip = (page - 1) * pageSize;
+
+    const [apiProducts, userProducts, apiCount, userCount] = await Promise.all([
+      Product.find({ archived: true })
+        .select('name brand sizeOrVariant imageUrl categories tags archived archivedAt')
+        .sort({ archivedAt: -1 })
+        .skip(skip)
+        .limit(pageSize)
+        .lean(),
+      UserProduct.find({ archived: true, status: 'approved' })
+        .select('name brand sizeOrVariant imageUrl categories tags archived archivedAt')
+        .sort({ archivedAt: -1 })
+        .skip(skip)
+        .limit(pageSize)
+        .lean(),
+      Product.countDocuments({ archived: true }),
+      UserProduct.countDocuments({ archived: true, status: 'approved' }),
+    ]);
+
+    // Combine products
+    const allProducts = [
+      ...apiProducts.map((p) => ({
+        id: p._id.toString(),
+        name: p.name,
+        brand: p.brand,
+        sizeOrVariant: p.sizeOrVariant,
+        imageUrl: p.imageUrl,
+        categories: p.categories || [],
+        tags: p.tags || [],
+        archived: true,
+        archivedAt: p.archivedAt,
+        source: 'api' as const,
+      })),
+      ...userProducts.map((p) => ({
+        id: p._id.toString(),
+        name: p.name,
+        brand: p.brand,
+        sizeOrVariant: p.sizeOrVariant,
+        imageUrl: p.imageUrl,
+        categories: p.categories || [],
+        tags: p.tags || [],
+        archived: true,
+        archivedAt: p.archivedAt,
+        source: 'user_contribution' as const,
+      })),
+    ].sort((a, b) => {
+      // Sort by archived date, most recent first
+      return (b.archivedAt?.getTime() || 0) - (a.archivedAt?.getTime() || 0);
+    });
+
+    return {
+      items: allProducts,
+      total: apiCount + userCount,
+      page,
+      pageSize,
+    };
+  },
+
+  /**
+   * Get user-generated products only
+   */
+  async getUserGeneratedProducts(
+    page: number = 1,
+    pageSize: number = 20
+  ): Promise<{
+    items: any[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const skip = (page - 1) * pageSize;
+
+    const [userProducts, userCount] = await Promise.all([
+      UserProduct.find({ 
+        status: 'approved',
+        archived: { $ne: true }, // Exclude archived
+      })
+        .select('name brand sizeOrVariant imageUrl categories tags archived archivedAt userId createdAt')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(pageSize)
+        .lean(),
+      UserProduct.countDocuments({ 
+        status: 'approved',
+        archived: { $ne: true },
+      }),
+    ]);
+
+    // Get user emails for the products
+    const userIds = [...new Set(userProducts.map(p => p.userId.toString()))];
+    const users = await User.find({ _id: { $in: userIds } })
+      .select('_id email displayName')
+      .lean();
+    const userMap = new Map(users.map(u => [u._id.toString(), u]));
+
+    const items = userProducts.map((p) => {
+      const user = userMap.get(p.userId.toString());
+      return {
+        id: p._id.toString(),
+        name: p.name,
+        brand: p.brand,
+        sizeOrVariant: p.sizeOrVariant,
+        imageUrl: p.imageUrl,
+        categories: p.categories || [],
+        tags: p.tags || [],
+        archived: p.archived || false,
+        archivedAt: p.archivedAt,
+        source: 'user_contribution' as const,
+        userId: p.userId.toString(),
+        userEmail: user?.email,
+        userDisplayName: user?.displayName,
+        createdAt: p.createdAt,
+      };
+    });
+
+    return {
+      items,
+      total: userCount,
+      page,
+      pageSize,
+    };
   },
 };
 
