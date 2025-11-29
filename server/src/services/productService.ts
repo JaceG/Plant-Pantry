@@ -431,25 +431,54 @@ export const productService = {
     });
     
     // Filter to only include categories that actually have products
-    // Check all categories in parallel (but limit concurrency to avoid overwhelming the database)
-    const BATCH_SIZE = 10;
-    const validCategories: string[] = [];
+    // Use aggregation to efficiently check which categories have products
+    // Build a map of cleaned categories to their possible database values
+    const categoryToDbValues = new Map<string, string[]>();
     
-    for (let i = 0; i < allCategories.length; i += BATCH_SIZE) {
-      const batch = allCategories.slice(i, i + BATCH_SIZE);
-      const batchChecks = await Promise.all(
-        batch.map(async (cat) => {
-          const hasProducts = await productService.categoryHasProducts(cat);
-          return { category: cat, hasProducts };
-        })
-      );
+    // For each cleaned category, find all possible database values that could match it
+    allCategories.forEach(cleanedCat => {
+      const possibleValues: string[] = [];
       
-      validCategories.push(
-        ...batchChecks
-          .filter(check => check.hasProducts)
-          .map(check => check.category)
-      );
-    }
+      // Check original categories for matches
+      [...apiCategories, ...userCategories].forEach(origCat => {
+        const cleaned = origCat.replace(/^en:/, '').replace(/-/g, ' ');
+        if (cleaned === cleanedCat || 
+            origCat.replace(/^en:/, '') === cleanedCat ||
+            origCat === cleanedCat) {
+          possibleValues.push(origCat);
+        }
+      });
+      
+      // Also check display names
+      displayNames.forEach(dn => {
+        const cleaned = dn.value.replace(/^en:/, '').replace(/-/g, ' ');
+        if (cleaned === cleanedCat) {
+          possibleValues.push(dn.value);
+        }
+      });
+      
+      if (possibleValues.length > 0) {
+        categoryToDbValues.set(cleanedCat, [...new Set(possibleValues)]);
+      }
+    });
+    
+    // Get all unique database category values that have products
+    const [apiCategoriesWithProducts, userCategoriesWithProducts] = await Promise.all([
+      Product.distinct('categories', { archived: { $ne: true } }),
+      UserProduct.distinct('categories', { 
+        status: 'approved',
+        archived: { $ne: true },
+      }),
+    ]);
+    
+    const allDbCategoriesWithProducts = new Set([...apiCategoriesWithProducts, ...userCategoriesWithProducts]);
+    
+    // Filter categories: only include if at least one of their database values has products
+    const validCategories = allCategories.filter(cleanedCat => {
+      const dbValues = categoryToDbValues.get(cleanedCat);
+      if (!dbValues || dbValues.length === 0) return false;
+      return dbValues.some(dbValue => allDbCategoriesWithProducts.has(dbValue));
+    });
     
     return validCategories.sort();
   },
@@ -556,25 +585,54 @@ export const productService = {
     });
     
     // Filter to only include tags that actually have products
-    // Check all tags in parallel (but limit concurrency to avoid overwhelming the database)
-    const BATCH_SIZE = 10;
-    const validTags: string[] = [];
+    // Use aggregation to efficiently check which tags have products
+    // Build a map of cleaned tags to their possible database values
+    const tagToDbValues = new Map<string, string[]>();
     
-    for (let i = 0; i < allTags.length; i += BATCH_SIZE) {
-      const batch = allTags.slice(i, i + BATCH_SIZE);
-      const batchChecks = await Promise.all(
-        batch.map(async (tag) => {
-          const hasProducts = await productService.tagHasProducts(tag);
-          return { tag, hasProducts };
-        })
-      );
+    // For each cleaned tag, find all possible database values that could match it
+    allTags.forEach(cleanedTag => {
+      const possibleValues: string[] = [];
       
-      validTags.push(
-        ...batchChecks
-          .filter(check => check.hasProducts)
-          .map(check => check.tag)
-      );
-    }
+      // Check original tags for matches
+      [...apiTags, ...userTags].forEach(origTag => {
+        const cleaned = origTag.replace(/^en:/, '').replace(/-/g, ' ');
+        if (cleaned === cleanedTag || 
+            origTag.replace(/^en:/, '') === cleanedTag ||
+            origTag === cleanedTag) {
+          possibleValues.push(origTag);
+        }
+      });
+      
+      // Also check display names
+      displayNames.forEach(dn => {
+        const cleaned = dn.value.replace(/^en:/, '').replace(/-/g, ' ');
+        if (cleaned === cleanedTag) {
+          possibleValues.push(dn.value);
+        }
+      });
+      
+      if (possibleValues.length > 0) {
+        tagToDbValues.set(cleanedTag, [...new Set(possibleValues)]);
+      }
+    });
+    
+    // Get all unique database tag values that have products
+    const [apiTagsWithProducts, userTagsWithProducts] = await Promise.all([
+      Product.distinct('tags', { archived: { $ne: true } }),
+      UserProduct.distinct('tags', { 
+        status: 'approved',
+        archived: { $ne: true },
+      }),
+    ]);
+    
+    const allDbTagsWithProducts = new Set([...apiTagsWithProducts, ...userTagsWithProducts]);
+    
+    // Filter tags: only include if at least one of their database values has products
+    const validTags = allTags.filter(cleanedTag => {
+      const dbValues = tagToDbValues.get(cleanedTag);
+      if (!dbValues || dbValues.length === 0) return false;
+      return dbValues.some(dbValue => allDbTagsWithProducts.has(dbValue));
+    });
     
     return validTags.sort();
   },

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { productsApi } from '../api';
 import { ProductSummary, ProductFilters } from '../types';
 
@@ -9,13 +9,13 @@ interface UseProductsState {
   page: number;
   pageSize: number;
   totalCount: number;
-  hasMore: boolean;
 }
 
 interface UseProductsReturn extends UseProductsState {
   fetchProducts: (filters?: ProductFilters) => Promise<void>;
-  loadMore: () => Promise<void>;
+  goToPage: (page: number) => Promise<void>;
   refresh: () => Promise<void>;
+  totalPages: number;
 }
 
 export function useProducts(initialFilters: ProductFilters = {}): UseProductsReturn {
@@ -26,19 +26,34 @@ export function useProducts(initialFilters: ProductFilters = {}): UseProductsRet
     page: 1,
     pageSize: 20,
     totalCount: 0,
-    hasMore: false,
   });
   
   const [currentFilters, setCurrentFilters] = useState<ProductFilters>(initialFilters);
+  const filtersRef = useRef<ProductFilters>(initialFilters);
+  const pageSizeRef = useRef(initialFilters.pageSize || 20);
+
+  // Keep filtersRef in sync with currentFilters
+  useEffect(() => {
+    filtersRef.current = currentFilters;
+  }, [currentFilters]);
+  
+  // Keep pageSizeRef in sync with state
+  useEffect(() => {
+    pageSizeRef.current = state.pageSize;
+  }, [state.pageSize]);
 
   const fetchProducts = useCallback(async (filters: ProductFilters = {}) => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
     setCurrentFilters(filters);
+    filtersRef.current = filters;
+    
+    // Always start at page 1 when filters change
+    const pageToFetch = filters.page || 1;
     
     try {
       const response = await productsApi.getProducts({
         ...filters,
-        page: 1,
+        page: pageToFetch,
         pageSize: filters.pageSize || 20,
       });
       
@@ -49,7 +64,6 @@ export function useProducts(initialFilters: ProductFilters = {}): UseProductsRet
         page: response.page,
         pageSize: response.pageSize,
         totalCount: response.totalCount,
-        hasMore: response.items.length < response.totalCount,
       });
     } catch (err: any) {
       console.error('Error fetching products:', err);
@@ -58,35 +72,39 @@ export function useProducts(initialFilters: ProductFilters = {}): UseProductsRet
     }
   }, []);
 
-  const loadMore = useCallback(async () => {
-    if (state.loading || !state.hasMore) return;
+  const goToPage = useCallback(async (page: number) => {
+    if (page < 1) return;
     
-    const nextPage = state.page + 1;
     setState((prev) => ({ ...prev, loading: true, error: null }));
     
     try {
+      // Use filtersRef to ensure we have the latest filters
+      const filtersToUse = filtersRef.current;
+      
+      // Use pageSizeRef to get current pageSize
       const response = await productsApi.getProducts({
-        ...currentFilters,
-        page: nextPage,
-        pageSize: state.pageSize,
+        ...filtersToUse,
+        page: page,
+        pageSize: pageSizeRef.current,
       });
       
-      setState((prev) => ({
-        ...prev,
-        products: [...prev.products, ...response.items],
+      setState({
+        products: response.items,
         loading: false,
+        error: null,
         page: response.page,
-        hasMore: prev.products.length + response.items.length < response.totalCount,
-      }));
+        pageSize: response.pageSize,
+        totalCount: response.totalCount,
+      });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load more products';
+      const message = err instanceof Error ? err.message : 'Failed to load page';
       setState((prev) => ({ ...prev, loading: false, error: message }));
     }
-  }, [state.loading, state.hasMore, state.page, state.pageSize, currentFilters]);
+  }, []);
 
   const refresh = useCallback(async () => {
-    await fetchProducts(currentFilters);
-  }, [fetchProducts, currentFilters]);
+    await fetchProducts(filtersRef.current);
+  }, [fetchProducts]);
 
   useEffect(() => {
     // Fetch on mount with initial filters
@@ -94,11 +112,14 @@ export function useProducts(initialFilters: ProductFilters = {}): UseProductsRet
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const totalPages = Math.ceil(state.totalCount / state.pageSize);
+
   return {
     ...state,
     fetchProducts,
-    loadMore,
+    goToPage,
     refresh,
+    totalPages,
   };
 }
 
