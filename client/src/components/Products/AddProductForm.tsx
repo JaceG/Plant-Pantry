@@ -34,13 +34,13 @@ export function AddProductForm() {
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
 
-  // Fetch available categories and tags on mount
+  // Fetch available categories and tags on mount (use getAll to include all options for product creation)
   useEffect(() => {
     const fetchOptions = async () => {
       try {
         const [categoriesRes, tagsRes] = await Promise.all([
-          productsApi.getCategories(),
-          productsApi.getTags(),
+          productsApi.getAllCategories(),
+          productsApi.getAllTags(),
         ]);
         setAvailableCategories(categoriesRes.categories);
         setAvailableTags(tagsRes.tags);

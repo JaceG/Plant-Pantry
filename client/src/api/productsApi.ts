@@ -29,8 +29,16 @@ export const productsApi = {
     return httpClient.get<CategoriesResponse>('/products/categories');
   },
   
+  getAllCategories(): Promise<CategoriesResponse> {
+    return httpClient.get<CategoriesResponse>('/products/categories/all');
+  },
+  
   getTags(): Promise<TagsResponse> {
     return httpClient.get<TagsResponse>('/products/tags');
+  },
+  
+  getAllTags(): Promise<TagsResponse> {
+    return httpClient.get<TagsResponse>('/products/tags/all');
   },
 };
 

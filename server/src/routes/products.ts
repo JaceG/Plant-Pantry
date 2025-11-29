@@ -5,7 +5,7 @@ import { optionalAuthMiddleware } from '../middleware/auth';
 
 const router = Router();
 
-// GET /api/products/categories - List all categories (must come before /:id)
+// GET /api/products/categories - List categories that have products (for filtering)
 router.get('/categories', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const categories = await productService.getCategories();
@@ -16,13 +16,35 @@ router.get('/categories', async (req: Request, res: Response, next: NextFunction
   }
 });
 
-// GET /api/products/tags - List all tags (must come before /:id)
+// GET /api/products/categories/all - List all available categories (for product creation)
+router.get('/categories/all', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const categories = await productService.getAllAvailableCategories();
+    res.json({ categories });
+  } catch (error) {
+    console.error('Error in GET /api/products/categories/all:', error);
+    next(error);
+  }
+});
+
+// GET /api/products/tags - List tags that have products (for filtering)
 router.get('/tags', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tags = await productService.getTags();
     res.json({ tags });
   } catch (error) {
     console.error('Error in GET /api/products/tags:', error);
+    next(error);
+  }
+});
+
+// GET /api/products/tags/all - List all available tags (for product creation)
+router.get('/tags/all', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tags = await productService.getAllAvailableTags();
+    res.json({ tags });
+  } catch (error) {
+    console.error('Error in GET /api/products/tags/all:', error);
     next(error);
   }
 });

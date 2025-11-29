@@ -295,7 +295,170 @@ export const productService = {
     };
   },
 
+  /**
+   * Check if a category actually has products that match it
+   */
+  async categoryHasProducts(category: string): Promise<boolean> {
+    // Normalize the category (remove en: prefix, replace dashes with spaces)
+    const normalizedCategory = category.replace(/^en:/, '').replace(/-/g, ' ');
+    
+    // Get display name mappings to find original database values
+    const displayNames = await FilterDisplayName.find({ type: 'category' }).lean();
+    const displayToDbValue = new Map<string, string>();
+    displayNames.forEach(dn => {
+      const cleaned = dn.value.replace(/^en:/, '').replace(/-/g, ' ');
+      displayToDbValue.set(dn.displayName.toLowerCase(), dn.value);
+      displayToDbValue.set(cleaned.toLowerCase(), dn.value);
+    });
+    
+    // Find the database value(s) that match
+    const dbValue = displayToDbValue.get(normalizedCategory.toLowerCase());
+    let categoryQuery: any;
+    
+    if (dbValue) {
+      categoryQuery = dbValue;
+    } else {
+      // Try matching against normalized values in database
+      const categoryRegex = new RegExp(`^en:?${normalizedCategory.replace(/ /g, '[- ]')}$`, 'i');
+      categoryQuery = { $regex: categoryRegex };
+    }
+    
+    // Check if any products match this category
+    const [apiCount, userCount] = await Promise.all([
+      Product.countDocuments({ 
+        categories: categoryQuery,
+        archived: { $ne: true },
+      }),
+      UserProduct.countDocuments({ 
+        categories: categoryQuery,
+        status: 'approved',
+        archived: { $ne: true },
+      }),
+    ]);
+    
+    return (apiCount + userCount) > 0;
+  },
+
+  /**
+   * Check if a tag actually has products that match it
+   */
+  async tagHasProducts(tag: string): Promise<boolean> {
+    // Normalize the tag (remove en: prefix, replace dashes with spaces)
+    const normalizedTag = tag.replace(/^en:/, '').replace(/-/g, ' ');
+    
+    // Get display name mappings to find original database values
+    const displayNames = await FilterDisplayName.find({ type: 'tag' }).lean();
+    const displayToDbValue = new Map<string, string>();
+    displayNames.forEach(dn => {
+      const cleaned = dn.value.replace(/^en:/, '').replace(/-/g, ' ');
+      displayToDbValue.set(dn.displayName.toLowerCase(), dn.value);
+      displayToDbValue.set(cleaned.toLowerCase(), dn.value);
+    });
+    
+    // Find the database value(s) that match
+    const dbValue = displayToDbValue.get(normalizedTag.toLowerCase());
+    let tagQuery: any;
+    
+    if (dbValue) {
+      tagQuery = dbValue;
+    } else {
+      // Try matching against normalized values in database
+      const tagRegex = new RegExp(`^en:?${normalizedTag.replace(/ /g, '[- ]')}$`, 'i');
+      tagQuery = { $regex: tagRegex };
+    }
+    
+    // Check if any products match this tag
+    const [apiCount, userCount] = await Promise.all([
+      Product.countDocuments({ 
+        tags: tagQuery,
+        archived: { $ne: true },
+      }),
+      UserProduct.countDocuments({ 
+        tags: tagQuery,
+        status: 'approved',
+        archived: { $ne: true },
+      }),
+    ]);
+    
+    return (apiCount + userCount) > 0;
+  },
+
   async getCategories(): Promise<string[]> {
+    // Get categories from both Product and approved, non-archived UserProduct collections
+    const [apiCategories, userCategories, archivedFilters, displayNames] = await Promise.all([
+      Product.distinct('categories', { archived: { $ne: true } }),
+      UserProduct.distinct('categories', { 
+        status: 'approved',
+        archived: { $ne: true },
+      }),
+      ArchivedFilter.distinct('value', { type: 'category' }),
+      FilterDisplayName.find({ type: 'category' }).lean(),
+    ]);
+    
+    // Language prefixes to filter out (non-English)
+    const nonEnglishPrefixes = /^(de|el|es|fr|nl|pt|zh):/i;
+    
+    // Combine and deduplicate
+    let allCategories = [...new Set([...apiCategories, ...userCategories])];
+    
+    // Filter out non-English language prefixes
+    allCategories = allCategories.filter(cat => !nonEnglishPrefixes.test(cat));
+    
+    // Remove archived filters (check both with and without "en:" prefix)
+    const archivedSet = new Set(archivedFilters);
+    allCategories = allCategories.filter(cat => {
+      const cleaned = cat.replace(/^en:/, '');
+      return !archivedSet.has(cat) && !archivedSet.has(cleaned);
+    });
+    
+    // Simple cleanup: trim "en:" prefix and replace dashes with spaces
+    allCategories = allCategories.map(cat => cat.replace(/^en:/, '').replace(/-/g, ' '));
+    
+    // Remove duplicates after cleaning
+    allCategories = [...new Set(allCategories)];
+    
+    // Create a map of display names (check both original and cleaned values)
+    const displayNameMap = new Map<string, string>();
+    displayNames.forEach(dn => {
+      const cleaned = dn.value.replace(/^en:/, '').replace(/-/g, ' ');
+      displayNameMap.set(cleaned, dn.displayName);
+      displayNameMap.set(dn.value.replace(/^en:/, ''), dn.displayName);
+    });
+    
+    // Apply display names where available, otherwise use cleaned value
+    allCategories = allCategories.map(cat => {
+      return displayNameMap.get(cat) || cat;
+    });
+    
+    // Filter to only include categories that actually have products
+    // Check all categories in parallel (but limit concurrency to avoid overwhelming the database)
+    const BATCH_SIZE = 10;
+    const validCategories: string[] = [];
+    
+    for (let i = 0; i < allCategories.length; i += BATCH_SIZE) {
+      const batch = allCategories.slice(i, i + BATCH_SIZE);
+      const batchChecks = await Promise.all(
+        batch.map(async (cat) => {
+          const hasProducts = await productService.categoryHasProducts(cat);
+          return { category: cat, hasProducts };
+        })
+      );
+      
+      validCategories.push(
+        ...batchChecks
+          .filter(check => check.hasProducts)
+          .map(check => check.category)
+      );
+    }
+    
+    return validCategories.sort();
+  },
+
+  /**
+   * Get all available categories (including those with no products) for product creation
+   * This is used when creating/editing products so users can use any category
+   */
+  async getAllAvailableCategories(): Promise<string[]> {
     // Get categories from both Product and approved, non-archived UserProduct collections
     const [apiCategories, userCategories, archivedFilters, displayNames] = await Promise.all([
       Product.distinct('categories', { archived: { $ne: true } }),
@@ -346,6 +509,81 @@ export const productService = {
   },
 
   async getTags(): Promise<string[]> {
+    // Get tags from both Product and approved, non-archived UserProduct collections
+    const [apiTags, userTags, archivedFilters, displayNames] = await Promise.all([
+      Product.distinct('tags', { archived: { $ne: true } }),
+      UserProduct.distinct('tags', { 
+        status: 'approved',
+        archived: { $ne: true },
+      }),
+      ArchivedFilter.distinct('value', { type: 'tag' }),
+      FilterDisplayName.find({ type: 'tag' }).lean(),
+    ]);
+    
+    // Language prefixes to filter out (non-English)
+    const nonEnglishPrefixes = /^(de|el|es|fr|nl|pt|zh):/i;
+    
+    // Combine and deduplicate
+    let allTags = [...new Set([...apiTags, ...userTags])];
+    
+    // Filter out non-English language prefixes
+    allTags = allTags.filter(tag => !nonEnglishPrefixes.test(tag));
+    
+    // Remove archived filters (check both with and without "en:" prefix)
+    const archivedSet = new Set(archivedFilters);
+    allTags = allTags.filter(tag => {
+      const cleaned = tag.replace(/^en:/, '');
+      return !archivedSet.has(tag) && !archivedSet.has(cleaned);
+    });
+    
+    // Simple cleanup: trim "en:" prefix and replace dashes with spaces
+    allTags = allTags.map(tag => tag.replace(/^en:/, '').replace(/-/g, ' '));
+    
+    // Remove duplicates after cleaning
+    allTags = [...new Set(allTags)];
+    
+    // Create a map of display names (check both original and cleaned values)
+    const displayNameMap = new Map<string, string>();
+    displayNames.forEach(dn => {
+      const cleaned = dn.value.replace(/^en:/, '').replace(/-/g, ' ');
+      displayNameMap.set(cleaned, dn.displayName);
+      displayNameMap.set(dn.value.replace(/^en:/, ''), dn.displayName);
+    });
+    
+    // Apply display names where available, otherwise use cleaned value
+    allTags = allTags.map(tag => {
+      return displayNameMap.get(tag) || tag;
+    });
+    
+    // Filter to only include tags that actually have products
+    // Check all tags in parallel (but limit concurrency to avoid overwhelming the database)
+    const BATCH_SIZE = 10;
+    const validTags: string[] = [];
+    
+    for (let i = 0; i < allTags.length; i += BATCH_SIZE) {
+      const batch = allTags.slice(i, i + BATCH_SIZE);
+      const batchChecks = await Promise.all(
+        batch.map(async (tag) => {
+          const hasProducts = await productService.tagHasProducts(tag);
+          return { tag, hasProducts };
+        })
+      );
+      
+      validTags.push(
+        ...batchChecks
+          .filter(check => check.hasProducts)
+          .map(check => check.tag)
+      );
+    }
+    
+    return validTags.sort();
+  },
+
+  /**
+   * Get all available tags (including those with no products) for product creation
+   * This is used when creating/editing products so users can use any tag
+   */
+  async getAllAvailableTags(): Promise<string[]> {
     // Get tags from both Product and approved, non-archived UserProduct collections
     const [apiTags, userTags, archivedFilters, displayNames] = await Promise.all([
       Product.distinct('tags', { archived: { $ne: true } }),
