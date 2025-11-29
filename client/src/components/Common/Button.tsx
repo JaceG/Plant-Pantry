@@ -5,6 +5,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
+  fullWidth?: boolean;
   children: ReactNode;
 }
 
@@ -12,6 +13,7 @@ export function Button({
   variant = 'primary',
   size = 'md',
   isLoading = false,
+  fullWidth = false,
   children,
   className = '',
   disabled,
@@ -19,7 +21,7 @@ export function Button({
 }: ButtonProps) {
   return (
     <button
-      className={`btn btn-${variant} btn-${size} ${className}`}
+      className={`btn btn-${variant} btn-${size} ${fullWidth ? 'btn-full-width' : ''} ${className}`}
       disabled={disabled || isLoading}
       {...props}
     >

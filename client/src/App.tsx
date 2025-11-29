@@ -1,155 +1,178 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import {
+	BrowserRouter as Router,
+	Routes,
+	Route,
+	Navigate,
+	useLocation,
+} from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components';
 import { ProtectedRoute } from './components/Common/ProtectedRoute';
-import { 
-  HomeScreen, 
-  ProductDetailScreen, 
-  ShoppingListScreen, 
-  AddProductScreen,
-  LoginScreen,
-  SignupScreen,
+import {
+	HomeScreen,
+	ProductDetailScreen,
+	ShoppingListScreen,
+	AddProductScreen,
+	LoginScreen,
+	SignupScreen,
 } from './screens';
-import { 
-  AdminDashboard,
-  AdminProducts,
-  AdminStores,
-  AdminUsers,
+import {
+	AdminDashboard,
+	AdminProducts,
+	AdminStores,
+	AdminUsers,
+	AdminFilters,
 } from './screens/admin';
 import { listsApi } from './api';
 import './App.css';
 
 function AppContent() {
-  const [defaultListId, setDefaultListId] = useState<string | null>(null);
-  const { isAuthenticated, isLoading } = useAuth();
-  const location = useLocation();
-  
-  // Check if we're on an admin route
-  const isAdminRoute = location.pathname.startsWith('/admin');
+	const [defaultListId, setDefaultListId] = useState<string | null>(null);
+	const { isAuthenticated, isLoading } = useAuth();
+	const location = useLocation();
 
-  useEffect(() => {
-    // Fetch or create default list on app load (only if authenticated)
-    const loadDefaultList = async () => {
-      if (!isAuthenticated) {
-        setDefaultListId(null);
-        return;
-      }
-      
-      try {
-        const response = await listsApi.getDefaultList();
-        setDefaultListId(response.list.id);
-      } catch (error) {
-        console.error('Failed to load default list:', error);
-      }
-    };
-    
-    if (!isLoading) {
-      loadDefaultList();
-    }
-  }, [isAuthenticated, isLoading]);
+	// Check if we're on an admin route
+	const isAdminRoute = location.pathname.startsWith('/admin');
 
-  // Don't render header/footer on admin routes
-  if (isAdminRoute) {
-    return (
-      <Routes>
-        {/* Admin routes (require admin role) */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute requireAdmin>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/products"
-          element={
-            <ProtectedRoute requireAdmin>
-              <AdminProducts />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/stores"
-          element={
-            <ProtectedRoute requireAdmin>
-              <AdminStores />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/users"
-          element={
-            <ProtectedRoute requireAdmin>
-              <AdminUsers />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
-      </Routes>
-    );
-  }
+	useEffect(() => {
+		// Fetch or create default list on app load (only if authenticated)
+		const loadDefaultList = async () => {
+			if (!isAuthenticated) {
+				setDefaultListId(null);
+				return;
+			}
 
-  return (
-    <div className="app">
-      <Header defaultListId={defaultListId} />
-      <main className="app-main">
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<HomeScreen />} />
-          <Route path="/products/:id" element={<ProductDetailScreen />} />
-          <Route path="/login" element={<LoginScreen />} />
-          <Route path="/signup" element={<SignupScreen />} />
-          
-          {/* Protected routes (require auth) */}
-          <Route
-            path="/add-product"
-            element={
-              <ProtectedRoute>
-                <AddProductScreen />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/lists"
-            element={
-              <ProtectedRoute>
-                <ShoppingListScreen />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/lists/:id"
-            element={
-              <ProtectedRoute>
-                <ShoppingListScreen />
-              </ProtectedRoute>
-            }
-          />
-          
-          {/* Catch-all redirect */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
-      <footer className="app-footer">
-        <div className="footer-content">
-          <span className="footer-logo">🌱 PlantPantry</span>
-          <span className="footer-tagline">Discover vegan groceries everywhere</span>
-        </div>
-      </footer>
-    </div>
-  );
+			try {
+				const response = await listsApi.getDefaultList();
+				setDefaultListId(response.list.id);
+			} catch (error) {
+				console.error('Failed to load default list:', error);
+			}
+		};
+
+		if (!isLoading) {
+			loadDefaultList();
+		}
+	}, [isAuthenticated, isLoading]);
+
+	// Don't render header/footer on admin routes
+	if (isAdminRoute) {
+		return (
+			<Routes>
+				{/* Admin routes (require admin role) */}
+				<Route
+					path='/admin'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminDashboard />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path='/admin/products'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminProducts />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path='/admin/stores'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminStores />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path='/admin/users'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminUsers />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path='/admin/filters'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminFilters />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path='/admin/*'
+					element={<Navigate to='/admin' replace />}
+				/>
+			</Routes>
+		);
+	}
+
+	return (
+		<div className='app'>
+			<Header defaultListId={defaultListId} />
+			<main className='app-main'>
+				<Routes>
+					{/* Public routes */}
+					<Route path='/' element={<HomeScreen />} />
+					<Route
+						path='/products/:id'
+						element={<ProductDetailScreen />}
+					/>
+					<Route path='/login' element={<LoginScreen />} />
+					<Route path='/signup' element={<SignupScreen />} />
+
+					{/* Protected routes (require auth) */}
+					<Route
+						path='/add-product'
+						element={
+							<ProtectedRoute>
+								<AddProductScreen />
+							</ProtectedRoute>
+						}
+					/>
+					<Route
+						path='/lists'
+						element={
+							<ProtectedRoute>
+								<ShoppingListScreen />
+							</ProtectedRoute>
+						}
+					/>
+					<Route
+						path='/lists/:id'
+						element={
+							<ProtectedRoute>
+								<ShoppingListScreen />
+							</ProtectedRoute>
+						}
+					/>
+
+					{/* Catch-all redirect */}
+					<Route path='*' element={<Navigate to='/' replace />} />
+				</Routes>
+			</main>
+			<footer className='app-footer'>
+				<div className='footer-content'>
+					<span className='footer-logo'>🌱 PlantPantry</span>
+					<span className='footer-tagline'>
+						Discover vegan groceries everywhere
+					</span>
+				</div>
+			</footer>
+		</div>
+	);
 }
 
 function App() {
-  return (
-    <Router>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </Router>
-  );
+	return (
+		<Router>
+			<AuthProvider>
+				<AppContent />
+			</AuthProvider>
+		</Router>
+	);
 }
 
 export default App;

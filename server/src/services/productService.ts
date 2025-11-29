@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { Product, IProduct, Availability, Store, UserProduct } from '../models';
+import { Product, IProduct, Availability, Store, UserProduct, ArchivedFilter, FilterDisplayName } from '../models';
 import { availabilityService } from './availabilityService';
 
 export interface ProductFilters {
@@ -75,11 +75,51 @@ export const productService = {
       }
 
       if (category) {
-        query.categories = category;
+        // Match against both display names and original database values
+        // Normalize the incoming category (remove en: prefix, replace dashes with spaces)
+        const normalizedCategory = category.replace(/^en:/, '').replace(/-/g, ' ');
+        
+        // Get display name mappings to find original database values
+        const displayNames = await FilterDisplayName.find({ type: 'category' }).lean();
+        const displayToDbValue = new Map<string, string>();
+        displayNames.forEach(dn => {
+          const cleaned = dn.value.replace(/^en:/, '').replace(/-/g, ' ');
+          displayToDbValue.set(dn.displayName.toLowerCase(), dn.value);
+          displayToDbValue.set(cleaned.toLowerCase(), dn.value);
+        });
+        
+        // Find the database value(s) that match
+        const dbValue = displayToDbValue.get(normalizedCategory.toLowerCase());
+        if (dbValue) {
+          // Match against the original database value
+          query.categories = dbValue;
+        } else {
+          // Try matching against normalized values in database
+          // Use regex to match normalized category (with spaces) against database values (with dashes or spaces)
+          const categoryRegex = new RegExp(`^en:?${normalizedCategory.replace(/ /g, '[- ]')}$`, 'i');
+          query.categories = { $regex: categoryRegex };
+        }
       }
 
       if (tag) {
-        query.tags = tag;
+        // Similar logic for tags
+        const normalizedTag = tag.replace(/^en:/, '').replace(/-/g, ' ');
+        
+        const displayNames = await FilterDisplayName.find({ type: 'tag' }).lean();
+        const displayToDbValue = new Map<string, string>();
+        displayNames.forEach(dn => {
+          const cleaned = dn.value.replace(/^en:/, '').replace(/-/g, ' ');
+          displayToDbValue.set(dn.displayName.toLowerCase(), dn.value);
+          displayToDbValue.set(cleaned.toLowerCase(), dn.value);
+        });
+        
+        const dbValue = displayToDbValue.get(normalizedTag.toLowerCase());
+        if (dbValue) {
+          query.tags = dbValue;
+        } else {
+          const tagRegex = new RegExp(`^en:?${normalizedTag.replace(/ /g, '[- ]')}$`, 'i');
+          query.tags = { $regex: tagRegex };
+        }
       }
 
       // Query both Product and UserProduct collections
@@ -257,31 +297,101 @@ export const productService = {
 
   async getCategories(): Promise<string[]> {
     // Get categories from both Product and approved, non-archived UserProduct collections
-    const [apiCategories, userCategories] = await Promise.all([
+    const [apiCategories, userCategories, archivedFilters, displayNames] = await Promise.all([
       Product.distinct('categories', { archived: { $ne: true } }),
       UserProduct.distinct('categories', { 
         status: 'approved',
         archived: { $ne: true },
       }),
+      ArchivedFilter.distinct('value', { type: 'category' }),
+      FilterDisplayName.find({ type: 'category' }).lean(),
     ]);
     
+    // Language prefixes to filter out (non-English)
+    const nonEnglishPrefixes = /^(de|el|es|fr|nl|pt|zh):/i;
+    
     // Combine and deduplicate
-    const allCategories = [...new Set([...apiCategories, ...userCategories])];
+    let allCategories = [...new Set([...apiCategories, ...userCategories])];
+    
+    // Filter out non-English language prefixes
+    allCategories = allCategories.filter(cat => !nonEnglishPrefixes.test(cat));
+    
+    // Remove archived filters (check both with and without "en:" prefix)
+    const archivedSet = new Set(archivedFilters);
+    allCategories = allCategories.filter(cat => {
+      const cleaned = cat.replace(/^en:/, '');
+      return !archivedSet.has(cat) && !archivedSet.has(cleaned);
+    });
+    
+    // Simple cleanup: trim "en:" prefix and replace dashes with spaces
+    allCategories = allCategories.map(cat => cat.replace(/^en:/, '').replace(/-/g, ' '));
+    
+    // Remove duplicates after cleaning
+    allCategories = [...new Set(allCategories)];
+    
+    // Create a map of display names (check both original and cleaned values)
+    const displayNameMap = new Map<string, string>();
+    displayNames.forEach(dn => {
+      const cleaned = dn.value.replace(/^en:/, '').replace(/-/g, ' ');
+      displayNameMap.set(cleaned, dn.displayName);
+      displayNameMap.set(dn.value.replace(/^en:/, ''), dn.displayName);
+    });
+    
+    // Apply display names where available, otherwise use cleaned value
+    allCategories = allCategories.map(cat => {
+      return displayNameMap.get(cat) || cat;
+    });
+    
     return allCategories.sort();
   },
 
   async getTags(): Promise<string[]> {
     // Get tags from both Product and approved, non-archived UserProduct collections
-    const [apiTags, userTags] = await Promise.all([
+    const [apiTags, userTags, archivedFilters, displayNames] = await Promise.all([
       Product.distinct('tags', { archived: { $ne: true } }),
       UserProduct.distinct('tags', { 
         status: 'approved',
         archived: { $ne: true },
       }),
+      ArchivedFilter.distinct('value', { type: 'tag' }),
+      FilterDisplayName.find({ type: 'tag' }).lean(),
     ]);
     
+    // Language prefixes to filter out (non-English)
+    const nonEnglishPrefixes = /^(de|el|es|fr|nl|pt|zh):/i;
+    
     // Combine and deduplicate
-    const allTags = [...new Set([...apiTags, ...userTags])];
+    let allTags = [...new Set([...apiTags, ...userTags])];
+    
+    // Filter out non-English language prefixes
+    allTags = allTags.filter(tag => !nonEnglishPrefixes.test(tag));
+    
+    // Remove archived filters (check both with and without "en:" prefix)
+    const archivedSet = new Set(archivedFilters);
+    allTags = allTags.filter(tag => {
+      const cleaned = tag.replace(/^en:/, '');
+      return !archivedSet.has(tag) && !archivedSet.has(cleaned);
+    });
+    
+    // Simple cleanup: trim "en:" prefix and replace dashes with spaces
+    allTags = allTags.map(tag => tag.replace(/^en:/, '').replace(/-/g, ' '));
+    
+    // Remove duplicates after cleaning
+    allTags = [...new Set(allTags)];
+    
+    // Create a map of display names (check both original and cleaned values)
+    const displayNameMap = new Map<string, string>();
+    displayNames.forEach(dn => {
+      const cleaned = dn.value.replace(/^en:/, '').replace(/-/g, ' ');
+      displayNameMap.set(cleaned, dn.displayName);
+      displayNameMap.set(dn.value.replace(/^en:/, ''), dn.displayName);
+    });
+    
+    // Apply display names where available, otherwise use cleaned value
+    allTags = allTags.map(tag => {
+      return displayNameMap.get(tag) || tag;
+    });
+    
     return allTags.sort();
   },
 };

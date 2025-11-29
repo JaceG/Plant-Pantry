@@ -12,7 +12,7 @@ interface FilterSidebarProps {
 
 // Clean category name to readable English
 function cleanCategoryName(category: string): string {
-  // Remove "en:" prefix and convert to readable format
+  // Remove "en:" prefix and replace dashes with spaces
   let cleaned = category.replace(/^en:/, '').replace(/-/g, ' ');
   
   // Capitalize words

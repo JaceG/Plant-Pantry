@@ -89,7 +89,9 @@ export function useProducts(initialFilters: ProductFilters = {}): UseProductsRet
   }, [fetchProducts, currentFilters]);
 
   useEffect(() => {
+    // Fetch on mount with initial filters
     fetchProducts(initialFilters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {

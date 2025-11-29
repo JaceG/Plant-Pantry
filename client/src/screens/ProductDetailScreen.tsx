@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button, Toast } from '../components';
+import { RegistrationModal } from '../components/Common/RegistrationModal';
 import { StoreMap } from '../components/Products/StoreMap';
 import { EditProductForm } from '../components/Products/EditProductForm';
 import { useProductDetail, useShoppingList } from '../hooks';
@@ -16,12 +17,13 @@ export function ProductDetailScreen() {
   const navigate = useNavigate();
   const { product, loading, error, refresh } = useProductDetail(id);
   const { getOrCreateDefaultList, addItem, addingItem } = useShoppingList();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isAuthenticated } = useAuth();
   
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
 
   // Load store details for availability
   useEffect(() => {
@@ -49,6 +51,34 @@ export function ProductDetailScreen() {
   }, [product]);
 
   const handleAddToList = useCallback(async () => {
+    if (!product) return;
+    
+    // If not authenticated, show registration modal
+    if (!isAuthenticated) {
+      setShowRegistrationModal(true);
+      return;
+    }
+    
+    try {
+      const defaultList = await getOrCreateDefaultList();
+      if (!defaultList) {
+        setToast({ message: 'Could not create shopping list', type: 'error' });
+        return;
+      }
+      
+      const success = await addItem(defaultList.id, { productId: product.id });
+      if (success) {
+        setToast({ message: `Added ${product.name} to your list!`, type: 'success' });
+      } else {
+        setToast({ message: 'Failed to add item to list', type: 'error' });
+      }
+    } catch {
+      setToast({ message: 'Something went wrong', type: 'error' });
+    }
+  }, [product, isAuthenticated, getOrCreateDefaultList, addItem]);
+
+  const handleRegistrationSuccess = useCallback(async () => {
+    // After successful registration/login, add the product to the list
     if (!product) return;
     
     try {
@@ -347,6 +377,12 @@ export function ProductDetailScreen() {
           onClose={() => setToast(null)}
         />
       )}
+
+      <RegistrationModal
+        isOpen={showRegistrationModal}
+        onClose={() => setShowRegistrationModal(false)}
+        onSuccess={handleRegistrationSuccess}
+      />
     </div>
   );
 }

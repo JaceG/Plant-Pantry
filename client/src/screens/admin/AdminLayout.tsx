@@ -14,6 +14,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { path: '/admin/products', label: 'Products', icon: '📦' },
     { path: '/admin/stores', label: 'Stores', icon: '🏪' },
     { path: '/admin/users', label: 'Users', icon: '👥' },
+    { path: '/admin/filters', label: 'Filters', icon: '🏷️' },
   ];
 
   return (

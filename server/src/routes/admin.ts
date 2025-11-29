@@ -231,5 +231,152 @@ router.post('/products/:id/unarchive', async (req: Request, res: Response, next:
   }
 });
 
+/**
+ * GET /api/admin/filters
+ * Get all filters (categories or tags) for admin management
+ */
+router.get('/filters', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const type = req.query.type as 'category' | 'tag';
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 50;
+    
+    if (!type || !['category', 'tag'].includes(type)) {
+      throw new HttpError('Invalid filter type. Must be "category" or "tag"', 400);
+    }
+    
+    const result = await adminService.getAllFilters(type, page, pageSize);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/filters/archive
+ * Archive a filter
+ */
+router.post('/filters/archive', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { type, value } = req.body;
+    const userId = req.userId;
+    
+    if (!userId) {
+      throw new HttpError('User not authenticated', 401);
+    }
+    
+    if (!type || !['category', 'tag'].includes(type)) {
+      throw new HttpError('Invalid filter type. Must be "category" or "tag"', 400);
+    }
+    
+    if (!value || typeof value !== 'string') {
+      throw new HttpError('Filter value is required', 400);
+    }
+    
+    const success = await adminService.archiveFilter(type, value, userId);
+    
+    if (!success) {
+      throw new HttpError('Failed to archive filter', 500);
+    }
+    
+    res.json({ message: 'Filter archived successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/filters/unarchive
+ * Unarchive a filter
+ */
+router.post('/filters/unarchive', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { type, value } = req.body;
+    
+    if (!type || !['category', 'tag'].includes(type)) {
+      throw new HttpError('Invalid filter type. Must be "category" or "tag"', 400);
+    }
+    
+    if (!value || typeof value !== 'string') {
+      throw new HttpError('Filter value is required', 400);
+    }
+    
+    const success = await adminService.unarchiveFilter(type, value);
+    
+    if (!success) {
+      throw new HttpError('Filter not found or already unarchived', 404);
+    }
+    
+    res.json({ message: 'Filter unarchived successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PUT /api/admin/filters/display-name
+ * Set or update a filter display name
+ */
+router.put('/filters/display-name', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { type, value, displayName } = req.body;
+    const userId = req.userId;
+    
+    if (!userId) {
+      throw new HttpError('User not authenticated', 401);
+    }
+    
+    if (!type || !['category', 'tag'].includes(type)) {
+      throw new HttpError('Invalid filter type. Must be "category" or "tag"', 400);
+    }
+    
+    if (!value || typeof value !== 'string') {
+      throw new HttpError('Filter value is required', 400);
+    }
+    
+    if (!displayName || typeof displayName !== 'string' || !displayName.trim()) {
+      throw new HttpError('Display name is required', 400);
+    }
+    
+    const success = await adminService.setFilterDisplayName(type, value, displayName, userId);
+    
+    if (!success) {
+      throw new HttpError('Failed to set display name', 500);
+    }
+    
+    res.json({ message: 'Display name updated successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * DELETE /api/admin/filters/display-name
+ * Remove a filter display name (revert to default)
+ */
+router.delete('/filters/display-name', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { type, value } = req.body;
+    
+    if (!type || !['category', 'tag'].includes(type)) {
+      throw new HttpError('Invalid filter type. Must be "category" or "tag"', 400);
+    }
+    
+    if (!value || typeof value !== 'string') {
+      throw new HttpError('Filter value is required', 400);
+    }
+    
+    const success = await adminService.removeFilterDisplayName(type, value);
+    
+    if (!success) {
+      throw new HttpError('Display name not found', 404);
+    }
+    
+    res.json({ message: 'Display name removed successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
 

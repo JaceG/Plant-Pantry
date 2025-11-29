@@ -6,4 +6,6 @@ export { User, IUser } from './User';
 export { ShoppingList, IShoppingList } from './ShoppingList';
 export { ShoppingListItem, IShoppingListItem } from './ShoppingListItem';
 export { Contribution, IContribution, ContributionType } from './Contribution';
+export { ArchivedFilter, IArchivedFilter, FilterType } from './ArchivedFilter';
+export { FilterDisplayName, IFilterDisplayName } from './FilterDisplayName';
 

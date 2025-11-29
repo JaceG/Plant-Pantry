@@ -137,5 +137,25 @@ export const adminApi = {
   unarchiveProduct(productId: string): Promise<{ message: string }> {
     return httpClient.post<{ message: string }>(`/admin/products/${productId}/unarchive`, {});
   },
+
+  getFilters(type: 'category' | 'tag', page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<{ value: string; displayName?: string; archived: boolean; archivedAt?: string }>> {
+    return httpClient.get<PaginatedResponse<{ value: string; displayName?: string; archived: boolean; archivedAt?: string }>>(`/admin/filters?type=${type}&page=${page}&pageSize=${pageSize}`);
+  },
+
+  archiveFilter(type: 'category' | 'tag', value: string): Promise<{ message: string }> {
+    return httpClient.post<{ message: string }>('/admin/filters/archive', { type, value });
+  },
+
+  unarchiveFilter(type: 'category' | 'tag', value: string): Promise<{ message: string }> {
+    return httpClient.post<{ message: string }>('/admin/filters/unarchive', { type, value });
+  },
+
+  setFilterDisplayName(type: 'category' | 'tag', value: string, displayName: string): Promise<{ message: string }> {
+    return httpClient.put<{ message: string }>('/admin/filters/display-name', { type, value, displayName });
+  },
+
+  removeFilterDisplayName(type: 'category' | 'tag', value: string): Promise<{ message: string }> {
+    return httpClient.delete<{ message: string }>('/admin/filters/display-name', { type, value });
+  },
 };
 

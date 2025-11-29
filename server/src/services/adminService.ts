@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { Product, UserProduct, Store, User, Availability } from '../models';
+import { Product, UserProduct, Store, User, Availability, ArchivedFilter, FilterDisplayName, FilterType } from '../models';
 
 export interface DashboardStats {
   products: {
@@ -495,6 +495,207 @@ export const adminService = {
       page,
       pageSize,
     };
+  },
+
+  /**
+   * Get all filters (categories and tags) for admin management
+   */
+  async getAllFilters(
+    type: FilterType,
+    page: number = 1,
+    pageSize: number = 50
+  ): Promise<{
+    items: Array<{ value: string; displayName?: string; archived: boolean; archivedAt?: Date }>;
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const skip = (page - 1) * pageSize;
+
+    // Get all unique filter values from products
+    const allFilters = type === 'category'
+      ? await Product.distinct('categories', { archived: { $ne: true } })
+      : await Product.distinct('tags', { archived: { $ne: true } });
+
+    // Get archived filters and display names
+    const [archivedFilters, displayNames] = await Promise.all([
+      ArchivedFilter.find({ type })
+        .select('value archivedAt')
+        .lean(),
+      FilterDisplayName.find({ type })
+        .select('value displayName')
+        .lean(),
+    ]);
+
+    // Normalize archived filter values for comparison (remove en: prefix, replace dashes with spaces)
+    const normalizedArchivedFilters = archivedFilters.map(f => ({
+      original: f.value,
+      normalized: f.value.replace(/^en:/, '').replace(/-/g, ' '),
+      archivedAt: f.archivedAt,
+    }));
+    
+    // Create sets/maps with both original and normalized values for lookup
+    const archivedSet = new Set<string>();
+    const archivedMap = new Map<string, Date>();
+    normalizedArchivedFilters.forEach(f => {
+      archivedSet.add(f.original);
+      archivedSet.add(f.normalized);
+      archivedMap.set(f.original, f.archivedAt);
+      archivedMap.set(f.normalized, f.archivedAt);
+    });
+    const displayNameMap = new Map<string, string>();
+    displayNames.forEach(dn => {
+      const cleaned = dn.value.replace(/^en:/, '').replace(/-/g, ' ');
+      displayNameMap.set(cleaned, dn.displayName);
+      displayNameMap.set(dn.value.replace(/^en:/, ''), dn.displayName);
+    });
+
+    // Language prefixes to filter out (non-English)
+    const nonEnglishPrefixes = /^(de|el|es|fr|nl|pt|zh):/i;
+    
+    // Filter out non-English language prefixes
+    let uniqueFilters = [...new Set(allFilters)];
+    uniqueFilters = uniqueFilters.filter(f => !nonEnglishPrefixes.test(f));
+    
+    // Also include archived filters that might not be in products anymore
+    archivedFilters.forEach(archived => {
+      const cleaned = archived.value.replace(/^en:/, '').replace(/-/g, ' ');
+      if (!nonEnglishPrefixes.test(archived.value) && !uniqueFilters.includes(cleaned)) {
+        uniqueFilters.push(cleaned);
+      }
+    });
+    
+    // Combine and deduplicate, then clean "en:" prefix and dashes
+    uniqueFilters = uniqueFilters.map(f => {
+      // If f already has spaces, it's already cleaned; otherwise clean it
+      if (typeof f === 'string' && !f.includes(' ')) {
+        return f.replace(/^en:/, '').replace(/-/g, ' ');
+      }
+      return f;
+    });
+    uniqueFilters = [...new Set(uniqueFilters)];
+
+    // Create items with archived status and display names
+    const items = uniqueFilters
+      .map(value => {
+        const originalValue = value; // This is the cleaned value
+        const displayName = displayNameMap.get(value);
+        // Check if archived (value is already normalized, so we can check directly)
+        const isArchived = archivedSet.has(value);
+        const archivedAt = archivedMap.get(value);
+        
+        return {
+          value: originalValue,
+          displayName,
+          archived: isArchived,
+          archivedAt: archivedAt ? (archivedAt instanceof Date ? archivedAt : new Date(archivedAt)) : undefined,
+        };
+      })
+      .sort((a, b) => {
+        // Sort archived items to the bottom
+        if (a.archived && !b.archived) return 1;
+        if (!a.archived && b.archived) return -1;
+        const aName = a.displayName || a.value;
+        const bName = b.displayName || b.value;
+        return aName.localeCompare(bName);
+      });
+
+    const total = items.length;
+    const paginatedItems = items.slice(skip, skip + pageSize);
+
+    return {
+      items: paginatedItems,
+      total,
+      page,
+      pageSize,
+    };
+  },
+
+  /**
+   * Archive a filter (category or tag)
+   * Stores the normalized value (spaces, no en: prefix) for consistent lookup
+   */
+  async archiveFilter(type: FilterType, value: string, archivedBy: string): Promise<boolean> {
+    const archivedById = new mongoose.Types.ObjectId(archivedBy);
+
+    // Normalize the value (remove en: prefix, replace dashes with spaces)
+    const normalizedValue = value.replace(/^en:/, '').replace(/-/g, ' ');
+
+    // Also archive variations to catch all possible formats
+    const valuesToArchive = [
+      normalizedValue, // Normalized: "animal fat"
+      normalizedValue.replace(/ /g, '-'), // With dashes: "animal-fat"
+      `en:${normalizedValue.replace(/ /g, '-')}`, // With en: prefix: "en:animal-fat"
+    ];
+
+    for (const val of valuesToArchive) {
+      try {
+        await ArchivedFilter.create({
+          type,
+          value: val,
+          archivedBy: archivedById,
+        });
+      } catch (error: any) {
+        // If already exists, that's fine - it's already archived
+        if (error.code !== 11000) {
+          throw error;
+        }
+      }
+    }
+
+    return true;
+  },
+
+  /**
+   * Unarchive a filter
+   * Unarchives both the cleaned value and the "en:" prefixed version
+   */
+  async unarchiveFilter(type: FilterType, value: string): Promise<boolean> {
+    // Unarchive both the cleaned value and the "en:" prefixed version
+    // Also check for dash-separated versions
+    const dashVersion = value.replace(/ /g, '-');
+    const result = await ArchivedFilter.deleteMany({
+      type,
+      value: { $in: [value, `en:${value}`, dashVersion, `en:${dashVersion}`] },
+    });
+    return result.deletedCount > 0;
+  },
+
+  /**
+   * Set or update a filter display name
+   */
+  async setFilterDisplayName(
+    type: FilterType,
+    value: string,
+    displayName: string,
+    updatedBy: string
+  ): Promise<boolean> {
+    const updatedById = new mongoose.Types.ObjectId(updatedBy);
+    
+    // Normalize the value (remove en: prefix and replace dashes with spaces for storage)
+    const normalizedValue = value.replace(/^en:/, '').replace(/-/g, ' ');
+    
+    await FilterDisplayName.findOneAndUpdate(
+      { type, value: normalizedValue },
+      {
+        type,
+        value: normalizedValue,
+        displayName: displayName.trim(),
+        updatedBy: updatedById,
+      },
+      { upsert: true, new: true }
+    );
+    
+    return true;
+  },
+
+  /**
+   * Remove a filter display name (revert to default)
+   */
+  async removeFilterDisplayName(type: FilterType, value: string): Promise<boolean> {
+    const normalizedValue = value.replace(/^en:/, '').replace(/-/g, ' ');
+    const result = await FilterDisplayName.deleteOne({ type, value: normalizedValue });
+    return result.deletedCount > 0;
   },
 };
 
