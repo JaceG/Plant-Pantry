@@ -60,12 +60,3 @@ export interface GooglePlaceDetails {
   zipCode?: string;
   country?: string;
 }
-
-export interface StoreAvailabilityInput {
-  storeId: string;
-  storeName: string;
-  priceRange?: string;
-  storeType?: StoreType;
-  regionOrScope?: string;
-  websiteUrl?: string;
-}
