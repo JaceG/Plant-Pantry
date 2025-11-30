@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { storesApi } from '../../api/storesApi';
-import { Store, StoreAvailabilityInput, GooglePlacePrediction } from '../../types/store';
+import { Store, GooglePlacePrediction } from '../../types/store';
+import { StoreAvailabilityInput } from '../../types/product';
 import { AutocompleteInput } from './AutocompleteInput';
 import { StoreMap } from './StoreMap';
 import { Button } from '../Common';
