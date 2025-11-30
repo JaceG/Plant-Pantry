@@ -34,7 +34,7 @@ export function ProductDetailScreen() {
   const [userReview, setUserReview] = useState<Review | null>(null);
   const [reviewsPage, setReviewsPage] = useState(1);
   const [reviewsTotalCount, setReviewsTotalCount] = useState(0);
-  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [, setReviewsLoading] = useState(false);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [reviewsSortBy, setReviewsSortBy] = useState<'newest' | 'oldest' | 'helpful' | 'rating'>('newest');
@@ -105,10 +105,10 @@ export function ProductDetailScreen() {
     }
   }, [id, reviewsSortBy]);
 
-  const handleCreateReview = useCallback(async (input: CreateReviewInput) => {
+  const handleCreateReview = useCallback(async (input: CreateReviewInput | UpdateReviewInput) => {
     if (!id) return;
     try {
-      await reviewsApi.createReview(id, input);
+      await reviewsApi.createReview(id, input as CreateReviewInput);
       setToast({ message: 'Review submitted! It will be visible after admin approval.', type: 'success' });
       setShowReviewForm(false);
       // Reload reviews
@@ -126,10 +126,10 @@ export function ProductDetailScreen() {
     }
   }, [id, reviewsSortBy]);
 
-  const handleUpdateReview = useCallback(async (input: UpdateReviewInput) => {
+  const handleUpdateReview = useCallback(async (input: CreateReviewInput | UpdateReviewInput) => {
     if (!editingReview) return;
     try {
-      await reviewsApi.updateReview(editingReview.id, input);
+      await reviewsApi.updateReview(editingReview.id, input as UpdateReviewInput);
       setToast({ message: 'Review updated! It will be visible after admin approval.', type: 'success' });
       setShowReviewForm(false);
       setEditingReview(null);
@@ -232,7 +232,7 @@ export function ProductDetailScreen() {
     }
   }, [product, getOrCreateDefaultList, addItem]);
 
-  const handleEditSave = useCallback(async (updatedProduct: ProductDetail) => {
+  const handleEditSave = useCallback(async (_updatedProduct: ProductDetail) => {
     setIsEditMode(false);
     await refresh();
     setToast({ message: 'Product updated successfully!', type: 'success' });

@@ -284,7 +284,7 @@ export function AdminProducts() {
                     <Button
                       onClick={() => handleApprove(product.id)}
                       variant="primary"
-                      size="small"
+                      size="sm"
                       isLoading={actionLoading === product.id}
                       disabled={actionLoading !== null}
                     >
@@ -293,7 +293,7 @@ export function AdminProducts() {
                     <Button
                       onClick={() => handleReject(product.id)}
                       variant="secondary"
-                      size="small"
+                      size="sm"
                       disabled={actionLoading !== null}
                     >
                       ✗ Reject
@@ -352,7 +352,7 @@ export function AdminProducts() {
                     <Button
                       onClick={() => handleArchive(product.id)}
                       variant="secondary"
-                      size="small"
+                      size="sm"
                       isLoading={actionLoading === product.id}
                       disabled={actionLoading !== null}
                     >
@@ -413,7 +413,7 @@ export function AdminProducts() {
                     <Button
                       onClick={() => handleUnarchive(product.id)}
                       variant="primary"
-                      size="small"
+                      size="sm"
                       isLoading={actionLoading === product.id}
                       disabled={actionLoading !== null}
                     >
@@ -433,7 +433,7 @@ export function AdminProducts() {
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
               variant="secondary"
-              size="small"
+              size="sm"
             >
               ← Previous
             </Button>
@@ -444,7 +444,7 @@ export function AdminProducts() {
               onClick={() => setCurrentPage(currentPage + 1)}
               disabled={currentPage >= Math.ceil(currentTotal / 20)}
               variant="secondary"
-              size="small"
+              size="sm"
             >
               Next →
             </Button>

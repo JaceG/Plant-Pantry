@@ -10,7 +10,7 @@ interface SearchBarProps {
 export function SearchBar({ initialValue = '', onSearch, placeholder = 'Search vegan products...' }: SearchBarProps) {
   const [value, setValue] = useState(initialValue);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -184,7 +184,7 @@ export function AdminFilters() {
                         <Button
                           onClick={() => handleSaveDisplayName(filter.value)}
                           variant="primary"
-                          size="small"
+                          size="sm"
                           isLoading={actionLoading === filter.value}
                           disabled={actionLoading !== null}
                         >
@@ -193,7 +193,7 @@ export function AdminFilters() {
                         <Button
                           onClick={handleCancelEdit}
                           variant="secondary"
-                          size="small"
+                          size="sm"
                           disabled={actionLoading !== null}
                         >
                           Cancel
@@ -225,7 +225,7 @@ export function AdminFilters() {
                     <Button
                       onClick={() => handleEditDisplayName(filter)}
                       variant="secondary"
-                      size="small"
+                      size="sm"
                       disabled={actionLoading !== null}
                     >
                       ✏️ Edit Name
@@ -234,7 +234,7 @@ export function AdminFilters() {
                       <Button
                         onClick={() => handleUnarchive(filter.value)}
                         variant="primary"
-                        size="small"
+                        size="sm"
                         isLoading={actionLoading === filter.value}
                         disabled={actionLoading !== null}
                       >
@@ -244,7 +244,7 @@ export function AdminFilters() {
                       <Button
                         onClick={() => handleArchive(filter.value)}
                         variant="secondary"
-                        size="small"
+                        size="sm"
                         isLoading={actionLoading === filter.value}
                         disabled={actionLoading !== null}
                       >
@@ -265,7 +265,7 @@ export function AdminFilters() {
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
               variant="secondary"
-              size="small"
+              size="sm"
             >
               ← Previous
             </Button>
@@ -276,7 +276,7 @@ export function AdminFilters() {
               onClick={() => setPage(p => p + 1)}
               disabled={page >= Math.ceil(total / 100)}
               variant="secondary"
-              size="small"
+              size="sm"
             >
               Next →
             </Button>

@@ -155,7 +155,8 @@ export const adminApi = {
   },
 
   removeFilterDisplayName(type: 'category' | 'tag', value: string): Promise<{ message: string }> {
-    return httpClient.delete<{ message: string }>('/admin/filters/display-name', { type, value });
+    const params = new URLSearchParams({ type, value });
+    return httpClient.delete<{ message: string }>(`/admin/filters/display-name?${params.toString()}`);
   },
 };
 

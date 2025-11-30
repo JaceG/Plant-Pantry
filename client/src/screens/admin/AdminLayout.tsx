@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import './AdminLayout.css';
 
 interface AdminLayoutProps {
@@ -7,8 +7,6 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const location = useLocation();
-
   const navItems = [
     { path: '/admin', label: 'Dashboard', icon: '📊', exact: true },
     { path: '/admin/products', label: 'Products', icon: '📦' },

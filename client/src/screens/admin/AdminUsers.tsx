@@ -162,7 +162,7 @@ export function AdminUsers() {
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
               variant="secondary"
-              size="small"
+              size="sm"
             >
               ← Previous
             </Button>
@@ -173,7 +173,7 @@ export function AdminUsers() {
               onClick={() => setPage(p => p + 1)}
               disabled={page >= Math.ceil(total / 20)}
               variant="secondary"
-              size="small"
+              size="sm"
             >
               Next →
             </Button>

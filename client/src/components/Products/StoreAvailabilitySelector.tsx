@@ -19,7 +19,7 @@ export function StoreAvailabilitySelector({ value, onChange }: StoreAvailability
   const [placePredictions, setPlacePredictions] = useState<GooglePlacePrediction[]>([]);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [priceRange, setPriceRange] = useState('');
-  const [loadingStores, setLoadingStores] = useState(false);
+  const [, setLoadingStores] = useState(false);
   const [showPlaceSearch, setShowPlaceSearch] = useState(false);
   const [storeMode, setStoreMode] = useState<StoreInputMode>('physical');
   
@@ -312,7 +312,7 @@ export function StoreAvailabilitySelector({ value, onChange }: StoreAvailability
               type="button"
               onClick={handleCreateOnlineStore}
               variant="primary"
-              size="small"
+              size="sm"
               disabled={!onlineStoreName.trim()}
             >
               Create Store
@@ -359,7 +359,7 @@ export function StoreAvailabilitySelector({ value, onChange }: StoreAvailability
               type="button"
               onClick={handleAddStore}
               variant="primary"
-              size="small"
+              size="sm"
             >
               Add Store
             </Button>

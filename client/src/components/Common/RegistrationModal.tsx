@@ -11,7 +11,7 @@ interface RegistrationModalProps {
 }
 
 export function RegistrationModal({ isOpen, onClose, onSuccess }: RegistrationModalProps) {
-  const { signup, login, isLoading: authLoading } = useAuth();
+  const { signup, login } = useAuth();
   const [isLoginMode, setIsLoginMode] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');

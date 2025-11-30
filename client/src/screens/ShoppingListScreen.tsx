@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { ShoppingListItemCard, Button, Toast } from '../components';
 import { useShoppingList } from '../hooks';
 import './ShoppingListScreen.css';
@@ -9,12 +9,10 @@ export function ShoppingListScreen() {
   const navigate = useNavigate();
   const {
     list,
-    lists,
     loading,
     error,
     removingItemId,
     fetchList,
-    fetchLists,
     removeItem,
     getOrCreateDefaultList,
   } = useShoppingList();

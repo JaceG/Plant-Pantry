@@ -1,13 +1,10 @@
 import { httpClient } from './httpClient';
 import {
-  Review,
-  ReviewStats,
   CreateReviewInput,
   UpdateReviewInput,
   ReviewListResponse,
   ReviewStatsResponse,
   ReviewResponse,
-  PendingReview,
 } from '../types/review';
 
 export const reviewsApi = {
@@ -47,7 +44,7 @@ export const reviewsApi = {
   },
 
   voteHelpful(reviewId: string): Promise<ReviewResponse> {
-    return httpClient.post<ReviewResponse>(`/reviews/${reviewId}/helpful`);
+    return httpClient.post<ReviewResponse>(`/reviews/${reviewId}/helpful`, {});
   },
 
   getReviewStats(productId: string): Promise<ReviewStatsResponse> {
@@ -64,11 +61,11 @@ export const reviewsApi = {
   },
 
   approveReview(reviewId: string): Promise<ReviewResponse> {
-    return httpClient.post<ReviewResponse>(`/admin/reviews/${reviewId}/approve`);
+    return httpClient.post<ReviewResponse>(`/admin/reviews/${reviewId}/approve`, {});
   },
 
   rejectReview(reviewId: string): Promise<ReviewResponse> {
-    return httpClient.post<ReviewResponse>(`/admin/reviews/${reviewId}/reject`);
+    return httpClient.post<ReviewResponse>(`/admin/reviews/${reviewId}/reject`, {});
   },
 };
 

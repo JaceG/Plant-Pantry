@@ -4,7 +4,7 @@ import { AdminLayout } from './AdminLayout';
 import { Button } from '../../components/Common/Button';
 import { Toast } from '../../components/Common/Toast';
 import { Link } from 'react-router-dom';
-import { Review, PendingReview } from '../../types/review';
+import { PendingReview } from '../../types/review';
 import './AdminReviews.css';
 
 export function AdminReviews() {
