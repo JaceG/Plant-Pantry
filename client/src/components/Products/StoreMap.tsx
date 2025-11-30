@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Store } from '../../types/store';
+import { httpClient } from '../../api/httpClient';
 import './StoreMap.css';
 
 interface StoreMapProps {
@@ -26,11 +27,9 @@ export function StoreMap({ stores, selectedStoreId, height = '400px' }: StoreMap
   useEffect(() => {
     const fetchApiKey = async () => {
       try {
-        // We'll create an endpoint to get the public API key
-        // For now, we'll use an environment variable or get it from backend
-        const response = await fetch('/api/config/google-api-key');
-        if (response.ok) {
-          const data = await response.json();
+        // Get API key from backend
+        const data = await httpClient.get<{ apiKey: string }>('/config/google-api-key', { skipAuth: true });
+        if (data.apiKey) {
           setApiKey(data.apiKey);
         } else {
           // Fallback: try to get from env (if exposed)
