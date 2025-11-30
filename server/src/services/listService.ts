@@ -269,7 +269,11 @@ export const listService = {
         userId: new mongoose.Types.ObjectId(userId),
         name: 'My Vegan List',
       });
-      list = newList.toObject();
+      list = newList.toObject() as unknown as typeof list;
+    }
+
+    if (!list) {
+      throw new Error('Failed to create or retrieve shopping list');
     }
 
     return {

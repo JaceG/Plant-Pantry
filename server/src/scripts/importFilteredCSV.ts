@@ -271,7 +271,7 @@ async function importCSV() {
 		}
 
 		// Legacy helper (kept for reference but not used)
-		async function createAvailabilityEntries(products: typeof Product[]) {
+		async function createAvailabilityEntries(products: Array<{ _id: mongoose.Types.ObjectId }>) {
 			const availabilityBatch: Array<{
 				productId: mongoose.Types.ObjectId;
 				storeId: mongoose.Types.ObjectId;

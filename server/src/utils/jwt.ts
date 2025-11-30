@@ -1,8 +1,8 @@
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { IUser, UserRole } from '../models/User';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'plantpantry-dev-secret-change-in-production';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const JWT_SECRET: string = process.env.JWT_SECRET || 'plantpantry-dev-secret-change-in-production';
+const JWT_EXPIRES_IN: string = process.env.JWT_EXPIRES_IN || '7d';
 
 export interface JwtPayload {
   userId: string;
@@ -22,9 +22,10 @@ export function generateToken(user: IUser): string {
     role: user.role,
   };
 
+  // Use type assertion to satisfy jsonwebtoken's StringValue type requirement
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
-  });
+  } as SignOptions);
 }
 
 /**

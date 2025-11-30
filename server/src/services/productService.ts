@@ -195,9 +195,10 @@ export const productService = {
       };
 
       // Exclude archived API products
+      // Simply use $ne: true which handles both cases: field doesn't exist OR field is false
       const apiProductQuery: any = {
         ...query,
-        archived: { $ne: true }, // Exclude archived products
+        archived: { $ne: true }, // This works for both missing field and false values
       };
 
       // If minRating filter is applied, only include products that meet the rating

@@ -86,6 +86,10 @@ export const userProductService = {
       product = await UserProduct.create(productData);
     }
 
+    if (!product) {
+      throw new Error('Failed to create or update product');
+    }
+
     // Create availability entries if provided
     if (input.storeAvailabilities && input.storeAvailabilities.length > 0) {
       const availabilityEntries = input.storeAvailabilities.map((avail) => ({

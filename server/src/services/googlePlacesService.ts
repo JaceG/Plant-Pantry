@@ -95,7 +95,18 @@ export const googlePlacesService = {
         throw new Error(`Google Places API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as {
+        status: string;
+        error_message?: string;
+        predictions?: Array<{
+          place_id: string;
+          description: string;
+          structured_formatting?: {
+            main_text: string;
+            secondary_text: string;
+          };
+        }>;
+      };
 
       // Handle different response statuses
       if (data.status === 'ZERO_RESULTS') {
@@ -112,7 +123,7 @@ export const googlePlacesService = {
       }
 
       // Map predictions to our format
-      const predictions: PlaceAutocompletePrediction[] = (data.predictions || []).map((pred: any) => ({
+      const predictions: PlaceAutocompletePrediction[] = (data.predictions || []).map((pred) => ({
         place_id: pred.place_id,
         description: pred.description,
         structured_formatting: {
@@ -173,7 +184,11 @@ export const googlePlacesService = {
         throw new Error(`Google Places API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as {
+        status: string;
+        error_message?: string;
+        result?: GooglePlaceResult;
+      };
 
       if (data.status !== 'OK') {
         console.error('Google Places API error:', data.status, data.error_message || 'Unknown error');
