@@ -1,12 +1,15 @@
 import { useState, useMemo } from 'react';
+import { RatingFilter } from '../Reviews';
 import './FilterSidebar.css';
 
 interface FilterSidebarProps {
   categories: string[];
   selectedCategory: string | null;
   selectedTag: string | null;
+  selectedRating?: number;
   onCategorySelect: (category: string | null) => void;
   onTagSelect: (tag: string | null) => void;
+  onRatingChange: (rating: number | undefined) => void;
   loading?: boolean;
 }
 
@@ -185,8 +188,10 @@ export function FilterSidebar({
   categories,
   selectedCategory,
   selectedTag,
+  selectedRating,
   onCategorySelect,
   onTagSelect,
+  onRatingChange,
   loading,
 }: FilterSidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -214,8 +219,8 @@ export function FilterSidebar({
           <path d="M3 6h18M7 12h10M11 18h2" />
         </svg>
         Filters
-        {selectedCategory || selectedTag ? (
-          <span className="filter-badge">{(selectedCategory ? 1 : 0) + (selectedTag ? 1 : 0)}</span>
+        {selectedCategory || selectedTag || selectedRating ? (
+          <span className="filter-badge">{(selectedCategory ? 1 : 0) + (selectedTag ? 1 : 0) + (selectedRating ? 1 : 0)}</span>
         ) : null}
       </button>
 
@@ -236,17 +241,26 @@ export function FilterSidebar({
 
         <div className="filter-content">
           {/* Clear all button */}
-          {(selectedCategory || selectedTag) && (
+          {(selectedCategory || selectedTag || selectedRating) && (
             <button
               className="filter-clear-all"
               onClick={() => {
                 onCategorySelect(null);
                 onTagSelect(null);
+                onRatingChange(undefined);
               }}
             >
               Clear all filters
             </button>
           )}
+
+          {/* Rating Filter Section */}
+          <div className="filter-section">
+            <RatingFilter
+              selectedRating={selectedRating}
+              onRatingChange={onRatingChange}
+            />
+          </div>
 
           {/* Dietary & Labels Section */}
           <div className="filter-section">

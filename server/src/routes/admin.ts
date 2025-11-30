@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { adminService } from '../services/adminService';
+import { reviewService } from '../services/reviewService';
 import { authMiddleware, adminMiddleware } from '../middleware/auth';
 import { HttpError } from '../middleware/errorHandler';
 
@@ -373,6 +374,54 @@ router.delete('/filters/display-name', async (req: Request, res: Response, next:
     }
     
     res.json({ message: 'Display name removed successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/reviews/pending
+ * Get pending reviews for moderation
+ */
+router.get('/reviews/pending', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 20;
+    
+    const result = await reviewService.getPendingReviews(page, pageSize);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/reviews/:id/approve
+ * Approve a review
+ */
+router.post('/reviews/:id/approve', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.userId!;
+    
+    const review = await reviewService.approveReview(id, adminId);
+    res.json({ message: 'Review approved successfully', review });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/reviews/:id/reject
+ * Reject a review
+ */
+router.post('/reviews/:id/reject', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.userId!;
+    
+    const review = await reviewService.rejectReview(id, adminId);
+    res.json({ message: 'Review rejected', review });
   } catch (error) {
     next(error);
   }

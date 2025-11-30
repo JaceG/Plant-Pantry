@@ -7,7 +7,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { connectDB } from './config/database';
-import { healthRoutes, productRoutes, storeRoutes, listRoutes, userProductRoutes, authRoutes, adminRoutes } from './routes';
+import { healthRoutes, productRoutes, storeRoutes, listRoutes, userProductRoutes, authRoutes, adminRoutes, reviewRoutes } from './routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 const app: Express = express();
@@ -31,6 +31,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/user-products', userProductRoutes);
 app.use('/api/stores', storeRoutes);
 app.use('/api/lists', listRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 // GET /api/config/google-api-key - Get Google API key for frontend (public endpoint)
 app.get('/api/config/google-api-key', (req, res) => {

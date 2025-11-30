@@ -397,3 +397,20 @@
   color: var(--color-forest);
 }
 
+
+/* Reviews Section */
+.reviews-section {
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-xl);
+  border-top: 2px solid var(--color-sage-light);
+}
+
+.review-action-buttons {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.review-form-container {
+  margin-bottom: var(--spacing-lg);
+}

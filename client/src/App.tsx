@@ -23,6 +23,7 @@ import {
 	AdminStores,
 	AdminUsers,
 	AdminFilters,
+	AdminReviews,
 } from './screens/admin';
 import { listsApi } from './api';
 import './App.css';
@@ -98,6 +99,14 @@ function AppContent() {
 					element={
 						<ProtectedRoute requireAdmin>
 							<AdminFilters />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path='/admin/reviews'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminReviews />
 						</ProtectedRoute>
 					}
 				/>

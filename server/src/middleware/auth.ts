@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, JwtPayload } from '../utils/jwt';
-import { UserRole } from '../models/User';
 import { HttpError } from './errorHandler';
+
+// Define UserRole locally to avoid importing User model (which imports mongoose)
+type UserRole = 'user' | 'admin' | 'moderator';
 
 // Extend Express Request to include user info
 declare global {

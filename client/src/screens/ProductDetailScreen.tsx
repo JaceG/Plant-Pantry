@@ -4,12 +4,15 @@ import { Button, Toast } from '../components';
 import { RegistrationModal } from '../components/Common/RegistrationModal';
 import { StoreMap } from '../components/Products/StoreMap';
 import { EditProductForm } from '../components/Products/EditProductForm';
+import { ReviewStats, ReviewList, ReviewForm } from '../components/Reviews';
 import { useProductDetail, useShoppingList } from '../hooks';
 import { useAuth } from '../context/AuthContext';
 import { storesApi } from '../api/storesApi';
 import { adminApi } from '../api/adminApi';
+import { reviewsApi } from '../api/reviewsApi';
 import { Store } from '../types/store';
 import { ProductDetail } from '../types/product';
+import { Review, ReviewStats as ReviewStatsType, CreateReviewInput, UpdateReviewInput } from '../types/review';
 import './ProductDetailScreen.css';
 
 export function ProductDetailScreen() {
@@ -24,6 +27,17 @@ export function ProductDetailScreen() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  
+  // Review state
+  const [reviewStats, setReviewStats] = useState<ReviewStatsType | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [userReview, setUserReview] = useState<Review | null>(null);
+  const [reviewsPage, setReviewsPage] = useState(1);
+  const [reviewsTotalCount, setReviewsTotalCount] = useState(0);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [editingReview, setEditingReview] = useState<Review | null>(null);
+  const [reviewsSortBy, setReviewsSortBy] = useState<'newest' | 'oldest' | 'helpful' | 'rating'>('newest');
 
   // Load store details for availability
   useEffect(() => {
@@ -49,6 +63,125 @@ export function ProductDetailScreen() {
 
     loadStores();
   }, [product]);
+
+  // Load review stats and reviews
+  useEffect(() => {
+    if (!id) return;
+
+    const loadReviews = async () => {
+      setReviewsLoading(true);
+      try {
+        const [statsResponse, reviewsResponse, userReviewResponse] = await Promise.all([
+          reviewsApi.getReviewStats(id),
+          reviewsApi.getReviews(id, 1, 10, reviewsSortBy),
+          isAuthenticated ? reviewsApi.getUserReview(id).catch(() => ({ review: null })) : Promise.resolve({ review: null }),
+        ]);
+
+        setReviewStats(statsResponse.stats);
+        setReviews(reviewsResponse.items);
+        setReviewsTotalCount(reviewsResponse.totalCount);
+        setUserReview(userReviewResponse.review);
+      } catch (error) {
+        console.error('Failed to load reviews:', error);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+
+    loadReviews();
+  }, [id, isAuthenticated, reviewsSortBy]);
+
+  const handleReviewPageChange = useCallback(async (page: number) => {
+    if (!id) return;
+    setReviewsLoading(true);
+    try {
+      const response = await reviewsApi.getReviews(id, page, 10, reviewsSortBy);
+      setReviews(response.items);
+      setReviewsPage(page);
+    } catch (error) {
+      console.error('Failed to load reviews:', error);
+    } finally {
+      setReviewsLoading(false);
+    }
+  }, [id, reviewsSortBy]);
+
+  const handleCreateReview = useCallback(async (input: CreateReviewInput) => {
+    if (!id) return;
+    try {
+      await reviewsApi.createReview(id, input);
+      setToast({ message: 'Review submitted! It will be visible after admin approval.', type: 'success' });
+      setShowReviewForm(false);
+      // Reload reviews
+      const [statsResponse, reviewsResponse, userReviewResponse] = await Promise.all([
+        reviewsApi.getReviewStats(id),
+        reviewsApi.getReviews(id, 1, 10, reviewsSortBy),
+        reviewsApi.getUserReview(id).catch(() => ({ review: null })),
+      ]);
+      setReviewStats(statsResponse.stats);
+      setReviews(reviewsResponse.items);
+      setReviewsTotalCount(reviewsResponse.totalCount);
+      setUserReview(userReviewResponse.review);
+    } catch (error: any) {
+      setToast({ message: error?.message || 'Failed to submit review', type: 'error' });
+    }
+  }, [id, reviewsSortBy]);
+
+  const handleUpdateReview = useCallback(async (input: UpdateReviewInput) => {
+    if (!editingReview) return;
+    try {
+      await reviewsApi.updateReview(editingReview.id, input);
+      setToast({ message: 'Review updated! It will be visible after admin approval.', type: 'success' });
+      setShowReviewForm(false);
+      setEditingReview(null);
+      // Reload reviews
+      if (!id) return;
+      const [statsResponse, reviewsResponse, userReviewResponse] = await Promise.all([
+        reviewsApi.getReviewStats(id),
+        reviewsApi.getReviews(id, reviewsPage, 10, reviewsSortBy),
+        reviewsApi.getUserReview(id).catch(() => ({ review: null })),
+      ]);
+      setReviewStats(statsResponse.stats);
+      setReviews(reviewsResponse.items);
+      setReviewsTotalCount(reviewsResponse.totalCount);
+      setUserReview(userReviewResponse.review);
+    } catch (error: any) {
+      setToast({ message: error?.message || 'Failed to update review', type: 'error' });
+    }
+  }, [editingReview, id, reviewsPage, reviewsSortBy]);
+
+  const handleDeleteReview = useCallback(async (review: Review) => {
+    if (!confirm('Are you sure you want to delete your review?')) return;
+    try {
+      await reviewsApi.deleteReview(review.id);
+      setToast({ message: 'Review deleted', type: 'success' });
+      setUserReview(null);
+      // Reload reviews
+      if (!id) return;
+      const [statsResponse, reviewsResponse] = await Promise.all([
+        reviewsApi.getReviewStats(id),
+        reviewsApi.getReviews(id, reviewsPage, 10, reviewsSortBy),
+      ]);
+      setReviewStats(statsResponse.stats);
+      setReviews(reviewsResponse.items);
+      setReviewsTotalCount(reviewsResponse.totalCount);
+    } catch (error: any) {
+      setToast({ message: error?.message || 'Failed to delete review', type: 'error' });
+    }
+  }, [id, reviewsPage, reviewsSortBy]);
+
+  const handleVoteHelpful = useCallback(async (review: Review) => {
+    if (!isAuthenticated) {
+      setShowRegistrationModal(true);
+      return;
+    }
+    try {
+      const response = await reviewsApi.voteHelpful(review.id);
+      // Update the review in the list
+      setReviews(prev => prev.map(r => r.id === review.id ? response.review : r));
+    } catch (error: any) {
+      setToast({ message: error?.message || 'Failed to vote', type: 'error' });
+    }
+  }, [isAuthenticated]);
 
   const handleAddToList = useCallback(async () => {
     if (!product) return;
@@ -366,6 +499,75 @@ export function ProductDetailScreen() {
                 Store availability data will be added soon. Check back later!
               </p>
             </div>
+          )}
+        </section>
+
+        {/* Reviews Section */}
+        <section className="reviews-section">
+          <h2 className="section-title">
+            <span className="title-icon">⭐</span>
+            Reviews
+          </h2>
+
+          {reviewStats && <ReviewStats stats={reviewStats} />}
+
+          {isAuthenticated && !userReview && !showReviewForm && (
+            <div className="review-action-buttons">
+              <Button onClick={() => setShowReviewForm(true)} variant="primary" size="lg">
+                Write a Review
+              </Button>
+            </div>
+          )}
+
+          {isAuthenticated && userReview && !showReviewForm && (
+            <div className="review-action-buttons">
+              <Button onClick={() => {
+                setEditingReview(userReview);
+                setShowReviewForm(true);
+              }} variant="secondary" size="lg">
+                Edit Your Review
+              </Button>
+              <Button onClick={() => handleDeleteReview(userReview)} variant="secondary" size="lg">
+                Delete Your Review
+              </Button>
+            </div>
+          )}
+
+          {showReviewForm && (
+            <div className="review-form-container">
+              <ReviewForm
+                review={editingReview || undefined}
+                onSubmit={editingReview ? handleUpdateReview : handleCreateReview}
+                onCancel={() => {
+                  setShowReviewForm(false);
+                  setEditingReview(null);
+                }}
+              />
+            </div>
+          )}
+
+          {!showReviewForm && (
+            <ReviewList
+              reviews={reviews}
+              page={reviewsPage}
+              pageSize={10}
+              totalCount={reviewsTotalCount}
+              onPageChange={handleReviewPageChange}
+              onEdit={isAuthenticated && userReview ? (review) => {
+                if (review.id === userReview.id) {
+                  setEditingReview(review);
+                  setShowReviewForm(true);
+                }
+              } : undefined}
+              onDelete={isAuthenticated && userReview ? (review) => {
+                if (review.id === userReview.id) {
+                  handleDeleteReview(review);
+                }
+              } : undefined}
+              onVoteHelpful={handleVoteHelpful}
+              sortBy={reviewsSortBy}
+              onSortChange={setReviewsSortBy}
+            />
           )}
         </section>
       </div>

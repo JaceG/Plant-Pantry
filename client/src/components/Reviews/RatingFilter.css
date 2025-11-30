@@ -1,0 +1,49 @@
+.rating-filter {
+  margin-bottom: 2rem;
+}
+
+.filter-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 0.75rem;
+}
+
+.rating-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rating-option {
+  padding: 0.75rem 1rem;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #cbd5e1;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.rating-option:hover {
+  background: #334155;
+  border-color: #475569;
+}
+
+.rating-option.active {
+  background: #0f172a;
+  border-color: #fbbf24;
+  color: #fbbf24;
+}
+
+.filter-stars {
+  color: #fbbf24;
+  margin-right: 0.5rem;
+}
+
+.star {
+  font-size: 0.9rem;
+}
+

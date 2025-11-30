@@ -6,6 +6,8 @@ export interface ProductSummary {
   imageUrl?: string;
   categories: string[];
   tags: string[];
+  averageRating?: number;
+  reviewCount?: number;
 }
 
 export interface ProductListResponse {
@@ -41,6 +43,8 @@ export interface ProductDetail {
   createdAt: string;
   updatedAt: string;
   availability: AvailabilityInfo[];
+  averageRating?: number;
+  reviewCount?: number;
   _source?: 'api' | 'user_contribution';
   _userId?: string;
   _archived?: boolean;
@@ -71,6 +75,7 @@ export interface ProductFilters {
   q?: string;
   category?: string;
   tag?: string;
+  minRating?: number;
   page?: number;
   pageSize?: number;
 }

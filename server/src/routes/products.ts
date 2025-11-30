@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { productService } from '../services';
+import { productService } from '../services/productService';
 import { HttpError } from '../middleware/errorHandler';
 import { optionalAuthMiddleware } from '../middleware/auth';
 
@@ -52,12 +52,13 @@ router.get('/tags/all', async (req: Request, res: Response, next: NextFunction) 
 // GET /api/products - List products with optional filters
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { q, category, tag, page, pageSize } = req.query;
+    const { q, category, tag, minRating, page, pageSize } = req.query;
 
     const result = await productService.getProducts({
       q: q as string | undefined,
       category: category as string | undefined,
       tag: tag as string | undefined,
+      minRating: minRating ? parseFloat(minRating as string) : undefined,
       page: page ? parseInt(page as string, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize as string, 10) : undefined,
     });

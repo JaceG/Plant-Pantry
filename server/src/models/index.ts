@@ -8,4 +8,5 @@ export { ShoppingListItem, IShoppingListItem } from './ShoppingListItem';
 export { Contribution, IContribution, ContributionType } from './Contribution';
 export { ArchivedFilter, IArchivedFilter, FilterType } from './ArchivedFilter';
 export { FilterDisplayName, IFilterDisplayName } from './FilterDisplayName';
+export { Review, IReview } from './Review';
 

@@ -1,11 +1,21 @@
 import mongoose from 'mongoose';
-import { Product, IProduct, Availability, Store, UserProduct, ArchivedFilter, FilterDisplayName } from '../models';
+import { Product, IProduct, Availability, Store, UserProduct, ArchivedFilter, FilterDisplayName, Review } from '../models';
 import { availabilityService } from './availabilityService';
+// Temporarily comment out to test
+// import { reviewService } from './reviewService';
+let reviewService: any;
+function getReviewService() {
+  if (!reviewService) {
+    reviewService = require('./reviewService').reviewService;
+  }
+  return reviewService;
+}
 
 export interface ProductFilters {
   q?: string;
   category?: string;
   tag?: string;
+  minRating?: number;
   page?: number;
   pageSize?: number;
 }
@@ -18,6 +28,8 @@ export interface ProductSummary {
   imageUrl?: string;
   categories: string[];
   tags: string[];
+  averageRating?: number;
+  reviewCount?: number;
 }
 
 export interface ProductListResult {
@@ -53,14 +65,18 @@ export interface ProductDetail {
   createdAt: Date;
   updatedAt: Date;
   availability: AvailabilityInfo[];
+  averageRating?: number;
+  reviewCount?: number;
   _source?: 'api' | 'user_contribution'; // Metadata to distinguish sources
   _userId?: string; // For user products
+  _archived?: boolean; // For admin panel
+  _archivedAt?: string; // For admin panel
 }
 
 export const productService = {
   async getProducts(filters: ProductFilters): Promise<ProductListResult> {
     try {
-      const { q, category, tag, page = 1, pageSize = 20 } = filters;
+      const { q, category, tag, minRating, page = 1, pageSize = 20 } = filters;
       const skip = (page - 1) * pageSize;
 
       // Build query for both Product and UserProduct collections
@@ -122,20 +138,82 @@ export const productService = {
         }
       }
 
+      // If minRating is provided, get product IDs that meet the rating requirement
+      let productIdsWithRating: string[] = [];
+      if (minRating && minRating >= 1 && minRating <= 5) {
+        try {
+          // Check if Review model is available
+          if (!Review || typeof Review.find !== 'function') {
+            console.warn('Review model not available, returning empty results for minRating filter');
+            return {
+              items: [],
+              page,
+              pageSize,
+              totalCount: 0,
+            };
+          }
+          
+          // Get all approved reviews and calculate average ratings per product
+          const reviews = await Review.find({ status: 'approved' }).lean();
+          
+          // Calculate average rating per product
+          const productRatings = new Map<string, { total: number; count: number }>();
+          reviews.forEach((review) => {
+            const productId = review.productId.toString();
+            const current = productRatings.get(productId) || { total: 0, count: 0 };
+            productRatings.set(productId, {
+              total: current.total + review.rating,
+              count: current.count + 1,
+            });
+          });
+
+          // Filter products that meet minRating requirement
+          productIdsWithRating = Array.from(productRatings.entries())
+            .filter(([_, stats]) => stats.total / stats.count >= minRating)
+            .map(([productId]) => productId);
+        } catch (error: any) {
+          // If Review collection doesn't exist or there's an error, treat as no products meet the rating
+          console.warn('Error fetching reviews for minRating filter (this is OK if Review collection is empty):', error?.message || error);
+          console.warn('Error stack:', error?.stack);
+          // Return empty results if minRating filter fails
+          return {
+            items: [],
+            page,
+            pageSize,
+            totalCount: 0,
+          };
+        }
+      }
+
       // Query both Product and UserProduct collections
       // Only include approved, non-archived user products
       // Exclude archived products from public listings
-      const userProductQuery = {
+      const userProductQuery: any = {
         ...query,
         status: 'approved', // Only show approved user products
         archived: { $ne: true }, // Exclude archived products
       };
 
       // Exclude archived API products
-      const apiProductQuery = {
+      const apiProductQuery: any = {
         ...query,
         archived: { $ne: true }, // Exclude archived products
       };
+
+      // If minRating filter is applied, only include products that meet the rating
+      if (minRating && productIdsWithRating.length > 0) {
+        const productObjectIds = productIdsWithRating.map(id => new mongoose.Types.ObjectId(id));
+        userProductQuery._id = { $in: productObjectIds };
+        apiProductQuery._id = { $in: productObjectIds };
+      } else if (minRating && productIdsWithRating.length === 0) {
+        // No products meet the rating requirement
+        return {
+          items: [],
+          page,
+          pageSize,
+          totalCount: 0,
+        };
+      }
 
       const [apiProducts, userProducts, apiCount, userCount] = await Promise.all([
         Product.find(apiProductQuery)
@@ -148,26 +226,95 @@ export const productService = {
         UserProduct.countDocuments(userProductQuery),
       ]);
 
+      // Get all product IDs to fetch rating stats
+      const allProductIds = [
+        ...apiProducts.map(p => p._id.toString()),
+        ...userProducts.map(p => p._id.toString()),
+      ];
+
+      // Get rating stats for all products (with error handling)
+      const ratingStatsMap = new Map<string, { averageRating: number; reviewCount: number }>();
+      
+      if (allProductIds.length > 0) {
+        try {
+          // Check if Review model is available
+          if (!Review || typeof Review.aggregate !== 'function') {
+            console.warn('Review model not available, skipping rating stats');
+          } else {
+            // Use a single aggregation query to get all rating stats at once (more efficient)
+            // Only query if we have valid ObjectIds
+            const productObjectIds = allProductIds
+              .filter(id => mongoose.Types.ObjectId.isValid(id))
+              .map(id => new mongoose.Types.ObjectId(id));
+            
+            if (productObjectIds.length > 0) {
+              const ratingAggregation = await Review.aggregate([
+                {
+                  $match: {
+                    status: 'approved',
+                    productId: { $in: productObjectIds }
+                  }
+                },
+                {
+                  $group: {
+                    _id: '$productId',
+                    averageRating: { $avg: '$rating' },
+                    reviewCount: { $sum: 1 }
+                  }
+                }
+              ]);
+
+              ratingAggregation.forEach((agg: any) => {
+                if (agg._id) {
+                  const productId = agg._id.toString();
+                  const avgRating = Math.round(agg.averageRating * 10) / 10;
+                  ratingStatsMap.set(productId, {
+                    averageRating: avgRating,
+                    reviewCount: agg.reviewCount,
+                  });
+                }
+              });
+            }
+          }
+        } catch (error: any) {
+          // If Review collection doesn't exist or there's an error, just continue without ratings
+          console.warn('Error fetching rating stats (this is OK if Review collection is empty):', error?.message || error);
+          console.warn('Error stack:', error?.stack);
+        }
+      }
+
       // Combine and sort all products
       const allProducts = [
-        ...apiProducts.map((p) => ({
-          id: p._id.toString(),
-          name: p.name,
-          brand: p.brand,
-          sizeOrVariant: p.sizeOrVariant,
-          imageUrl: p.imageUrl,
-          categories: p.categories || [],
-          tags: p.tags || [],
-        })),
-        ...userProducts.map((p) => ({
-          id: p._id.toString(),
-          name: p.name,
-          brand: p.brand,
-          sizeOrVariant: p.sizeOrVariant,
-          imageUrl: p.imageUrl,
-          categories: p.categories || [],
-          tags: p.tags || [],
-        })),
+        ...apiProducts.map((p) => {
+          const id = p._id.toString();
+          const stats = ratingStatsMap.get(id);
+          return {
+            id,
+            name: p.name,
+            brand: p.brand,
+            sizeOrVariant: p.sizeOrVariant,
+            imageUrl: p.imageUrl,
+            categories: p.categories || [],
+            tags: p.tags || [],
+            averageRating: stats?.averageRating,
+            reviewCount: stats?.reviewCount,
+          };
+        }),
+        ...userProducts.map((p) => {
+          const id = p._id.toString();
+          const stats = ratingStatsMap.get(id);
+          return {
+            id,
+            name: p.name,
+            brand: p.brand,
+            sizeOrVariant: p.sizeOrVariant,
+            imageUrl: p.imageUrl,
+            categories: p.categories || [],
+            tags: p.tags || [],
+            averageRating: stats?.averageRating,
+            reviewCount: stats?.reviewCount,
+          };
+        }),
       ].sort((a, b) => a.name.localeCompare(b.name));
 
       // Apply pagination after sorting
@@ -273,6 +420,9 @@ export const productService = {
       };
     });
 
+    // Get rating stats for this product
+    const ratingStats = await getReviewService().getProductRatingStats(product._id.toString());
+
     return {
       id: product._id.toString(),
       name: product.name,
@@ -288,6 +438,8 @@ export const productService = {
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
       availability: availabilityInfo,
+      averageRating: ratingStats.totalCount > 0 ? ratingStats.averageRating : undefined,
+      reviewCount: ratingStats.totalCount > 0 ? ratingStats.totalCount : undefined,
       _source: isUserProduct ? 'user_contribution' : 'api',
       _userId: isUserProduct ? (product as any).userId?.toString() : undefined,
       _archived: product.archived || false,
@@ -384,16 +536,17 @@ export const productService = {
   },
 
   async getCategories(): Promise<string[]> {
-    // Get categories from both Product and approved, non-archived UserProduct collections
-    const [apiCategories, userCategories, archivedFilters, displayNames] = await Promise.all([
-      Product.distinct('categories', { archived: { $ne: true } }),
-      UserProduct.distinct('categories', { 
-        status: 'approved',
-        archived: { $ne: true },
-      }),
-      ArchivedFilter.distinct('value', { type: 'category' }),
-      FilterDisplayName.find({ type: 'category' }).lean(),
-    ]);
+    try {
+      // Get categories from both Product and approved, non-archived UserProduct collections
+      const [apiCategories, userCategories, archivedFilters, displayNames] = await Promise.all([
+        Product.distinct('categories', { archived: { $ne: true } }),
+        UserProduct.distinct('categories', { 
+          status: 'approved',
+          archived: { $ne: true },
+        }),
+        ArchivedFilter.distinct('value', { type: 'category' }).catch(() => []),
+        FilterDisplayName.find({ type: 'category' }).lean().catch(() => []),
+      ]);
     
     // Language prefixes to filter out (non-English)
     const nonEnglishPrefixes = /^(de|el|es|fr|nl|pt|zh):/i;
@@ -481,6 +634,11 @@ export const productService = {
     });
     
     return validCategories.sort();
+    } catch (error: any) {
+      console.error('Error in getCategories:', error);
+      // Return empty array on error to prevent crashes
+      return [];
+    }
   },
 
   /**

@@ -101,6 +101,33 @@
   color: var(--color-stone);
 }
 
+.product-rating {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.product-rating-stars {
+  display: flex;
+  gap: 0.1rem;
+}
+
+.product-rating-stars .star {
+  font-size: 0.9rem;
+  color: #fbbf24;
+}
+
+.product-rating-stars .star-empty {
+  color: #cbd5e1;
+}
+
+.product-rating-text {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: var(--color-stone);
+}
+
 .product-tags {
   display: flex;
   flex-wrap: wrap;

@@ -9,17 +9,20 @@ export function HomeScreen() {
   const initialQuery = searchParams.get('q') || '';
   const initialCategory = searchParams.get('category') || null;
   const initialTag = searchParams.get('tag') || null;
+  const initialRating = searchParams.get('minRating') ? parseFloat(searchParams.get('minRating')!) : undefined;
   const initialPage = parseInt(searchParams.get('page') || '1', 10);
   
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategory);
   const [selectedTag, setSelectedTag] = useState<string | null>(initialTag);
+  const [selectedRating, setSelectedRating] = useState<number | undefined>(initialRating);
   
   // Initialize useProducts with filters from URL
   const { products, loading, error, totalCount, page, totalPages, goToPage, fetchProducts } = useProducts({
     q: initialQuery || undefined,
     category: initialCategory || undefined,
     tag: initialTag || undefined,
+    minRating: initialRating,
     page: initialPage,
   });
   const { categories, loading: categoriesLoading } = useCategories();
@@ -39,10 +42,11 @@ export function HomeScreen() {
     const queryParam = searchParams.get('q') || '';
     const categoryParam = searchParams.get('category') || null;
     const tagParam = searchParams.get('tag') || null;
+    const ratingParam = searchParams.get('minRating') ? parseFloat(searchParams.get('minRating')!) : undefined;
     const pageParam = parseInt(searchParams.get('page') || '1', 10);
     
     // Create a string representation of current params for comparison (excluding page)
-    const currentParams = `${queryParam}|${categoryParam}|${tagParam}`;
+    const currentParams = `${queryParam}|${categoryParam}|${tagParam}|${ratingParam || ''}`;
     
     // On initial mount, just set the ref and mark as mounted
     if (!isMountedRef.current) {
@@ -56,12 +60,14 @@ export function HomeScreen() {
       setSearchQuery(queryParam);
       setSelectedCategory(categoryParam);
       setSelectedTag(tagParam);
+      setSelectedRating(ratingParam);
       
       // Fetch with new filters (this resets to page 1)
       fetchProducts({ 
         q: queryParam || undefined, 
         category: categoryParam || undefined,
         tag: tagParam || undefined,
+        minRating: ratingParam,
         page: 1,
       });
       
@@ -82,9 +88,10 @@ export function HomeScreen() {
       } else {
         newParams.delete('q');
       }
-      // Preserve category and tag if they exist
+      // Preserve category, tag, and rating if they exist
       if (selectedCategory) newParams.set('category', selectedCategory);
       if (selectedTag) newParams.set('tag', selectedTag);
+      if (selectedRating) newParams.set('minRating', selectedRating.toString());
       newParams.delete('page'); // Reset to page 1
       
       const newSearch = newParams.toString();
@@ -94,10 +101,11 @@ export function HomeScreen() {
         q: query || undefined, 
         category: selectedCategory || undefined,
         tag: selectedTag || undefined,
+        minRating: selectedRating,
         page: 1,
       });
     },
-    [fetchProducts, selectedCategory, selectedTag, searchParams]
+    [fetchProducts, selectedCategory, selectedTag, selectedRating, searchParams]
   );
 
   const handleCategorySelect = useCallback(
@@ -112,6 +120,7 @@ export function HomeScreen() {
       }
       if (searchQuery) newParams.set('q', searchQuery);
       if (selectedTag) newParams.set('tag', selectedTag);
+      if (selectedRating) newParams.set('minRating', selectedRating.toString());
       newParams.delete('page'); // Reset to page 1
       
       const newSearch = newParams.toString();
@@ -121,10 +130,11 @@ export function HomeScreen() {
         q: searchQuery || undefined, 
         category: category || undefined,
         tag: selectedTag || undefined,
+        minRating: selectedRating,
         page: 1,
       });
     },
-    [fetchProducts, searchQuery, selectedTag, searchParams]
+    [fetchProducts, searchQuery, selectedTag, selectedRating, searchParams]
   );
 
   const handleTagSelect = useCallback(
@@ -139,6 +149,7 @@ export function HomeScreen() {
       }
       if (searchQuery) newParams.set('q', searchQuery);
       if (selectedCategory) newParams.set('category', selectedCategory);
+      if (selectedRating) newParams.set('minRating', selectedRating.toString());
       newParams.delete('page'); // Reset to page 1
       
       const newSearch = newParams.toString();
@@ -148,10 +159,11 @@ export function HomeScreen() {
         q: searchQuery || undefined, 
         category: selectedCategory || undefined,
         tag: tag || undefined,
+        minRating: selectedRating,
         page: 1,
       });
     },
-    [fetchProducts, searchQuery, selectedCategory, searchParams]
+    [fetchProducts, searchQuery, selectedCategory, selectedRating, searchParams]
   );
 
   const handlePageChange = useCallback(
@@ -164,6 +176,7 @@ export function HomeScreen() {
       if (searchQuery) newParams.set('q', searchQuery);
       if (selectedCategory) newParams.set('category', selectedCategory);
       if (selectedTag) newParams.set('tag', selectedTag);
+      if (selectedRating) newParams.set('minRating', selectedRating.toString());
       if (newPage > 1) {
         newParams.set('page', newPage.toString());
       } else {
@@ -176,7 +189,7 @@ export function HomeScreen() {
       // Call goToPage to fetch the new page
       goToPage(newPage);
     },
-    [goToPage, searchQuery, selectedCategory, selectedTag, searchParams]
+    [goToPage, searchQuery, selectedCategory, selectedTag, selectedRating, searchParams]
   );
 
   return (
@@ -209,8 +222,34 @@ export function HomeScreen() {
             categories={categories}
             selectedCategory={selectedCategory}
             selectedTag={selectedTag}
+            selectedRating={selectedRating}
             onCategorySelect={handleCategorySelect}
             onTagSelect={handleTagSelect}
+            onRatingChange={(rating) => {
+              setSelectedRating(rating);
+              // Update URL (reset to page 1)
+              const newParams = new URLSearchParams(searchParams);
+              if (searchQuery) newParams.set('q', searchQuery);
+              if (selectedCategory) newParams.set('category', selectedCategory);
+              if (selectedTag) newParams.set('tag', selectedTag);
+              if (rating) {
+                newParams.set('minRating', rating.toString());
+              } else {
+                newParams.delete('minRating');
+              }
+              newParams.delete('page'); // Reset to page 1
+              
+              const newSearch = newParams.toString();
+              window.history.replaceState({}, '', newSearch ? `/?${newSearch}` : '/');
+              
+              fetchProducts({ 
+                q: searchQuery || undefined, 
+                category: selectedCategory || undefined,
+                tag: selectedTag || undefined,
+                minRating: rating,
+                page: 1,
+              });
+            }}
             loading={categoriesLoading}
           />
 
@@ -237,7 +276,7 @@ export function HomeScreen() {
               products={products}
               loading={loading}
               emptyMessage={
-                searchQuery || selectedCategory || selectedTag
+                searchQuery || selectedCategory || selectedTag || selectedRating
                   ? `No products found matching your filters`
                   : 'No products available'
               }
