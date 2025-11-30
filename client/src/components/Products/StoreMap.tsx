@@ -63,7 +63,7 @@ export function StoreMap({ stores, selectedStoreId, height = '400px' }: StoreMap
 
     // Load the script
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`;
     script.async = true;
     script.defer = true;
     script.onload = () => {
@@ -137,11 +137,11 @@ export function StoreMap({ stores, selectedStoreId, height = '400px' }: StoreMap
         title: store.name,
         icon: store.id === selectedStoreId
           ? {
-              url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+              url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
               scaledSize: new window.google.maps.Size(32, 32),
             }
           : {
-              url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
+              url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
               scaledSize: new window.google.maps.Size(24, 24),
             },
       });
