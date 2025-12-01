@@ -35,11 +35,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       try {
-        const response = await authApi.getMe();
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+        );
+        
+        const response = await Promise.race([
+          authApi.getMe(),
+          timeoutPromise
+        ]) as { user: User };
+        
         setUser(response.user);
         setToken(storedToken);
       } catch (error) {
-        // Token is invalid or expired
+        // Token is invalid or expired, or request timed out
         console.error('Failed to load user:', error);
         httpClient.removeToken();
       } finally {
