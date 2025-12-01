@@ -118,23 +118,29 @@ export const productService = {
       }
 
       if (tag) {
-        // Similar logic for tags
-        const normalizedTag = tag.replace(/^en:/, '').replace(/-/g, ' ');
+        // Tags are stored in database as: 'organic', 'gluten-free', 'no-sugar-added', etc.
+        // Frontend sends: 'organic', 'gluten-free', etc.
+        // Remove en: prefix if present, but keep dashes (database uses dashes)
+        const cleanTag = tag.replace(/^en:/, '').toLowerCase();
         
+        // Check FilterDisplayName mapping first (for custom display names)
         const displayNames = await FilterDisplayName.find({ type: 'tag' }).lean();
         const displayToDbValue = new Map<string, string>();
         displayNames.forEach(dn => {
-          const cleaned = dn.value.replace(/^en:/, '').replace(/-/g, ' ');
+          const cleaned = dn.value.replace(/^en:/, '').toLowerCase();
           displayToDbValue.set(dn.displayName.toLowerCase(), dn.value);
-          displayToDbValue.set(cleaned.toLowerCase(), dn.value);
+          displayToDbValue.set(cleaned, dn.value);
         });
         
-        const dbValue = displayToDbValue.get(normalizedTag.toLowerCase());
+        // Check if we have a display name mapping
+        const dbValue = displayToDbValue.get(cleanTag);
         if (dbValue) {
+          // Use the mapped database value
           query.tags = dbValue;
         } else {
-          const tagRegex = new RegExp(`^en:?${normalizedTag.replace(/ /g, '[- ]')}$`, 'i');
-          query.tags = { $regex: tagRegex };
+          // Direct match - tags are stored exactly as: 'organic', 'gluten-free', etc.
+          // Match the tag directly (case-insensitive)
+          query.tags = { $regex: new RegExp(`^${cleanTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
         }
       }
 
