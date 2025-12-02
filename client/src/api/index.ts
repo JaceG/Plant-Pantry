@@ -12,3 +12,4 @@ export type {
 	CityProduct,
 	CityProductsResponse,
 } from './citiesApi';
+export type { FeaturedProduct } from './adminApi';
