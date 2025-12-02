@@ -143,6 +143,67 @@
   background-color: rgba(0, 0, 0, 0.1);
 }
 
+.tag-selection-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+
+.tag-selection-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-white);
+  color: var(--color-charcoal);
+  border: 2px solid var(--color-sage-light);
+  border-radius: var(--radius-xl);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+  min-height: 40px;
+  min-width: 100px;
+  text-align: center;
+  justify-content: center;
+}
+
+.tag-selection-button:hover {
+  border-color: var(--color-sage);
+  background: var(--color-mint);
+  color: var(--color-forest);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.tag-selection-button.selected {
+  background: var(--color-forest);
+  color: var(--color-white);
+  border-color: var(--color-forest);
+  box-shadow: var(--shadow-md), 0 0 0 3px rgba(52, 78, 65, 0.1);
+  font-weight: 600;
+}
+
+.tag-selection-button.selected:hover {
+  background: var(--color-sage-dark);
+  border-color: var(--color-sage-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg), 0 0 0 3px rgba(52, 78, 65, 0.15);
+}
+
+.tag-check {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-left: var(--spacing-xs);
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
 .checkbox-group label {
   display: flex;
   align-items: center;
