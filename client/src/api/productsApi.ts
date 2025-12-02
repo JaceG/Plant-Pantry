@@ -5,6 +5,7 @@ import {
 	ProductFilters,
 	CategoriesResponse,
 	TagsResponse,
+	ProductSummary,
 } from '../types';
 
 function buildQueryString(filters: ProductFilters): string {
@@ -52,5 +53,23 @@ export const productsApi = {
 
 	getAllTags(): Promise<TagsResponse> {
 		return httpClient.get<TagsResponse>('/products/tags/all');
+	},
+
+	getFeaturedProducts(
+		limit?: number
+	): Promise<{ products: ProductSummary[] }> {
+		const query = limit ? `?limit=${limit}` : '';
+		return httpClient.get<{ products: ProductSummary[] }>(
+			`/products/featured${query}`
+		);
+	},
+
+	getDiscoverProducts(
+		limit?: number
+	): Promise<{ products: ProductSummary[] }> {
+		const query = limit ? `?limit=${limit}` : '';
+		return httpClient.get<{ products: ProductSummary[] }>(
+			`/products/discover${query}`
+		);
 	},
 };

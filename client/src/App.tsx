@@ -11,12 +11,14 @@ import { Header } from './components';
 import { ProtectedRoute } from './components/Common/ProtectedRoute';
 import {
 	HomeScreen,
+	LandingScreen,
 	ProductDetailScreen,
 	ShoppingListScreen,
 	AddProductScreen,
 	LoginScreen,
 	SignupScreen,
 } from './screens';
+import { CityLandingScreen } from './screens/CityLandingScreen';
 import {
 	AdminDashboard,
 	AdminProducts,
@@ -24,6 +26,10 @@ import {
 	AdminUsers,
 	AdminFilters,
 	AdminReviews,
+	AdminFeaturedProducts,
+	AdminCityPages,
+	AdminCityPageEditor,
+	AdminStoreAvailability,
 } from './screens/admin';
 import { listsApi } from './api';
 import './App.css';
@@ -111,6 +117,38 @@ function AppContent() {
 					}
 				/>
 				<Route
+					path='/admin/featured'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminFeaturedProducts />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path='/admin/cities'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminCityPages />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path='/admin/cities/:slug'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminCityPageEditor />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path='/admin/availability'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminStoreAvailability />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
 					path='/admin/*'
 					element={<Navigate to='/admin' replace />}
 				/>
@@ -124,7 +162,12 @@ function AppContent() {
 			<main className='app-main'>
 				<Routes>
 					{/* Public routes */}
-					<Route path='/' element={<HomeScreen />} />
+					<Route path='/' element={<LandingScreen />} />
+					<Route path='/search' element={<HomeScreen />} />
+					<Route
+						path='/cities/:slug'
+						element={<CityLandingScreen />}
+					/>
 					<Route
 						path='/products/:id'
 						element={<ProductDetailScreen />}

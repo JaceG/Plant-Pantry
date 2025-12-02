@@ -6,4 +6,4 @@ export { default as listRoutes } from './lists';
 export { default as authRoutes } from './auth';
 export { default as adminRoutes } from './admin';
 export { default as reviewRoutes } from './reviews';
-
+export { default as cityRoutes } from './cities';

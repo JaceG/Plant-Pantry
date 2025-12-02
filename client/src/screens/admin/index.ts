@@ -5,4 +5,7 @@ export { AdminStores } from './AdminStores';
 export { AdminUsers } from './AdminUsers';
 export { AdminFilters } from './AdminFilters';
 export { AdminReviews } from './AdminReviews';
-
+export { AdminFeaturedProducts } from './AdminFeaturedProducts';
+export { AdminCityPages } from './AdminCityPages';
+export { AdminCityPageEditor } from './AdminCityPageEditor';
+export { AdminStoreAvailability } from './AdminStoreAvailability';

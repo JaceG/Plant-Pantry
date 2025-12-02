@@ -5,4 +5,10 @@ export { storesApi } from './storesApi';
 export { listsApi } from './listsApi';
 export { authApi } from './authApi';
 export { adminApi } from './adminApi';
-
+export { citiesApi } from './citiesApi';
+export type {
+	CityPageData,
+	CityStore,
+	CityProduct,
+	CityProductsResponse,
+} from './citiesApi';

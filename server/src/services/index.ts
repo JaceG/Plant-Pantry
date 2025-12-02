@@ -6,4 +6,4 @@ export { googlePlacesService } from './googlePlacesService';
 export { authService, AuthServiceError } from './authService';
 export { adminService } from './adminService';
 export { reviewService } from './reviewService';
-
+export { cityService } from './cityService';
