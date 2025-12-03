@@ -6,16 +6,23 @@
 .autocomplete-input {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-sage-light);
   border-radius: 6px;
   font-size: 1rem;
   font-family: inherit;
+  color: var(--color-charcoal);
+  background: var(--color-white);
   transition: border-color 0.2s;
+}
+
+.autocomplete-input::placeholder {
+  color: var(--color-stone);
 }
 
 .autocomplete-input:focus {
   outline: none;
-  border-color: var(--color-primary);
+  border-color: var(--color-forest);
+  box-shadow: 0 0 0 3px rgba(52, 78, 65, 0.1);
 }
 
 .autocomplete-input:disabled {
@@ -29,8 +36,8 @@
   left: 0;
   right: 0;
   margin-top: 0.25rem;
-  background: white;
-  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  border: 1px solid var(--color-sage-light);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   max-height: 200px;
@@ -42,7 +49,8 @@
   padding: 0.75rem;
   cursor: pointer;
   transition: background-color 0.2s;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-sage-light);
+  color: var(--color-charcoal);
 }
 
 .autocomplete-option:last-child {
@@ -51,13 +59,13 @@
 
 .autocomplete-option:hover,
 .autocomplete-option.highlighted {
-  background-color: var(--color-primary-light);
-  color: var(--color-primary);
+  background-color: var(--color-mint);
+  color: var(--color-forest);
 }
 
 .autocomplete-no-results {
   padding: 0.75rem;
-  color: var(--color-text-secondary);
+  color: var(--color-stone);
   text-align: center;
   font-style: italic;
 }
@@ -65,12 +73,12 @@
 .autocomplete-add-new {
   background-color: var(--color-sage-light);
   font-weight: 500;
-  border-bottom: 2px solid var(--color-border);
+  border-bottom: 2px solid var(--color-sage);
 }
 
 .autocomplete-add-new:hover,
 .autocomplete-add-new.highlighted {
-  background-color: var(--color-primary);
+  background-color: var(--color-forest);
   color: white;
 }
 
@@ -83,7 +91,6 @@
 
 .autocomplete-divider {
   height: 1px;
-  background-color: var(--color-border);
+  background-color: var(--color-sage-light);
   margin: 0.25rem 0;
 }
-

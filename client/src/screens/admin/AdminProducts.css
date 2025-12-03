@@ -11,8 +11,8 @@
   align-items: center;
   gap: 1.5rem;
   padding: 1.25rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-white);
+  border: 1px solid var(--color-sage-light);
   border-radius: 12px;
   transition: all 0.2s ease;
   position: relative;
@@ -21,16 +21,16 @@
 }
 
 .admin-products .product-card:hover {
-  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--color-sage);
 }
 
 .admin-products .product-card.archived {
   opacity: 0.6;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--color-cream);
 }
 
 .admin-products .product-card.archived:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--color-mint);
 }
 
 .admin-products .product-image {
@@ -44,7 +44,7 @@
   border-radius: 8px;
   overflow: hidden;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-cream);
   z-index: 1;
   isolation: isolate;
   box-sizing: border-box;
@@ -92,7 +92,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--color-charcoal);
   font-size: 0.875rem;
   cursor: pointer;
 }
@@ -105,7 +105,7 @@
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--color-sage-light);
 }
 
 .tab-button {
@@ -113,7 +113,7 @@
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-stone);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -121,23 +121,23 @@
 }
 
 .tab-button:hover {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--color-charcoal);
 }
 
 .tab-button.active {
-  color: #fff;
-  border-bottom-color: #a855f7;
+  color: var(--color-forest);
+  border-bottom-color: var(--color-forest);
 }
 
 .page-header h1 {
   font-size: 2rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--color-charcoal);
   margin: 0 0 0.5rem 0;
 }
 
 .page-subtitle {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-stone);
   margin: 0;
 }
 
@@ -166,12 +166,12 @@
 }
 
 .empty-state h2 {
-  color: #fff;
+  color: var(--color-charcoal);
   margin: 0 0 0.5rem 0;
 }
 
 .empty-state p {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-stone);
   margin: 0;
 }
 
@@ -187,8 +187,8 @@
   top: 0.5rem;
   right: 0.5rem;
   padding: 0.25rem 0.5rem;
-  background: rgba(107, 114, 128, 0.9);
-  color: #fff;
+  background: var(--color-stone);
+  color: var(--color-white);
   border-radius: 4px;
   font-size: 0.75rem;
   font-weight: 500;
@@ -203,7 +203,7 @@
 .admin-products .product-name {
   font-size: 1.125rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--color-charcoal);
   margin: 0 0 0.25rem 0;
   white-space: nowrap;
   overflow: hidden;
@@ -211,23 +211,23 @@
 }
 
 .admin-products .product-name a {
-  color: #fff;
+  color: var(--color-charcoal);
   text-decoration: none;
 }
 
 .admin-products .product-name a:hover {
-  color: #c084fc;
+  color: var(--color-forest);
   text-decoration: underline;
 }
 
 .admin-products .product-size {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-stone);
   font-size: 0.8125rem;
   margin: 0 0 0.5rem 0;
 }
 
 .admin-products .product-brand {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-stone);
   font-size: 0.875rem;
   margin: 0 0 0.75rem 0;
 }
@@ -241,22 +241,22 @@
 
 .admin-products .category-tag {
   padding: 0.25rem 0.5rem;
-  background: rgba(168, 85, 247, 0.2);
+  background: var(--color-sage-light);
   border-radius: 4px;
   font-size: 0.75rem;
-  color: #c084fc;
+  color: var(--color-forest);
 }
 
 .admin-products .category-more {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-stone);
 }
 
 .admin-products .product-meta {
   display: flex;
   gap: 1rem;
   font-size: 0.8125rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-stone);
 }
 
 .admin-products .product-actions {
@@ -273,11 +273,11 @@
   gap: 1rem;
   margin-top: 2rem;
   padding-top: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--color-sage-light);
 }
 
 .page-info {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-stone);
   font-size: 0.875rem;
 }
 

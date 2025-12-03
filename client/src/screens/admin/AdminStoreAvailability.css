@@ -8,12 +8,12 @@
 
 .admin-store-availability .page-header h1 {
 	font-size: 1.75rem;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 	margin: 0 0 0.5rem 0;
 }
 
 .admin-store-availability .page-subtitle {
-	color: var(--text-secondary);
+	color: var(--color-stone);
 	margin: 0;
 }
 
@@ -29,15 +29,15 @@
 }
 
 .admin-store-availability .error-message {
-	background: var(--error-bg, #fef2f2);
-	color: var(--error-text, #dc2626);
-	border: 1px solid var(--error-border, #fecaca);
+	background: rgba(209, 107, 85, 0.1);
+	color: var(--color-terracotta);
+	border: 1px solid var(--color-terracotta);
 }
 
 .admin-store-availability .success-message {
-	background: var(--success-bg, #f0fdf4);
-	color: var(--success-text, #16a34a);
-	border: 1px solid var(--success-border, #bbf7d0);
+	background: rgba(88, 129, 87, 0.1);
+	color: var(--color-sage-dark);
+	border: 1px solid var(--color-sage-dark);
 }
 
 /* Layout */
@@ -50,10 +50,10 @@
 
 /* Store Selection Panel */
 .store-selection-panel {
-	background: var(--surface-bg, #f8fafc);
+	background: var(--color-white);
 	border-radius: 12px;
 	padding: 1rem;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 	max-height: calc(100vh - 200px);
 	display: flex;
 	flex-direction: column;
@@ -62,13 +62,13 @@
 .store-selection-panel h2 {
 	font-size: 1rem;
 	margin: 0 0 0.75rem 0;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 }
 
 .store-filter-input {
 	width: 100%;
 	padding: 0.5rem 0.75rem;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 	border-radius: 6px;
 	font-size: 0.875rem;
 	margin-bottom: 0.75rem;
@@ -76,7 +76,7 @@
 
 .store-filter-input:focus {
 	outline: none;
-	border-color: var(--primary-color, #16a34a);
+	border-color: var(--color-forest);
 }
 
 .store-list {
@@ -101,11 +101,11 @@
 }
 
 .store-item:hover {
-	background: var(--hover-bg, #e2e8f0);
+	background: var(--color-mint);
 }
 
 .store-item.selected {
-	background: var(--primary-color, #16a34a);
+	background: var(--color-forest);
 	color: white;
 }
 
@@ -122,7 +122,7 @@
 
 .no-stores {
 	text-align: center;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 	font-size: 0.875rem;
 	padding: 1rem;
 }
@@ -143,7 +143,7 @@
 
 .empty-state {
 	text-align: center;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 }
 
 .empty-state .empty-icon {
@@ -154,7 +154,7 @@
 
 .empty-state h3 {
 	margin: 0 0 0.5rem 0;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 }
 
 .empty-state p {
@@ -164,33 +164,33 @@
 /* Selected Store Header */
 .selected-store-header {
 	padding-bottom: 1rem;
-	border-bottom: 1px solid var(--border-color, #e2e8f0);
+	border-bottom: 1px solid var(--color-sage-light);
 }
 
 .selected-store-header h2 {
 	margin: 0 0 0.25rem 0;
 	font-size: 1.25rem;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 }
 
 .selected-store-header .store-details {
 	margin: 0;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 	font-size: 0.875rem;
 }
 
 /* Add Products Section */
 .add-products-section {
-	background: var(--surface-bg, #f8fafc);
+	background: var(--color-white);
 	border-radius: 12px;
 	padding: 1.25rem;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 }
 
 .add-products-section h3 {
 	margin: 0 0 1rem 0;
 	font-size: 1rem;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 }
 
 .search-box {
@@ -202,19 +202,19 @@
 .search-input {
 	flex: 1;
 	padding: 0.625rem 0.875rem;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 	border-radius: 8px;
 	font-size: 0.875rem;
 }
 
 .search-input:focus {
 	outline: none;
-	border-color: var(--primary-color, #16a34a);
+	border-color: var(--color-forest);
 }
 
 .search-button {
 	padding: 0.625rem 1.25rem;
-	background: var(--primary-color, #16a34a);
+	background: var(--color-forest);
 	color: white;
 	border: none;
 	border-radius: 8px;
@@ -224,7 +224,7 @@
 }
 
 .search-button:hover:not(:disabled) {
-	background: var(--primary-hover, #15803d);
+	background: var(--color-sage-dark);
 }
 
 .search-button:disabled {
@@ -246,9 +246,9 @@
 	align-items: center;
 	gap: 0.75rem;
 	padding: 0.5rem;
-	background: white;
+	background: var(--color-white);
 	border-radius: 8px;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 }
 
 .result-image {
@@ -256,7 +256,7 @@
 	height: 40px;
 	border-radius: 6px;
 	overflow: hidden;
-	background: var(--surface-bg, #f8fafc);
+	background: var(--color-cream);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -282,7 +282,7 @@
 	display: block;
 	font-weight: 500;
 	font-size: 0.875rem;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -291,12 +291,12 @@
 .result-brand {
 	display: block;
 	font-size: 0.75rem;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 }
 
 .add-button {
 	padding: 0.375rem 0.75rem;
-	background: var(--primary-color, #16a34a);
+	background: var(--color-forest);
 	color: white;
 	border: none;
 	border-radius: 6px;
@@ -307,7 +307,7 @@
 }
 
 .add-button:hover {
-	background: var(--primary-hover, #15803d);
+	background: var(--color-sage-dark);
 }
 
 /* Current Products Section */
@@ -318,7 +318,7 @@
 .current-products-section h3 {
 	margin: 0 0 1rem 0;
 	font-size: 1rem;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 }
 
 .loading-products {
@@ -327,20 +327,20 @@
 	justify-content: center;
 	gap: 0.75rem;
 	padding: 2rem;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 }
 
 .empty-products {
 	text-align: center;
 	padding: 2rem;
-	background: var(--surface-bg, #f8fafc);
+	background: var(--color-white);
 	border-radius: 12px;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 }
 
 .empty-products p {
 	margin: 0;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 }
 
 .empty-products .hint {
@@ -360,9 +360,9 @@
 	align-items: center;
 	gap: 0.75rem;
 	padding: 0.75rem;
-	background: var(--surface-bg, #f8fafc);
+	background: var(--color-white);
 	border-radius: 10px;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 }
 
 .product-image {
@@ -370,7 +370,7 @@
 	height: 48px;
 	border-radius: 8px;
 	overflow: hidden;
-	background: white;
+	background: var(--color-cream);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -396,7 +396,7 @@
 	display: block;
 	font-weight: 500;
 	font-size: 0.9375rem;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -405,13 +405,13 @@
 .product-brand {
 	display: block;
 	font-size: 0.8125rem;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 }
 
 .product-price {
 	display: block;
 	font-size: 0.75rem;
-	color: var(--primary-color, #16a34a);
+	color: var(--color-sage-dark);
 	font-weight: 500;
 	margin-top: 0.125rem;
 }
@@ -433,18 +433,18 @@
 }
 
 .status-badge {
-	background: var(--primary-bg, #dcfce7);
-	color: var(--primary-color, #16a34a);
+	background: var(--color-sage-light);
+	color: var(--color-forest);
 }
 
 .status-badge.status-unknown {
-	background: var(--warning-bg, #fef3c7);
-	color: var(--warning-text, #d97706);
+	background: rgba(209, 107, 85, 0.15);
+	color: var(--color-terracotta);
 }
 
 .source-badge {
-	background: var(--neutral-bg, #f1f5f9);
-	color: var(--text-secondary);
+	background: var(--color-mint);
+	color: var(--color-stone);
 }
 
 .remove-button {
@@ -454,9 +454,9 @@
 	align-items: center;
 	justify-content: center;
 	background: transparent;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 	border-radius: 6px;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 	font-size: 1.25rem;
 	cursor: pointer;
 	transition: all 0.15s ease;
@@ -464,17 +464,17 @@
 }
 
 .remove-button:hover {
-	background: var(--error-bg, #fef2f2);
-	border-color: var(--error-border, #fecaca);
-	color: var(--error-text, #dc2626);
+	background: rgba(209, 107, 85, 0.1);
+	border-color: var(--color-terracotta);
+	color: var(--color-terracotta);
 }
 
 /* Loading Spinner */
 .loading-spinner {
 	width: 20px;
 	height: 20px;
-	border: 2px solid var(--border-color, #e2e8f0);
-	border-top-color: var(--primary-color, #16a34a);
+	border: 2px solid var(--color-sage-light);
+	border-top-color: var(--color-forest);
 	border-radius: 50%;
 	animation: spin 0.8s linear infinite;
 }

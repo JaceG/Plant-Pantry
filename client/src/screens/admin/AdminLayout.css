@@ -1,7 +1,7 @@
 .admin-layout {
   display: flex;
   min-height: 100vh;
-  background: #0f172a;
+  background: var(--color-cream);
 }
 
 /* Sidebar */
@@ -109,7 +109,7 @@
   min-height: 100vh;
   position: relative;
   z-index: 1;
-  background: #0f172a;
+  background: var(--color-cream);
 }
 
 /* Responsive */

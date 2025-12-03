@@ -10,12 +10,12 @@
 .page-header h1 {
   font-size: 2rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--color-charcoal);
   margin: 0 0 0.5rem 0;
 }
 
 .page-subtitle {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-stone);
   margin: 0;
 }
 
@@ -44,20 +44,20 @@
 }
 
 .empty-state h2 {
-  color: #fff;
+  color: var(--color-charcoal);
   margin: 0 0 0.5rem 0;
 }
 
 .empty-state p {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-stone);
   margin: 0;
 }
 
 /* Table */
 .users-table-container {
   overflow-x: auto;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-white);
+  border: 1px solid var(--color-sage-light);
   border-radius: 12px;
 }
 
@@ -72,24 +72,24 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: rgba(255, 255, 255, 0.5);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--color-stone);
+  border-bottom: 1px solid var(--color-sage-light);
   font-weight: 600;
 }
 
 .users-table td {
   padding: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.8);
+  border-bottom: 1px solid var(--color-mint);
+  color: var(--color-charcoal);
   vertical-align: middle;
 }
 
 .users-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--color-mint);
 }
 
 .users-table tbody tr.current-user {
-  background: rgba(168, 85, 247, 0.05);
+  background: var(--color-sage-light);
 }
 
 .users-table tbody tr:last-child td {
@@ -108,11 +108,11 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+  background: var(--color-sage-light);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--color-forest);
   font-weight: 600;
   font-size: 1rem;
   flex-shrink: 0;
@@ -126,7 +126,7 @@
 
 .user-name {
   font-weight: 500;
-  color: #fff;
+  color: var(--color-charcoal);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -134,13 +134,13 @@
 
 .you-badge {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-stone);
   font-weight: normal;
 }
 
 .user-email {
   font-size: 0.8125rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-stone);
 }
 
 /* Role Badge */
@@ -153,28 +153,28 @@
 }
 
 .role-badge.role-admin {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: rgba(209, 107, 85, 0.2);
+  color: var(--color-terracotta);
 }
 
 .role-badge.role-moderator {
-  background: rgba(168, 85, 247, 0.2);
-  color: #c084fc;
+  background: var(--color-sage-light);
+  color: var(--color-forest);
 }
 
 .role-badge.role-user {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.7);
+  background: var(--color-mint);
+  color: var(--color-stone);
 }
 
 .products-count {
   font-weight: 500;
-  color: #22c55e;
+  color: var(--color-sage-dark);
 }
 
 .date-cell {
   font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-stone);
 }
 
 .actions-cell {
@@ -183,31 +183,31 @@
 
 .role-select {
   padding: 0.5rem 0.75rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--color-white);
+  border: 1px solid var(--color-sage-light);
   border-radius: 6px;
-  color: #fff;
+  color: var(--color-charcoal);
   font-size: 0.8125rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .role-select:hover {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--color-sage);
 }
 
 .role-select:focus {
   outline: none;
-  border-color: #a855f7;
+  border-color: var(--color-forest);
 }
 
 .role-select option {
-  background: #1e293b;
-  color: #fff;
+  background: var(--color-white);
+  color: var(--color-charcoal);
 }
 
 .no-action {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--color-stone);
 }
 
 /* Pagination */
@@ -218,11 +218,11 @@
   gap: 1rem;
   margin-top: 2rem;
   padding-top: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--color-sage-light);
 }
 
 .page-info {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-stone);
   font-size: 0.875rem;
 }
 

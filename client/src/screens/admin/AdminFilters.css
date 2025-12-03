@@ -14,19 +14,19 @@
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1.25rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-white);
+  border: 1px solid var(--color-sage-light);
   border-radius: 8px;
   transition: all 0.2s ease;
 }
 
 .filter-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--color-sage);
 }
 
 .filter-item.archived {
   opacity: 0.6;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--color-cream);
 }
 
 .filter-info {
@@ -45,26 +45,26 @@
 .filter-display-name {
   font-size: 1rem;
   font-weight: 500;
-  color: #fff;
+  color: var(--color-charcoal);
   word-break: break-word;
 }
 
 .filter-database-value {
   font-size: 0.8125rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--color-stone);
   font-style: italic;
 }
 
 .filter-value {
   font-size: 1rem;
   font-weight: 500;
-  color: #fff;
+  color: var(--color-charcoal);
   word-break: break-word;
 }
 
 .filter-meta {
   font-size: 0.8125rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-stone);
 }
 
 .filter-actions {
@@ -83,10 +83,10 @@
 
 .filter-edit-input {
   padding: 0.5rem 0.75rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--color-white);
+  border: 1px solid var(--color-sage-light);
   border-radius: 6px;
-  color: #fff;
+  color: var(--color-charcoal);
   font-size: 1rem;
   font-family: inherit;
   width: 100%;
@@ -94,12 +94,12 @@
 
 .filter-edit-input:focus {
   outline: none;
-  border-color: #a855f7;
-  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--color-forest);
+  background: var(--color-white);
 }
 
 .filter-edit-input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--color-stone);
 }
 
 .filter-edit-actions {

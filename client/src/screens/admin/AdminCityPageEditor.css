@@ -14,25 +14,25 @@
 .back-button {
 	background: none;
 	border: none;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 	cursor: pointer;
 	font-size: 0.875rem;
 	padding: 0.5rem 0;
 }
 
 .back-button:hover {
-	color: var(--primary-color, #16a34a);
+	color: var(--color-forest);
 }
 
 .editor-header h1 {
 	flex: 1;
 	margin: 0;
 	font-size: 1.5rem;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 }
 
 .preview-link {
-	color: var(--primary-color, #16a34a);
+	color: var(--color-forest);
 	text-decoration: none;
 	font-size: 0.875rem;
 	font-weight: 500;
@@ -54,22 +54,22 @@
 }
 
 .admin-city-editor .error-message {
-	background: var(--error-bg, #fef2f2);
-	color: var(--error-text, #dc2626);
-	border: 1px solid var(--error-border, #fecaca);
+	background: rgba(209, 107, 85, 0.1);
+	color: var(--color-terracotta);
+	border: 1px solid var(--color-terracotta);
 }
 
 .admin-city-editor .success-message {
-	background: var(--success-bg, #f0fdf4);
-	color: var(--success-text, #16a34a);
-	border: 1px solid var(--success-border, #bbf7d0);
+	background: rgba(88, 129, 87, 0.1);
+	color: var(--color-sage-dark);
+	border: 1px solid var(--color-sage-dark);
 }
 
 /* Tabs */
 .editor-tabs {
 	display: flex;
 	gap: 0.25rem;
-	border-bottom: 2px solid var(--border-color, #e2e8f0);
+	border-bottom: 2px solid var(--color-sage-light);
 	margin-bottom: 1.5rem;
 }
 
@@ -82,7 +82,7 @@
 	border: none;
 	border-bottom: 2px solid transparent;
 	margin-bottom: -2px;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 	font-size: 0.9375rem;
 	font-weight: 500;
 	cursor: pointer;
@@ -90,13 +90,13 @@
 }
 
 .editor-tabs .tab:hover:not(:disabled) {
-	color: var(--text-primary);
-	background: var(--surface-bg, #f8fafc);
+	color: var(--color-charcoal);
+	background: var(--color-mint);
 }
 
 .editor-tabs .tab.active {
-	color: var(--primary-color, #16a34a);
-	border-bottom-color: var(--primary-color, #16a34a);
+	color: var(--color-forest);
+	border-bottom-color: var(--color-forest);
 }
 
 .editor-tabs .tab:disabled {
@@ -110,10 +110,10 @@
 
 /* Tab Content */
 .tab-content {
-	background: var(--surface-bg, #f8fafc);
+	background: var(--color-white);
 	border-radius: 12px;
 	padding: 1.5rem;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 }
 
 /* Info Form */
@@ -138,29 +138,29 @@
 .form-group label {
 	font-size: 0.8125rem;
 	font-weight: 500;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 }
 
 .form-group input,
 .form-group textarea,
 .form-group select {
 	padding: 0.625rem 0.875rem;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 	border-radius: 8px;
 	font-size: 0.9375rem;
-	background: white;
+	background: var(--color-white);
 }
 
 .form-group input:focus,
 .form-group textarea:focus,
 .form-group select:focus {
 	outline: none;
-	border-color: var(--primary-color, #16a34a);
+	border-color: var(--color-forest);
 }
 
 .form-group input:disabled {
-	background: var(--surface-bg, #f1f5f9);
-	color: var(--text-secondary);
+	background: var(--color-cream);
+	color: var(--color-stone);
 }
 
 .state-group {
@@ -179,18 +179,18 @@
 .slug-preview {
 	display: flex;
 	align-items: center;
-	background: white;
-	border: 1px solid var(--border-color, #e2e8f0);
+	background: var(--color-white);
+	border: 1px solid var(--color-sage-light);
 	border-radius: 8px;
 	overflow: hidden;
 }
 
 .slug-prefix {
 	padding: 0.625rem 0.5rem 0.625rem 0.875rem;
-	background: var(--surface-bg, #f1f5f9);
-	color: var(--text-secondary);
+	background: var(--color-cream);
+	color: var(--color-stone);
 	font-size: 0.9375rem;
-	border-right: 1px solid var(--border-color, #e2e8f0);
+	border-right: 1px solid var(--color-sage-light);
 }
 
 .slug-preview input {
@@ -213,13 +213,13 @@
 	gap: 0.5rem;
 	cursor: pointer;
 	font-size: 0.9375rem;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 }
 
 .checkbox-label input[type='checkbox'] {
 	width: 18px;
 	height: 18px;
-	accent-color: var(--primary-color, #16a34a);
+	accent-color: var(--color-forest);
 }
 
 .form-actions {
@@ -230,7 +230,7 @@
 
 .save-button {
 	padding: 0.75rem 1.5rem;
-	background: var(--primary-color, #16a34a);
+	background: var(--color-forest);
 	color: white;
 	border: none;
 	border-radius: 8px;
@@ -241,7 +241,7 @@
 }
 
 .save-button:hover:not(:disabled) {
-	background: var(--primary-hover, #15803d);
+	background: var(--color-sage-dark);
 }
 
 .save-button:disabled {
@@ -266,12 +266,12 @@
 .tab-header h2 {
 	margin: 0;
 	font-size: 1.125rem;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 }
 
 .add-btn {
 	padding: 0.5rem 1rem;
-	background: var(--primary-color, #16a34a);
+	background: var(--color-forest);
 	color: white;
 	border: none;
 	border-radius: 6px;
@@ -281,15 +281,15 @@
 }
 
 .add-btn:hover {
-	background: var(--primary-hover, #15803d);
+	background: var(--color-sage-dark);
 }
 
 /* Add Store Form */
 .add-store-form {
-	background: white;
+	background: var(--color-cream);
 	padding: 1.25rem;
 	border-radius: 10px;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 	display: flex;
 	flex-direction: column;
 	gap: 1rem;
@@ -298,7 +298,7 @@
 .add-store-form h3 {
 	margin: 0 0 0.5rem 0;
 	font-size: 1rem;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 }
 
 .add-store-form .form-row {
@@ -308,7 +308,7 @@
 .submit-btn {
 	align-self: flex-start;
 	padding: 0.625rem 1.25rem;
-	background: var(--primary-color, #16a34a);
+	background: var(--color-forest);
 	color: white;
 	border: none;
 	border-radius: 6px;
@@ -317,7 +317,7 @@
 }
 
 .submit-btn:hover:not(:disabled) {
-	background: var(--primary-hover, #15803d);
+	background: var(--color-sage-dark);
 }
 
 .submit-btn:disabled {
@@ -337,9 +337,9 @@
 	align-items: center;
 	gap: 1rem;
 	padding: 1rem;
-	background: white;
+	background: var(--color-cream);
 	border-radius: 10px;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 }
 
 .store-card .store-info {
@@ -349,13 +349,13 @@
 .store-card h3 {
 	margin: 0 0 0.25rem 0;
 	font-size: 1rem;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 }
 
 .store-address {
 	margin: 0 0 0.5rem 0;
 	font-size: 0.8125rem;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 }
 
 .store-meta {
@@ -367,14 +367,14 @@
 	font-size: 0.75rem;
 	padding: 0.125rem 0.5rem;
 	border-radius: 4px;
-	background: var(--surface-bg, #f1f5f9);
-	color: var(--text-secondary);
+	background: var(--color-mint);
+	color: var(--color-stone);
 	text-transform: capitalize;
 }
 
 .product-count {
-	background: var(--primary-bg, #dcfce7) !important;
-	color: var(--primary-color, #16a34a) !important;
+	background: var(--color-sage-light) !important;
+	color: var(--color-forest) !important;
 }
 
 .remove-btn {
@@ -384,32 +384,32 @@
 	align-items: center;
 	justify-content: center;
 	background: transparent;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 	border-radius: 6px;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 	font-size: 1.25rem;
 	cursor: pointer;
 	transition: all 0.15s ease;
 }
 
 .remove-btn:hover {
-	background: var(--error-bg, #fef2f2);
-	border-color: var(--error-border, #fecaca);
-	color: var(--error-text, #dc2626);
+	background: rgba(209, 107, 85, 0.1);
+	border-color: var(--color-terracotta);
+	color: var(--color-terracotta);
 }
 
 /* Empty State */
 .empty-state {
 	text-align: center;
 	padding: 2rem;
-	background: white;
+	background: var(--color-cream);
 	border-radius: 10px;
-	border: 1px dashed var(--border-color, #e2e8f0);
+	border: 1px dashed var(--color-sage-light);
 }
 
 .empty-state p {
 	margin: 0;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 }
 
 .empty-state .hint {
@@ -419,16 +419,16 @@
 
 /* Products Tab */
 .add-product-section {
-	background: white;
+	background: var(--color-cream);
 	padding: 1.25rem;
 	border-radius: 10px;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 }
 
 .add-product-section h2 {
 	margin: 0 0 1rem 0;
 	font-size: 1rem;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 }
 
 .no-stores-warning {
@@ -438,12 +438,12 @@
 
 .no-stores-warning p {
 	margin: 0 0 1rem 0;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 }
 
 .go-stores-btn {
 	padding: 0.5rem 1rem;
-	background: var(--primary-color, #16a34a);
+	background: var(--color-forest);
 	color: white;
 	border: none;
 	border-radius: 6px;
@@ -460,14 +460,14 @@
 .store-selector label {
 	font-size: 0.875rem;
 	font-weight: 500;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 }
 
 .store-selector select {
 	flex: 1;
 	max-width: 300px;
 	padding: 0.5rem 0.75rem;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 	border-radius: 6px;
 	font-size: 0.875rem;
 }
@@ -481,19 +481,19 @@
 .search-box input {
 	flex: 1;
 	padding: 0.625rem 0.875rem;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 	border-radius: 8px;
 	font-size: 0.875rem;
 }
 
 .search-box input:focus {
 	outline: none;
-	border-color: var(--primary-color, #16a34a);
+	border-color: var(--color-forest);
 }
 
 .search-box button {
 	padding: 0.625rem 1.25rem;
-	background: var(--primary-color, #16a34a);
+	background: var(--color-forest);
 	color: white;
 	border: none;
 	border-radius: 8px;
@@ -502,7 +502,7 @@
 }
 
 .search-box button:hover:not(:disabled) {
-	background: var(--primary-hover, #15803d);
+	background: var(--color-sage-dark);
 }
 
 .search-box button:disabled {
@@ -524,9 +524,9 @@
 	align-items: center;
 	gap: 0.75rem;
 	padding: 0.5rem;
-	background: var(--surface-bg, #f8fafc);
+	background: var(--color-white);
 	border-radius: 8px;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 }
 
 .result-image {
@@ -534,7 +534,7 @@
 	height: 40px;
 	border-radius: 6px;
 	overflow: hidden;
-	background: white;
+	background: var(--color-cream);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -560,7 +560,7 @@
 	display: block;
 	font-weight: 500;
 	font-size: 0.875rem;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -569,12 +569,12 @@
 .result-info .brand {
 	display: block;
 	font-size: 0.75rem;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 }
 
 .add-product-btn {
 	padding: 0.375rem 0.75rem;
-	background: var(--primary-color, #16a34a);
+	background: var(--color-forest);
 	color: white;
 	border: none;
 	border-radius: 6px;
@@ -584,7 +584,7 @@
 }
 
 .add-product-btn:hover:not(:disabled) {
-	background: var(--primary-hover, #15803d);
+	background: var(--color-sage-dark);
 }
 
 .add-product-btn:disabled {
@@ -596,7 +596,7 @@
 .products-list-section h2 {
 	margin: 0 0 1rem 0;
 	font-size: 1rem;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 }
 
 .products-list {
@@ -610,9 +610,9 @@
 	align-items: flex-start;
 	gap: 1rem;
 	padding: 1rem;
-	background: white;
+	background: var(--color-cream);
 	border-radius: 10px;
-	border: 1px solid var(--border-color, #e2e8f0);
+	border: 1px solid var(--color-sage-light);
 }
 
 .product-image {
@@ -620,7 +620,7 @@
 	height: 56px;
 	border-radius: 8px;
 	overflow: hidden;
-	background: var(--surface-bg, #f8fafc);
+	background: var(--color-white);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -645,20 +645,20 @@
 .product-card h3 {
 	margin: 0 0 0.25rem 0;
 	font-size: 0.9375rem;
-	color: var(--text-primary);
+	color: var(--color-charcoal);
 }
 
 .product-card .brand {
 	display: block;
 	font-size: 0.8125rem;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 	margin-bottom: 0.5rem;
 }
 
 .stores-badge {
 	font-size: 0.75rem;
-	color: var(--text-secondary);
-	background: var(--surface-bg, #f1f5f9);
+	color: var(--color-stone);
+	background: var(--color-mint);
 	padding: 0.25rem 0.5rem;
 	border-radius: 4px;
 	display: inline-block;
@@ -672,19 +672,19 @@
 
 .remove-from-store {
 	padding: 0.25rem 0.5rem;
-	background: var(--surface-bg, #f1f5f9);
-	border: 1px solid var(--border-color, #e2e8f0);
+	background: var(--color-mint);
+	border: 1px solid var(--color-sage-light);
 	border-radius: 4px;
 	font-size: 0.6875rem;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 	cursor: pointer;
 	transition: all 0.15s ease;
 }
 
 .remove-from-store:hover {
-	background: var(--error-bg, #fef2f2);
-	border-color: var(--error-border, #fecaca);
-	color: var(--error-text, #dc2626);
+	background: rgba(209, 107, 85, 0.1);
+	border-color: var(--color-terracotta);
+	color: var(--color-terracotta);
 }
 
 /* Loading */
@@ -695,14 +695,14 @@
 	justify-content: center;
 	gap: 1rem;
 	padding: 3rem;
-	color: var(--text-secondary);
+	color: var(--color-stone);
 }
 
 .loading-spinner {
 	width: 24px;
 	height: 24px;
-	border: 2px solid var(--border-color, #e2e8f0);
-	border-top-color: var(--primary-color, #16a34a);
+	border: 2px solid var(--color-sage-light);
+	border-top-color: var(--color-forest);
 	border-radius: 50%;
 	animation: spin 0.8s linear infinite;
 }
