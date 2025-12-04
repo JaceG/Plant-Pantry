@@ -2,7 +2,7 @@
 
 A vegan-only grocery discovery and planning tool. Browse plant-based products as if they were all on the shelves of a single giant store, then see where they're available across brick-and-mortar stores, online retailers, and direct-from-brand sites.
 
-![PlantPantry Screenshot](https://images.unsplash.com/photo-1540914124281-342587941389?w=1200)
+![PlantPantry Screenshot](./assets/plantpantry-homepage.png)
 
 ## ✨ Features
 

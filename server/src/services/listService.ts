@@ -213,6 +213,10 @@ export const listService = {
 			!mongoose.Types.ObjectId.isValid(listId) ||
 			!mongoose.Types.ObjectId.isValid(input.productId)
 		) {
+			console.error('Invalid ObjectId:', {
+				listId,
+				productId: input.productId,
+			});
 			return null;
 		}
 
@@ -223,16 +227,41 @@ export const listService = {
 		});
 
 		if (!list) {
+			console.error('List not found or user mismatch:', {
+				listId,
+				userId,
+			});
 			return null;
 		}
 
-		// Check if product exists in either Product or UserProduct collection
-		const product = await Product.findById(input.productId);
-		const userProduct = !product
-			? await UserProduct.findById(input.productId)
-			: null;
+		const productId = new mongoose.Types.ObjectId(input.productId);
 
-		if (!product && !userProduct) {
+		// Check if product exists - follow the same lookup logic as productService.getProductById
+		// First, check if this ID is an edited version (UserProduct with sourceProductId)
+		let foundProduct = await UserProduct.findOne({
+			sourceProductId: productId,
+			status: 'approved',
+			archived: { $ne: true },
+		});
+
+		// If no edited version, check Product collection
+		if (!foundProduct) {
+			foundProduct = await Product.findOne({
+				_id: productId,
+				archived: { $ne: true },
+			});
+		}
+
+		// If still not found, check UserProduct by ID directly
+		if (!foundProduct) {
+			foundProduct = await UserProduct.findOne({
+				_id: productId,
+				archived: { $ne: true },
+			});
+		}
+
+		if (!foundProduct) {
+			console.error('Product not found:', { productId: input.productId });
 			return null;
 		}
 
