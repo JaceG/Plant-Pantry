@@ -1,287 +1,336 @@
 import mongoose from 'mongoose';
-import { ShoppingList, ShoppingListItem, Product, Availability, Store } from '../models';
+import {
+	ShoppingList,
+	ShoppingListItem,
+	Product,
+	UserProduct,
+	Availability,
+	Store,
+} from '../models';
 
 export interface ShoppingListSummary {
-  id: string;
-  name: string;
-  createdAt: Date;
-  updatedAt: Date;
+	id: string;
+	name: string;
+	createdAt: Date;
+	updatedAt: Date;
 }
 
 export interface ProductSummaryForList {
-  id: string;
-  name: string;
-  brand: string;
-  sizeOrVariant: string;
-  imageUrl?: string;
+	id: string;
+	name: string;
+	brand: string;
+	sizeOrVariant: string;
+	imageUrl?: string;
 }
 
 export interface AvailabilityHint {
-  storeName: string;
-  storeType: string;
+	storeName: string;
+	storeType: string;
 }
 
 export interface ShoppingListItemDetail {
-  itemId: string;
-  productId: string;
-  quantity: number;
-  note?: string;
-  addedAt: Date;
-  productSummary: ProductSummaryForList;
-  availabilityHints: AvailabilityHint[];
+	itemId: string;
+	productId: string;
+	quantity: number;
+	note?: string;
+	addedAt: Date;
+	productSummary: ProductSummaryForList;
+	availabilityHints: AvailabilityHint[];
 }
 
 export interface ShoppingListDetail {
-  id: string;
-  name: string;
-  createdAt: Date;
-  updatedAt: Date;
-  items: ShoppingListItemDetail[];
+	id: string;
+	name: string;
+	createdAt: Date;
+	updatedAt: Date;
+	items: ShoppingListItemDetail[];
 }
 
 export interface CreateListInput {
-  name: string;
+	name: string;
 }
 
 export interface AddItemInput {
-  productId: string;
-  quantity?: number;
-  note?: string;
+	productId: string;
+	quantity?: number;
+	note?: string;
 }
 
 export interface ShoppingListItemResult {
-  itemId: string;
-  productId: string;
-  quantity: number;
-  note?: string;
-  addedAt: Date;
+	itemId: string;
+	productId: string;
+	quantity: number;
+	note?: string;
+	addedAt: Date;
 }
 
 export const listService = {
-  async createList(userId: string, input: CreateListInput): Promise<ShoppingListSummary> {
-    const list = await ShoppingList.create({
-      userId: new mongoose.Types.ObjectId(userId),
-      name: input.name,
-    });
+	async createList(
+		userId: string,
+		input: CreateListInput
+	): Promise<ShoppingListSummary> {
+		const list = await ShoppingList.create({
+			userId: new mongoose.Types.ObjectId(userId),
+			name: input.name,
+		});
 
-    return {
-      id: list._id.toString(),
-      name: list.name,
-      createdAt: list.createdAt,
-      updatedAt: list.updatedAt,
-    };
-  },
+		return {
+			id: list._id.toString(),
+			name: list.name,
+			createdAt: list.createdAt,
+			updatedAt: list.updatedAt,
+		};
+	},
 
-  async getLists(userId: string): Promise<ShoppingListSummary[]> {
-    const lists = await ShoppingList.find({
-      userId: new mongoose.Types.ObjectId(userId),
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+	async getLists(userId: string): Promise<ShoppingListSummary[]> {
+		const lists = await ShoppingList.find({
+			userId: new mongoose.Types.ObjectId(userId),
+		})
+			.sort({ createdAt: -1 })
+			.lean();
 
-    return lists.map((list) => ({
-      id: list._id.toString(),
-      name: list.name,
-      createdAt: list.createdAt,
-      updatedAt: list.updatedAt,
-    }));
-  },
+		return lists.map((list) => ({
+			id: list._id.toString(),
+			name: list.name,
+			createdAt: list.createdAt,
+			updatedAt: list.updatedAt,
+		}));
+	},
 
-  async getListById(userId: string, listId: string): Promise<ShoppingListDetail | null> {
-    if (!mongoose.Types.ObjectId.isValid(listId)) {
-      return null;
-    }
+	async getListById(
+		userId: string,
+		listId: string
+	): Promise<ShoppingListDetail | null> {
+		if (!mongoose.Types.ObjectId.isValid(listId)) {
+			return null;
+		}
 
-    const list = await ShoppingList.findOne({
-      _id: listId,
-      userId: new mongoose.Types.ObjectId(userId),
-    }).lean();
+		const list = await ShoppingList.findOne({
+			_id: listId,
+			userId: new mongoose.Types.ObjectId(userId),
+		}).lean();
 
-    if (!list) {
-      return null;
-    }
+		if (!list) {
+			return null;
+		}
 
-    // Get items with product info
-    const items = await ShoppingListItem.find({ shoppingListId: list._id })
-      .sort({ addedAt: -1 })
-      .lean();
+		// Get items with product info
+		const items = await ShoppingListItem.find({ shoppingListId: list._id })
+			.sort({ addedAt: -1 })
+			.lean();
 
-    const productIds = items.map((item) => item.productId);
-    const products = await Product.find({ _id: { $in: productIds } })
-      .select('name brand sizeOrVariant imageUrl')
-      .lean();
-    const productMap = new Map(products.map((p) => [p._id.toString(), p]));
+		const productIds = items.map((item) => item.productId);
 
-    // Get availability hints for all products
-    const availabilities = await Availability.find({ productId: { $in: productIds } }).lean();
-    const storeIds = [...new Set(availabilities.map((a) => a.storeId.toString()))];
-    const stores = await Store.find({ _id: { $in: storeIds } }).lean();
-    const storeMap = new Map(stores.map((s) => [s._id.toString(), s]));
+		// Fetch from both Product and UserProduct collections
+		const products = await Product.find({ _id: { $in: productIds } })
+			.select('name brand sizeOrVariant imageUrl')
+			.lean();
+		const userProducts = await UserProduct.find({
+			_id: { $in: productIds },
+		})
+			.select('name brand sizeOrVariant imageUrl')
+			.lean();
 
-    // Group availability by product
-    const availabilityByProduct = new Map<string, AvailabilityHint[]>();
-    for (const avail of availabilities) {
-      const productIdStr = avail.productId.toString();
-      const store = storeMap.get(avail.storeId.toString());
-      if (store) {
-        const hints = availabilityByProduct.get(productIdStr) || [];
-        hints.push({ storeName: store.name, storeType: store.type });
-        availabilityByProduct.set(productIdStr, hints);
-      }
-    }
+		// Combine into a single map
+		const productMap = new Map<
+			string,
+			{
+				name: string;
+				brand: string;
+				sizeOrVariant: string;
+				imageUrl?: string;
+			}
+		>();
+		products.forEach((p) => productMap.set(p._id.toString(), p));
+		userProducts.forEach((p) => productMap.set(p._id.toString(), p));
 
-    const itemDetails: ShoppingListItemDetail[] = items.map((item) => {
-      const product = productMap.get(item.productId.toString());
-      return {
-        itemId: item._id.toString(),
-        productId: item.productId.toString(),
-        quantity: item.quantity,
-        note: item.note,
-        addedAt: item.addedAt,
-        productSummary: {
-          id: item.productId.toString(),
-          name: product?.name || 'Unknown Product',
-          brand: product?.brand || 'Unknown Brand',
-          sizeOrVariant: product?.sizeOrVariant || '',
-          imageUrl: product?.imageUrl,
-        },
-        availabilityHints: availabilityByProduct.get(item.productId.toString()) || [],
-      };
-    });
+		// Get availability hints for all products
+		const availabilities = await Availability.find({
+			productId: { $in: productIds },
+		}).lean();
+		const storeIds = [
+			...new Set(availabilities.map((a) => a.storeId.toString())),
+		];
+		const stores = await Store.find({ _id: { $in: storeIds } }).lean();
+		const storeMap = new Map(stores.map((s) => [s._id.toString(), s]));
 
-    return {
-      id: list._id.toString(),
-      name: list.name,
-      createdAt: list.createdAt,
-      updatedAt: list.updatedAt,
-      items: itemDetails,
-    };
-  },
+		// Group availability by product (deduplicated by store)
+		const availabilityByProduct = new Map<string, AvailabilityHint[]>();
+		for (const avail of availabilities) {
+			const productIdStr = avail.productId.toString();
+			const store = storeMap.get(avail.storeId.toString());
+			if (store) {
+				const hints = availabilityByProduct.get(productIdStr) || [];
+				// Only add if this store isn't already in the hints
+				const alreadyExists = hints.some(
+					(h) => h.storeName === store.name
+				);
+				if (!alreadyExists) {
+					hints.push({
+						storeName: store.name,
+						storeType: store.type,
+					});
+				}
+				availabilityByProduct.set(productIdStr, hints);
+			}
+		}
 
-  async addItemToList(
-    userId: string,
-    listId: string,
-    input: AddItemInput
-  ): Promise<ShoppingListItemResult | null> {
-    if (
-      !mongoose.Types.ObjectId.isValid(listId) ||
-      !mongoose.Types.ObjectId.isValid(input.productId)
-    ) {
-      return null;
-    }
+		const itemDetails: ShoppingListItemDetail[] = items.map((item) => {
+			const product = productMap.get(item.productId.toString());
+			return {
+				itemId: item._id.toString(),
+				productId: item.productId.toString(),
+				quantity: item.quantity,
+				note: item.note,
+				addedAt: item.addedAt,
+				productSummary: {
+					id: item.productId.toString(),
+					name: product?.name || 'Unknown Product',
+					brand: product?.brand || 'Unknown Brand',
+					sizeOrVariant: product?.sizeOrVariant || '',
+					imageUrl: product?.imageUrl,
+				},
+				availabilityHints:
+					availabilityByProduct.get(item.productId.toString()) || [],
+			};
+		});
 
-    // Verify list ownership
-    const list = await ShoppingList.findOne({
-      _id: listId,
-      userId: new mongoose.Types.ObjectId(userId),
-    });
+		return {
+			id: list._id.toString(),
+			name: list.name,
+			createdAt: list.createdAt,
+			updatedAt: list.updatedAt,
+			items: itemDetails,
+		};
+	},
 
-    if (!list) {
-      return null;
-    }
+	async addItemToList(
+		userId: string,
+		listId: string,
+		input: AddItemInput
+	): Promise<ShoppingListItemResult | null> {
+		if (
+			!mongoose.Types.ObjectId.isValid(listId) ||
+			!mongoose.Types.ObjectId.isValid(input.productId)
+		) {
+			return null;
+		}
 
-    // Check if product exists
-    const product = await Product.findById(input.productId);
-    if (!product) {
-      return null;
-    }
+		// Verify list ownership
+		const list = await ShoppingList.findOne({
+			_id: listId,
+			userId: new mongoose.Types.ObjectId(userId),
+		});
 
-    // Check if item already exists in list
-    const existingItem = await ShoppingListItem.findOne({
-      shoppingListId: list._id,
-      productId: input.productId,
-    });
+		if (!list) {
+			return null;
+		}
 
-    if (existingItem) {
-      // Update quantity
-      existingItem.quantity += input.quantity || 1;
-      if (input.note) {
-        existingItem.note = input.note;
-      }
-      await existingItem.save();
+		// Check if product exists in either Product or UserProduct collection
+		const product = await Product.findById(input.productId);
+		const userProduct = !product
+			? await UserProduct.findById(input.productId)
+			: null;
 
-      return {
-        itemId: existingItem._id.toString(),
-        productId: existingItem.productId.toString(),
-        quantity: existingItem.quantity,
-        note: existingItem.note,
-        addedAt: existingItem.addedAt,
-      };
-    }
+		if (!product && !userProduct) {
+			return null;
+		}
 
-    // Create new item
-    const item = await ShoppingListItem.create({
-      shoppingListId: list._id,
-      productId: new mongoose.Types.ObjectId(input.productId),
-      quantity: input.quantity || 1,
-      note: input.note,
-      addedAt: new Date(),
-    });
+		// Check if item already exists in list
+		const existingItem = await ShoppingListItem.findOne({
+			shoppingListId: list._id,
+			productId: input.productId,
+		});
 
-    return {
-      itemId: item._id.toString(),
-      productId: item.productId.toString(),
-      quantity: item.quantity,
-      note: item.note,
-      addedAt: item.addedAt,
-    };
-  },
+		if (existingItem) {
+			// Update quantity
+			existingItem.quantity += input.quantity || 1;
+			if (input.note) {
+				existingItem.note = input.note;
+			}
+			await existingItem.save();
 
-  async removeItemFromList(
-    userId: string,
-    listId: string,
-    itemId: string
-  ): Promise<boolean> {
-    if (
-      !mongoose.Types.ObjectId.isValid(listId) ||
-      !mongoose.Types.ObjectId.isValid(itemId)
-    ) {
-      return false;
-    }
+			return {
+				itemId: existingItem._id.toString(),
+				productId: existingItem.productId.toString(),
+				quantity: existingItem.quantity,
+				note: existingItem.note,
+				addedAt: existingItem.addedAt,
+			};
+		}
 
-    // Verify list ownership
-    const list = await ShoppingList.findOne({
-      _id: listId,
-      userId: new mongoose.Types.ObjectId(userId),
-    });
+		// Create new item
+		const item = await ShoppingListItem.create({
+			shoppingListId: list._id,
+			productId: new mongoose.Types.ObjectId(input.productId),
+			quantity: input.quantity || 1,
+			note: input.note,
+			addedAt: new Date(),
+		});
 
-    if (!list) {
-      return false;
-    }
+		return {
+			itemId: item._id.toString(),
+			productId: item.productId.toString(),
+			quantity: item.quantity,
+			note: item.note,
+			addedAt: item.addedAt,
+		};
+	},
 
-    const result = await ShoppingListItem.deleteOne({
-      _id: itemId,
-      shoppingListId: list._id,
-    });
+	async removeItemFromList(
+		userId: string,
+		listId: string,
+		itemId: string
+	): Promise<boolean> {
+		if (
+			!mongoose.Types.ObjectId.isValid(listId) ||
+			!mongoose.Types.ObjectId.isValid(itemId)
+		) {
+			return false;
+		}
 
-    return result.deletedCount > 0;
-  },
+		// Verify list ownership
+		const list = await ShoppingList.findOne({
+			_id: listId,
+			userId: new mongoose.Types.ObjectId(userId),
+		});
 
-  async getOrCreateDefaultList(userId: string): Promise<ShoppingListSummary> {
-    let list = await ShoppingList.findOne({
-      userId: new mongoose.Types.ObjectId(userId),
-    })
-      .sort({ createdAt: 1 })
-      .lean();
+		if (!list) {
+			return false;
+		}
 
-    if (!list) {
-      const newList = await ShoppingList.create({
-        userId: new mongoose.Types.ObjectId(userId),
-        name: 'My Vegan List',
-      });
-      list = newList.toObject() as unknown as typeof list;
-    }
+		const result = await ShoppingListItem.deleteOne({
+			_id: itemId,
+			shoppingListId: list._id,
+		});
 
-    if (!list) {
-      throw new Error('Failed to create or retrieve shopping list');
-    }
+		return result.deletedCount > 0;
+	},
 
-    return {
-      id: list._id.toString(),
-      name: list.name,
-      createdAt: list.createdAt,
-      updatedAt: list.updatedAt,
-    };
-  },
+	async getOrCreateDefaultList(userId: string): Promise<ShoppingListSummary> {
+		let list = await ShoppingList.findOne({
+			userId: new mongoose.Types.ObjectId(userId),
+		})
+			.sort({ createdAt: 1 })
+			.lean();
+
+		if (!list) {
+			const newList = await ShoppingList.create({
+				userId: new mongoose.Types.ObjectId(userId),
+				name: 'My Vegan List',
+			});
+			list = newList.toObject() as unknown as typeof list;
+		}
+
+		if (!list) {
+			throw new Error('Failed to create or retrieve shopping list');
+		}
+
+		return {
+			id: list._id.toString(),
+			name: list.name,
+			createdAt: list.createdAt,
+			updatedAt: list.updatedAt,
+		};
+	},
 };
-
