@@ -2,7 +2,11 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { adminService } from '../services/adminService';
 import { reviewService } from '../services/reviewService';
 import { cityService } from '../services/cityService';
-import { authMiddleware, adminMiddleware, AuthenticatedRequest } from '../middleware/auth';
+import {
+	authMiddleware,
+	adminMiddleware,
+	AuthenticatedRequest,
+} from '../middleware/auth';
 import { HttpError } from '../middleware/errorHandler';
 import { Product, UserProduct } from '../models';
 
@@ -1720,7 +1724,11 @@ router.put(
 				updateData.priceRange = priceRange;
 			}
 			if (moderationStatus !== undefined) {
-				if (!['confirmed', 'pending', 'rejected'].includes(moderationStatus)) {
+				if (
+					!['confirmed', 'pending', 'rejected'].includes(
+						moderationStatus
+					)
+				) {
 					throw new HttpError('Invalid moderationStatus value', 400);
 				}
 				updateData.moderationStatus = moderationStatus;

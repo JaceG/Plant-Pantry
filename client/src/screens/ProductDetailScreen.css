@@ -351,6 +351,16 @@
   color: var(--color-stone);
 }
 
+.availability-status.status-unknown {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.availability-status.status-pending {
+  background: #fef3c7;
+  color: #d97706;
+}
+
 .store-name {
   font-family: var(--font-display);
   font-size: 1.05rem;
