@@ -213,10 +213,6 @@ export const listService = {
 			!mongoose.Types.ObjectId.isValid(listId) ||
 			!mongoose.Types.ObjectId.isValid(input.productId)
 		) {
-			console.error('Invalid ObjectId:', {
-				listId,
-				productId: input.productId,
-			});
 			return null;
 		}
 
@@ -227,10 +223,6 @@ export const listService = {
 		});
 
 		if (!list) {
-			console.error('List not found or user mismatch:', {
-				listId,
-				userId,
-			});
 			return null;
 		}
 
@@ -261,7 +253,6 @@ export const listService = {
 		}
 
 		if (!foundProduct) {
-			console.error('Product not found:', { productId: input.productId });
 			return null;
 		}
 

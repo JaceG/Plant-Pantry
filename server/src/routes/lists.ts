@@ -75,12 +75,6 @@ router.post(
 				throw new HttpError('Product ID is required', 400);
 			}
 
-			console.log('Adding item to list:', {
-				listId: id,
-				productId,
-				userId: req.userId,
-			});
-
 			const item = await listService.addItemToList(req.userId!, id, {
 				productId,
 				quantity,
@@ -88,16 +82,12 @@ router.post(
 			});
 
 			if (!item) {
-				console.error(
-					'Failed to add item - addItemToList returned null'
-				);
 				throw new HttpError(
 					'Could not add item. List or product not found.',
 					404
 				);
 			}
 
-			console.log('Item added successfully:', item.itemId);
 			res.status(201).json({ item });
 		} catch (error) {
 			next(error);
