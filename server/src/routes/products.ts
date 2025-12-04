@@ -1,7 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { productService } from '../services/productService';
 import { HttpError } from '../middleware/errorHandler';
-import { optionalAuthMiddleware } from '../middleware/auth';
+import {
+	optionalAuthMiddleware,
+	authMiddleware,
+	AuthenticatedRequest,
+} from '../middleware/auth';
+import { Availability, Store, Product, UserProduct } from '../models';
 
 const router = Router();
 
@@ -136,6 +141,141 @@ router.get(
 			}
 
 			res.json({ product });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/products/:id/report-availability
+ * Report that a product is available at a store (user contribution)
+ * Requires authentication
+ */
+router.post(
+	'/:id/report-availability',
+	authMiddleware,
+	async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { storeId, priceRange, notes } = req.body;
+
+			if (!storeId) {
+				throw new HttpError('storeId is required', 400);
+			}
+
+			// Check if product exists
+			let product = await Product.findById(id).lean();
+			if (!product) {
+				product = (await UserProduct.findById(id).lean()) as any;
+			}
+			if (!product) {
+				throw new HttpError('Product not found', 404);
+			}
+
+			// Check if store exists
+			const store = await Store.findById(storeId).lean();
+			if (!store) {
+				throw new HttpError('Store not found', 404);
+			}
+
+			// Check if availability already exists
+			const existing = await Availability.findOne({
+				productId: id,
+				storeId,
+			}).lean();
+
+			if (existing) {
+				// Update existing to refresh confirmation
+				await Availability.findByIdAndUpdate(existing._id, {
+					lastConfirmedAt: new Date(),
+					// If it was rejected, set back to pending
+					moderationStatus:
+						existing.moderationStatus === 'rejected'
+							? 'pending'
+							: existing.moderationStatus,
+				});
+
+				return res.json({
+					message: 'Availability confirmed',
+					isUpdate: true,
+				});
+			}
+
+			// Create new availability report
+			await Availability.create({
+				productId: id,
+				storeId,
+				source: 'user_contribution',
+				reportedBy: req.user?.userId,
+				moderationStatus: 'pending', // Pending approval
+				priceRange: priceRange || undefined,
+				notes: notes || undefined,
+				lastConfirmedAt: new Date(),
+			});
+
+			res.status(201).json({
+				message:
+					'Availability reported. Thank you! It will be reviewed shortly.',
+				isUpdate: false,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * GET /api/products/stores-by-city
+ * Get stores grouped by city for the availability report dropdown
+ */
+router.get(
+	'/stores-by-city',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { city, state } = req.query;
+
+			let query: any = {
+				type: 'brick_and_mortar', // Only physical stores
+			};
+
+			if (city && state) {
+				query.city = { $regex: new RegExp(`^${city}$`, 'i') };
+				query.state = { $regex: new RegExp(`^${state}$`, 'i') };
+			}
+
+			const stores = await Store.find(query)
+				.select('name city state address')
+				.sort({ state: 1, city: 1, name: 1 })
+				.lean();
+
+			// Group by city/state
+			const grouped: Record<
+				string,
+				{ city: string; state: string; stores: any[] }
+			> = {};
+
+			stores.forEach((store) => {
+				const key = `${store.city || 'Unknown'}, ${
+					store.state || '??'
+				}`;
+				if (!grouped[key]) {
+					grouped[key] = {
+						city: store.city || 'Unknown',
+						state: store.state || '??',
+						stores: [],
+					};
+				}
+				grouped[key].stores.push({
+					id: store._id.toString(),
+					name: store.name,
+					address: store.address,
+				});
+			});
+
+			res.json({
+				locations: Object.values(grouped),
+			});
 		} catch (error) {
 			next(error);
 		}

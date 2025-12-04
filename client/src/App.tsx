@@ -30,6 +30,7 @@ import {
 	AdminCityPages,
 	AdminCityPageEditor,
 	AdminStoreAvailability,
+	AdminPendingReports,
 } from './screens/admin';
 import { listsApi } from './api';
 import './App.css';
@@ -73,6 +74,14 @@ function AppContent() {
 					element={
 						<ProtectedRoute requireAdmin>
 							<AdminDashboard />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path='/admin/pending'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminPendingReports />
 						</ProtectedRoute>
 					}
 				/>

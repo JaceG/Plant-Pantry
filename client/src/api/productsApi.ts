@@ -72,4 +72,46 @@ export const productsApi = {
 			`/products/discover${query}`
 		);
 	},
+
+	// Report availability
+	reportAvailability(
+		productId: string,
+		storeId: string,
+		priceRange?: string,
+		notes?: string
+	): Promise<{ message: string; isUpdate: boolean }> {
+		return httpClient.post<{ message: string; isUpdate: boolean }>(
+			`/products/${productId}/report-availability`,
+			{ storeId, priceRange, notes }
+		);
+	},
+
+	// Get stores grouped by city for availability reporting
+	getStoresByCity(
+		city?: string,
+		state?: string
+	): Promise<StoresByCityResponse> {
+		const params = new URLSearchParams();
+		if (city) params.set('city', city);
+		if (state) params.set('state', state);
+		const query = params.toString() ? `?${params.toString()}` : '';
+		return httpClient.get<StoresByCityResponse>(
+			`/products/stores-by-city${query}`
+		);
+	},
 };
+
+// Types for stores by city
+export interface StoreLocation {
+	city: string;
+	state: string;
+	stores: {
+		id: string;
+		name: string;
+		address?: string;
+	}[];
+}
+
+export interface StoresByCityResponse {
+	locations: StoreLocation[];
+}

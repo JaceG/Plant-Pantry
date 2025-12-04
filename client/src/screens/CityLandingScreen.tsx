@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { citiesApi } from '../api';
-import { CityPageData, CityStore, CityProduct } from '../api/citiesApi';
+import { CityPageData, CityStore, StoreProduct } from '../api/citiesApi';
 import { SearchBar } from '../components';
 import './CityLandingScreen.css';
+
+type View = 'stores' | 'store-detail';
 
 export function CityLandingScreen() {
 	const { slug } = useParams<{ slug: string }>();
@@ -11,10 +13,14 @@ export function CityLandingScreen() {
 
 	const [cityData, setCityData] = useState<CityPageData | null>(null);
 	const [stores, setStores] = useState<CityStore[]>([]);
-	const [products, setProducts] = useState<CityProduct[]>([]);
-	const [totalProducts, setTotalProducts] = useState(0);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+
+	// Slide view state
+	const [view, setView] = useState<View>('stores');
+	const [selectedStore, setSelectedStore] = useState<CityStore | null>(null);
+	const [storeProducts, setStoreProducts] = useState<StoreProduct[]>([]);
+	const [loadingProducts, setLoadingProducts] = useState(false);
 
 	useEffect(() => {
 		const fetchCityData = async () => {
@@ -24,16 +30,13 @@ export function CityLandingScreen() {
 			setError(null);
 
 			try {
-				const [cityRes, storesRes, productsRes] = await Promise.all([
+				const [cityRes, storesRes] = await Promise.all([
 					citiesApi.getCityPage(slug),
 					citiesApi.getCityStores(slug),
-					citiesApi.getCityProducts(slug, 1, 12),
 				]);
 
 				setCityData(cityRes.city);
 				setStores(storesRes.stores);
-				setProducts(productsRes.products);
-				setTotalProducts(productsRes.totalCount);
 			} catch (err) {
 				console.error('Error fetching city data:', err);
 				setError('City page not found');
@@ -46,9 +49,38 @@ export function CityLandingScreen() {
 	}, [slug]);
 
 	const handleSearch = (query: string) => {
-		// Navigate to search with city context
 		navigate(`/search?q=${encodeURIComponent(query.trim())}`);
 	};
+
+	const handleSelectStore = async (store: CityStore) => {
+		setSelectedStore(store);
+		setView('store-detail');
+		setStoreProducts([]);
+
+		if (slug) {
+			setLoadingProducts(true);
+			try {
+				const res = await citiesApi.getStoreProducts(slug, store.id);
+				setStoreProducts(res.products);
+			} catch (err) {
+				console.error('Error fetching store products:', err);
+			} finally {
+				setLoadingProducts(false);
+			}
+		}
+	};
+
+	const handleBackToStores = () => {
+		setView('stores');
+		setSelectedStore(null);
+		setStoreProducts([]);
+	};
+
+	// Calculate total products across all stores
+	const totalProducts = stores.reduce(
+		(sum, store) => sum + (store.productCount || 0),
+		0
+	);
 
 	if (loading) {
 		return (
@@ -104,221 +136,247 @@ export function CityLandingScreen() {
 							placeholder={`Search products in ${cityData.cityName}...`}
 						/>
 					</div>
+
+					<div className='city-stats'>
+						<div className='stat'>
+							<span className='stat-value'>{stores.length}</span>
+							<span className='stat-label'>
+								{stores.length === 1 ? 'Store' : 'Stores'}
+							</span>
+						</div>
+						<div className='stat'>
+							<span className='stat-value'>{totalProducts}</span>
+							<span className='stat-label'>
+								{totalProducts === 1 ? 'Product' : 'Products'}
+							</span>
+						</div>
+					</div>
 				</div>
 			</section>
 
-			{/* Local Stores Section */}
-			<section className='city-section stores-section'>
+			{/* Slide Container */}
+			<section className='city-content'>
 				<div className='section-container'>
-					<div className='section-header'>
-						<h2 className='section-title'>
-							<span className='title-icon'>🏪</span>
-							Local Stores
-						</h2>
-						<p className='section-subtitle'>
-							{stores.length}{' '}
-							{stores.length === 1 ? 'store' : 'stores'} with
-							vegan products
-						</p>
-					</div>
-
-					{stores.length > 0 ? (
-						<div className='stores-grid'>
-							{stores.map((store) => (
-								<div key={store.id} className='store-card'>
-									<div className='store-header'>
-										<h3 className='store-name'>
-											{store.name}
-										</h3>
-										{store.productCount !== undefined &&
-											store.productCount > 0 && (
-												<span className='store-product-count'>
-													{store.productCount}{' '}
-													{store.productCount === 1
-														? 'product'
-														: 'products'}
-												</span>
-											)}
-									</div>
-
-									{store.address && (
-										<p className='store-address'>
-											{store.address}
-											{store.city && `, ${store.city}`}
-											{store.state && `, ${store.state}`}
-											{store.zipCode &&
-												` ${store.zipCode}`}
-										</p>
-									)}
-
-									<div className='store-actions'>
-										{store.websiteUrl && (
-											<a
-												href={store.websiteUrl}
-												target='_blank'
-												rel='noopener noreferrer'
-												className='store-link'>
-												Website →
-											</a>
-										)}
-										{store.phoneNumber && (
-											<a
-												href={`tel:${store.phoneNumber}`}
-												className='store-link'>
-												{store.phoneNumber}
-											</a>
-										)}
-										{store.latitude && store.longitude && (
-											<a
-												href={`https://www.google.com/maps/search/?api=1&query=${store.latitude},${store.longitude}`}
-												target='_blank'
-												rel='noopener noreferrer'
-												className='store-link directions-link'>
-												Get Directions
-											</a>
-										)}
-									</div>
-								</div>
-							))}
-						</div>
-					) : (
-						<div className='empty-stores'>
-							<p>No stores found in this area yet.</p>
-							<p className='empty-subtitle'>
-								Know a store with vegan products? Help us grow
-								our database!
-							</p>
-						</div>
-					)}
-				</div>
-			</section>
-
-			{/* Products Section */}
-			<section className='city-section products-section'>
-				<div className='section-container'>
-					<div className='section-header'>
-						<h2 className='section-title'>
-							<span className='title-icon'>🥬</span>
-							Available Products
-						</h2>
-						<p className='section-subtitle'>
-							{totalProducts}{' '}
-							{totalProducts === 1 ? 'product' : 'products'} found
-							at local stores
-						</p>
-					</div>
-
-					{products.length > 0 ? (
-						<>
-							<div className='city-products-grid'>
-								{products.map((product) => (
-									<Link
-										key={product.id}
-										to={`/products/${product.id}`}
-										className='city-product-card'>
-										<div className='product-image-container'>
-											{product.imageUrl ? (
-												<img
-													src={product.imageUrl}
-													alt={product.name}
-													className='product-image'
-													onError={(e) => {
-														(
-															e.target as HTMLImageElement
-														).style.display =
-															'none';
-													}}
-												/>
-											) : (
-												<div className='product-placeholder'>
-													🌱
-												</div>
-											)}
-										</div>
-
-										<div className='product-info'>
-											<h3 className='product-name'>
-												{product.name}
-											</h3>
-											<p className='product-brand'>
-												{product.brand}
-											</p>
-
-											{product.averageRating && (
-												<div className='product-rating'>
-													<span className='rating-stars'>
-														★
-													</span>
-													<span className='rating-value'>
-														{product.averageRating.toFixed(
-															1
-														)}
-													</span>
-													{product.reviewCount && (
-														<span className='rating-count'>
-															(
-															{
-																product.reviewCount
-															}
-															)
-														</span>
-													)}
-												</div>
-											)}
-
-											{product.storeNames.length > 0 && (
-												<div className='product-stores'>
-													<span className='stores-label'>
-														Available at:
-													</span>
-													<span className='stores-list'>
-														{product.storeNames
-															.slice(0, 2)
-															.join(', ')}
-														{product.storeNames
-															.length > 2 &&
-															` +${
-																product
-																	.storeNames
-																	.length - 2
-															} more`}
-													</span>
-												</div>
-											)}
-										</div>
-									</Link>
-								))}
+					<div
+						className={`slide-container ${
+							view === 'store-detail' ? 'show-detail' : ''
+						}`}>
+						{/* Stores List View */}
+						<div className='slide-panel stores-view'>
+							<div className='panel-header'>
+								<h2 className='panel-title'>
+									<span className='title-icon'>🏪</span>
+									Local Stores
+								</h2>
+								<p className='panel-subtitle'>
+									Tap a store to see available products
+								</p>
 							</div>
 
-							{totalProducts > 12 && (
-								<div className='section-footer'>
-									<Link
-										to='/search'
-										className='view-all-link'>
-										View all {totalProducts} products →
-									</Link>
+							{stores.length > 0 ? (
+								<div className='stores-list'>
+									{stores.map((store) => (
+										<div
+											key={store.id}
+											className='store-card'
+											onClick={() =>
+												handleSelectStore(store)
+											}>
+											<div className='store-info'>
+												<h3 className='store-name'>
+													{store.name}
+												</h3>
+												{store.address && (
+													<p className='store-address'>
+														{store.address}
+														{store.zipCode &&
+															`, ${store.zipCode}`}
+													</p>
+												)}
+											</div>
+											<div className='store-meta'>
+												{store.productCount !==
+													undefined &&
+													store.productCount > 0 && (
+														<span className='product-badge'>
+															{store.productCount}{' '}
+															{store.productCount ===
+															1
+																? 'product'
+																: 'products'}
+														</span>
+													)}
+												<span className='arrow'>→</span>
+											</div>
+										</div>
+									))}
+								</div>
+							) : (
+								<div className='empty-state'>
+									<p>No stores found in this area yet.</p>
+									<p className='empty-hint'>
+										Know a store with vegan products? Help
+										us grow our database!
+									</p>
 								</div>
 							)}
-						</>
-					) : (
-						<div className='empty-products'>
-							<p>No products found at local stores yet.</p>
-							<Link
-								to='/add-product'
-								className='add-product-link'>
-								Add a product you've found →
-							</Link>
-						</div>
-					)}
-				</div>
-			</section>
 
-			{/* Back to Home */}
-			<section className='city-section back-section'>
-				<div className='section-container'>
-					<Link to='/' className='back-home-link'>
-						← Explore other cities
-					</Link>
+							<div className='panel-footer'>
+								<Link to='/' className='back-link'>
+									← Explore other cities
+								</Link>
+							</div>
+						</div>
+
+						{/* Store Detail View */}
+						<div className='slide-panel store-detail-view'>
+							{selectedStore && (
+								<>
+									<div className='panel-header'>
+										<button
+											onClick={handleBackToStores}
+											className='back-btn'>
+											← Back to stores
+										</button>
+										<div className='store-detail-info'>
+											<h2 className='panel-title'>
+												{selectedStore.name}
+											</h2>
+											{selectedStore.address && (
+												<p className='store-detail-address'>
+													{selectedStore.address}
+													{selectedStore.city &&
+														`, ${selectedStore.city}`}
+													{selectedStore.state &&
+														`, ${selectedStore.state}`}
+													{selectedStore.zipCode &&
+														` ${selectedStore.zipCode}`}
+												</p>
+											)}
+											<div className='store-detail-actions'>
+												{selectedStore.websiteUrl && (
+													<a
+														href={
+															selectedStore.websiteUrl
+														}
+														target='_blank'
+														rel='noopener noreferrer'
+														className='store-action-link'>
+														🌐 Website
+													</a>
+												)}
+												{selectedStore.phoneNumber && (
+													<a
+														href={`tel:${selectedStore.phoneNumber}`}
+														className='store-action-link'>
+														📞{' '}
+														{
+															selectedStore.phoneNumber
+														}
+													</a>
+												)}
+												{selectedStore.latitude &&
+													selectedStore.longitude && (
+														<a
+															href={`https://www.google.com/maps/search/?api=1&query=${selectedStore.latitude},${selectedStore.longitude}`}
+															target='_blank'
+															rel='noopener noreferrer'
+															className='store-action-link directions'>
+															📍 Directions
+														</a>
+													)}
+											</div>
+										</div>
+									</div>
+
+									<div className='products-section'>
+										<h3 className='products-title'>
+											Available Products (
+											{storeProducts.length})
+										</h3>
+
+										{loadingProducts ? (
+											<div className='loading-products'>
+												<div className='loading-spinner'></div>
+												<span>Loading products...</span>
+											</div>
+										) : storeProducts.length > 0 ? (
+											<div className='products-grid'>
+												{storeProducts.map(
+													(product) => (
+														<Link
+															key={product.id}
+															to={`/products/${product.id}`}
+															className='product-card'>
+															<div className='product-image'>
+																{product.imageUrl ? (
+																	<img
+																		src={
+																			product.imageUrl
+																		}
+																		alt={
+																			product.name
+																		}
+																	/>
+																) : (
+																	<span className='placeholder'>
+																		🌱
+																	</span>
+																)}
+															</div>
+															<div className='product-info'>
+																<h4 className='product-name'>
+																	{
+																		product.name
+																	}
+																</h4>
+																<p className='product-brand'>
+																	{
+																		product.brand
+																	}
+																</p>
+																{product.priceRange && (
+																	<span className='product-price'>
+																		{
+																			product.priceRange
+																		}
+																	</span>
+																)}
+															</div>
+															{product.averageRating && (
+																<div className='product-rating'>
+																	<span className='star'>
+																		★
+																	</span>
+																	{product.averageRating.toFixed(
+																		1
+																	)}
+																</div>
+															)}
+														</Link>
+													)
+												)}
+											</div>
+										) : (
+											<div className='empty-products'>
+												<p>
+													No products listed at this
+													store yet.
+												</p>
+												<p className='empty-hint'>
+													Found something here?{' '}
+													<Link to='/search'>
+														Search for it
+													</Link>{' '}
+													and report availability!
+												</p>
+											</div>
+										)}
+									</div>
+								</>
+							)}
+						</div>
+					</div>
 				</div>
 			</section>
 		</div>

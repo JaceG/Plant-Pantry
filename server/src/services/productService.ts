@@ -518,19 +518,19 @@ export const productService = {
 
 		return {
 			id: product._id.toString(),
-			name: product.name,
-			brand: product.brand,
+			name: product.name || '',
+			brand: product.brand || '',
 			description: product.description,
-			sizeOrVariant: product.sizeOrVariant,
-			categories: product.categories,
-			tags: product.tags,
-			isStrictVegan: product.isStrictVegan,
+			sizeOrVariant: product.sizeOrVariant || 'Standard',
+			categories: product.categories || [],
+			tags: product.tags || [],
+			isStrictVegan: product.isStrictVegan ?? true,
 			imageUrl: product.imageUrl,
 			nutritionSummary: product.nutritionSummary,
 			ingredientSummary: product.ingredientSummary,
 			createdAt: product.createdAt,
 			updatedAt: product.updatedAt,
-			availability: availabilityInfo,
+			availability: availabilityInfo || [],
 			averageRating:
 				ratingStats.totalCount > 0
 					? ratingStats.averageRating

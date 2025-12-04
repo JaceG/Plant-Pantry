@@ -148,6 +148,67 @@ export interface CityStore {
 	websiteUrl?: string;
 	phoneNumber?: string;
 	productCount: number;
+	pendingCount?: number;
+	totalCount?: number;
+}
+
+// Store product with full moderation details
+export interface StoreProductWithModeration {
+	availabilityId: string;
+	productId: string;
+	name: string;
+	brand: string;
+	sizeOrVariant: string;
+	imageUrl?: string;
+	categories: string[];
+	productType: 'api' | 'user';
+	archived?: boolean;
+	// Availability details
+	source:
+		| 'admin'
+		| 'user_contribution'
+		| 'seed_data'
+		| 'api_fetch'
+		| 'store_api';
+	moderationStatus: 'confirmed' | 'pending' | 'rejected';
+	priceRange?: string;
+	notes?: string;
+	lastConfirmedAt?: string;
+	createdAt?: string;
+	// Reporter info
+	reportedBy?: {
+		id: string;
+		email: string;
+		displayName?: string;
+	};
+	// Moderator info
+	moderatedBy?: {
+		id: string;
+		email: string;
+		displayName?: string;
+	};
+	moderatedAt?: string;
+}
+
+export interface StoreProductsResponse {
+	store: {
+		id: string;
+		name: string;
+		type: string;
+		address?: string;
+		city?: string;
+		state?: string;
+		zipCode?: string;
+		websiteUrl?: string;
+		phoneNumber?: string;
+	};
+	products: StoreProductWithModeration[];
+	statusCounts: {
+		confirmed: number;
+		pending: number;
+		rejected: number;
+	};
+	totalCount: number;
 }
 
 export interface CityStoresResponse {
@@ -550,4 +611,70 @@ export const adminApi = {
 			skipped: number;
 		}>(`/admin/stores/${storeId}/availability/bulk`, { productIds });
 	},
+
+	// Store Products with Moderation
+	getStoreProducts(storeId: string): Promise<StoreProductsResponse> {
+		return httpClient.get<StoreProductsResponse>(
+			`/admin/stores/${storeId}/products`
+		);
+	},
+
+	// Moderation
+	moderateAvailability(
+		availabilityId: string,
+		status: 'confirmed' | 'rejected'
+	): Promise<{ message: string; availability: any }> {
+		return httpClient.put<{ message: string; availability: any }>(
+			`/admin/availability/${availabilityId}/moderate`,
+			{ status }
+		);
+	},
+
+	// Pending Reports Dashboard
+	getPendingReports(): Promise<PendingReportsResponse> {
+		return httpClient.get<PendingReportsResponse>('/admin/pending-reports');
+	},
+
+	bulkModerateReports(
+		reportIds: string[],
+		status: 'confirmed' | 'rejected'
+	): Promise<{ message: string; modifiedCount: number }> {
+		return httpClient.put<{ message: string; modifiedCount: number }>(
+			'/admin/pending-reports/bulk-moderate',
+			{ reportIds, status }
+		);
+	},
 };
+
+// Pending Reports types
+export interface PendingReport {
+	id: string;
+	productId: string;
+	productName: string;
+	productBrand: string;
+	productImageUrl?: string;
+	productType: 'api' | 'user';
+	storeId: string;
+	storeName: string;
+	storeAddress?: string;
+	priceRange?: string;
+	notes?: string;
+	source: string;
+	reportedBy?: {
+		id: string;
+		email: string;
+		displayName?: string;
+	};
+	createdAt: string;
+}
+
+export interface PendingReportCity {
+	city: string;
+	reports: PendingReport[];
+	count: number;
+}
+
+export interface PendingReportsResponse {
+	totalPending: number;
+	cities: PendingReportCity[];
+}

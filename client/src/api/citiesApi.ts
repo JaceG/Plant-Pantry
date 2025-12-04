@@ -37,6 +37,19 @@ export interface CityProduct {
 	storeNames: string[];
 }
 
+export interface StoreProduct {
+	id: string;
+	name: string;
+	brand: string;
+	sizeOrVariant: string;
+	imageUrl?: string;
+	categories: string[];
+	tags: string[];
+	averageRating?: number;
+	reviewCount?: number;
+	priceRange?: string;
+}
+
 export interface CityProductsResponse {
 	products: CityProduct[];
 	totalCount: number;
@@ -82,6 +95,18 @@ export const citiesApi = {
 		const query = params.toString();
 		return httpClient.get<CityProductsResponse>(
 			`/cities/${slug}/products${query ? `?${query}` : ''}`
+		);
+	},
+
+	/**
+	 * Get products at a specific store in a city
+	 */
+	getStoreProducts(
+		slug: string,
+		storeId: string
+	): Promise<{ products: StoreProduct[] }> {
+		return httpClient.get<{ products: StoreProduct[] }>(
+			`/cities/${slug}/stores/${storeId}/products`
 		);
 	},
 };

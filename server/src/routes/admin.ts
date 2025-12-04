@@ -928,7 +928,7 @@ import { CityLandingPage } from '../models';
 
 /**
  * GET /api/admin/city-pages/:slug/stores
- * Get all stores in a city
+ * Get all stores in a city with product counts by moderation status
  */
 router.get(
 	'/city-pages/:slug/stores',
@@ -950,19 +950,200 @@ router.get(
 				.sort({ name: 1 })
 				.lean();
 
-			// Get product counts for each store
+			// Get product counts by moderation status for each store
 			const storeIds = stores.map((s) => s._id);
 			const availabilityCounts = await Availability.aggregate([
 				{ $match: { storeId: { $in: storeIds } } },
-				{ $group: { _id: '$storeId', count: { $sum: 1 } } },
+				{
+					$group: {
+						_id: {
+							storeId: '$storeId',
+							status: '$moderationStatus',
+						},
+						count: { $sum: 1 },
+					},
+				},
 			]);
 
-			const countMap = new Map(
-				availabilityCounts.map((a: any) => [a._id.toString(), a.count])
-			);
+			// Build a map of storeId -> { confirmed, pending, rejected }
+			const countMap = new Map<
+				string,
+				{
+					confirmed: number;
+					pending: number;
+					rejected: number;
+					total: number;
+				}
+			>();
+
+			availabilityCounts.forEach((a: any) => {
+				const storeId = a._id.storeId.toString();
+				if (!countMap.has(storeId)) {
+					countMap.set(storeId, {
+						confirmed: 0,
+						pending: 0,
+						rejected: 0,
+						total: 0,
+					});
+				}
+				const counts = countMap.get(storeId)!;
+				const status = a._id.status || 'confirmed';
+				if (status === 'confirmed') counts.confirmed += a.count;
+				else if (status === 'pending') counts.pending += a.count;
+				else if (status === 'rejected') counts.rejected += a.count;
+				counts.total += a.count;
+			});
 
 			res.json({
-				stores: stores.map((store) => ({
+				stores: stores.map((store) => {
+					const counts = countMap.get(store._id.toString()) || {
+						confirmed: 0,
+						pending: 0,
+						rejected: 0,
+						total: 0,
+					};
+					return {
+						id: store._id.toString(),
+						name: store.name,
+						type: store.type,
+						address: store.address,
+						city: store.city,
+						state: store.state,
+						zipCode: store.zipCode,
+						websiteUrl: store.websiteUrl,
+						phoneNumber: store.phoneNumber,
+						productCount: counts.confirmed, // Only confirmed products
+						pendingCount: counts.pending,
+						totalCount: counts.total,
+					};
+				}),
+				city: {
+					cityName: cityPage.cityName,
+					state: cityPage.state,
+				},
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * GET /api/admin/stores/:storeId/products
+ * Get all products at a specific store with moderation details
+ */
+router.get(
+	'/stores/:storeId/products',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { storeId } = req.params;
+
+			// Get the store
+			const store = await Store.findById(storeId).lean();
+			if (!store) {
+				throw new HttpError('Store not found', 404);
+			}
+
+			// Get all availability records for this store
+			const availabilities = await Availability.find({ storeId })
+				.populate('reportedBy', 'email displayName')
+				.populate('moderatedBy', 'email displayName')
+				.sort({ createdAt: -1 })
+				.lean();
+
+			// Get product details
+			const productIds = availabilities.map((a) => a.productId);
+
+			const [apiProducts, userProducts] = await Promise.all([
+				Product.find({
+					_id: { $in: productIds },
+				})
+					.select(
+						'name brand sizeOrVariant imageUrl categories archived'
+					)
+					.lean(),
+				UserProduct.find({
+					_id: { $in: productIds },
+				})
+					.select(
+						'name brand sizeOrVariant imageUrl categories archived'
+					)
+					.lean(),
+			]);
+
+			const productMap = new Map<string, any>();
+			apiProducts.forEach((p) =>
+				productMap.set(p._id.toString(), { ...p, productType: 'api' })
+			);
+			userProducts.forEach((p) =>
+				productMap.set(p._id.toString(), { ...p, productType: 'user' })
+			);
+
+			// Build response with moderation details
+			const products = availabilities
+				.map((avail) => {
+					const product = productMap.get(avail.productId.toString());
+					if (!product) return null;
+
+					return {
+						availabilityId: avail._id.toString(),
+						productId: product._id.toString(),
+						name: product.name,
+						brand: product.brand,
+						sizeOrVariant: product.sizeOrVariant,
+						imageUrl: product.imageUrl,
+						categories: product.categories || [],
+						productType: product.productType,
+						archived: product.archived,
+						// Availability details
+						source: avail.source,
+						moderationStatus: avail.moderationStatus || 'confirmed',
+						priceRange: avail.priceRange,
+						notes: avail.notes,
+						lastConfirmedAt: avail.lastConfirmedAt,
+						createdAt: avail.createdAt,
+						// Reporter info (if user contribution)
+						reportedBy: avail.reportedBy
+							? {
+									id: (
+										avail.reportedBy as any
+									)._id?.toString(),
+									email: (avail.reportedBy as any).email,
+									displayName: (avail.reportedBy as any)
+										.displayName,
+							  }
+							: null,
+						// Moderator info
+						moderatedBy: avail.moderatedBy
+							? {
+									id: (
+										avail.moderatedBy as any
+									)._id?.toString(),
+									email: (avail.moderatedBy as any).email,
+									displayName: (avail.moderatedBy as any)
+										.displayName,
+							  }
+							: null,
+						moderatedAt: avail.moderatedAt,
+					};
+				})
+				.filter(Boolean);
+
+			// Count by status
+			const statusCounts = {
+				confirmed: products.filter(
+					(p: any) => p.moderationStatus === 'confirmed'
+				).length,
+				pending: products.filter(
+					(p: any) => p.moderationStatus === 'pending'
+				).length,
+				rejected: products.filter(
+					(p: any) => p.moderationStatus === 'rejected'
+				).length,
+			};
+
+			res.json({
+				store: {
 					id: store._id.toString(),
 					name: store.name,
 					type: store.type,
@@ -972,11 +1153,54 @@ router.get(
 					zipCode: store.zipCode,
 					websiteUrl: store.websiteUrl,
 					phoneNumber: store.phoneNumber,
-					productCount: countMap.get(store._id.toString()) || 0,
-				})),
-				city: {
-					cityName: cityPage.cityName,
-					state: cityPage.state,
+				},
+				products,
+				statusCounts,
+				totalCount: products.length,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * PUT /api/admin/availability/:availabilityId/moderate
+ * Approve or reject an availability report
+ */
+router.put(
+	'/availability/:availabilityId/moderate',
+	async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+		try {
+			const { availabilityId } = req.params;
+			const { status } = req.body;
+
+			if (!['confirmed', 'rejected'].includes(status)) {
+				throw new HttpError(
+					'Status must be "confirmed" or "rejected"',
+					400
+				);
+			}
+
+			const availability = await Availability.findByIdAndUpdate(
+				availabilityId,
+				{
+					moderationStatus: status,
+					moderatedBy: req.user?.userId,
+					moderatedAt: new Date(),
+				},
+				{ new: true }
+			);
+
+			if (!availability) {
+				throw new HttpError('Availability not found', 404);
+			}
+
+			res.json({
+				message: `Availability ${status}`,
+				availability: {
+					id: availability._id.toString(),
+					moderationStatus: availability.moderationStatus,
 				},
 			});
 		} catch (error) {
@@ -1616,6 +1840,155 @@ router.post(
 				message: 'Products added to store availability',
 				added: newProductIds.length,
 				skipped: productIds.length - newProductIds.length,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// ============================================
+// PENDING REPORTS DASHBOARD
+// ============================================
+
+/**
+ * GET /api/admin/pending-reports
+ * Get all pending availability reports across all cities
+ */
+router.get(
+	'/pending-reports',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			// Get all pending availability records
+			const pendingReports = await Availability.find({
+				moderationStatus: 'pending',
+			})
+				.populate('reportedBy', 'email displayName')
+				.populate('storeId', 'name city state address')
+				.sort({ createdAt: -1 })
+				.lean();
+
+			// Get product details
+			const productIds = pendingReports.map((r) => r.productId);
+
+			const [apiProducts, userProducts] = await Promise.all([
+				Product.find({ _id: { $in: productIds } })
+					.select('name brand imageUrl')
+					.lean(),
+				UserProduct.find({ _id: { $in: productIds } })
+					.select('name brand imageUrl')
+					.lean(),
+			]);
+
+			const productMap = new Map<string, any>();
+			apiProducts.forEach((p) =>
+				productMap.set(p._id.toString(), { ...p, productType: 'api' })
+			);
+			userProducts.forEach((p) =>
+				productMap.set(p._id.toString(), { ...p, productType: 'user' })
+			);
+
+			// Build response grouped by city
+			const reportsByCity: Record<string, any[]> = {};
+
+			pendingReports.forEach((report) => {
+				const store = report.storeId as any;
+				if (!store) return;
+
+				const cityKey = `${store.city || 'Unknown'}, ${
+					store.state || '??'
+				}`;
+				if (!reportsByCity[cityKey]) {
+					reportsByCity[cityKey] = [];
+				}
+
+				const product = productMap.get(report.productId.toString());
+
+				reportsByCity[cityKey].push({
+					id: report._id.toString(),
+					productId: report.productId.toString(),
+					productName: product?.name || 'Unknown Product',
+					productBrand: product?.brand || '',
+					productImageUrl: product?.imageUrl,
+					productType: product?.productType || 'api',
+					storeId: store._id?.toString(),
+					storeName: store.name,
+					storeAddress: store.address,
+					priceRange: report.priceRange,
+					notes: report.notes,
+					source: report.source,
+					reportedBy: report.reportedBy
+						? {
+								id: (report.reportedBy as any)._id?.toString(),
+								email: (report.reportedBy as any).email,
+								displayName: (report.reportedBy as any)
+									.displayName,
+						  }
+						: null,
+					createdAt: report.createdAt,
+				});
+			});
+
+			// Convert to array format
+			const cities = Object.entries(reportsByCity).map(
+				([city, reports]) => ({
+					city,
+					reports,
+					count: reports.length,
+				})
+			);
+
+			// Sort by count descending
+			cities.sort((a, b) => b.count - a.count);
+
+			const totalPending = pendingReports.length;
+
+			res.json({
+				totalPending,
+				cities,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * PUT /api/admin/pending-reports/bulk-moderate
+ * Approve or reject multiple reports at once
+ */
+router.put(
+	'/pending-reports/bulk-moderate',
+	async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+		try {
+			const { reportIds, status } = req.body;
+
+			if (!Array.isArray(reportIds) || reportIds.length === 0) {
+				throw new HttpError('reportIds array is required', 400);
+			}
+
+			if (!['confirmed', 'rejected'].includes(status)) {
+				throw new HttpError(
+					'Status must be "confirmed" or "rejected"',
+					400
+				);
+			}
+
+			const result = await Availability.updateMany(
+				{
+					_id: { $in: reportIds },
+					moderationStatus: 'pending',
+				},
+				{
+					moderationStatus: status,
+					moderatedBy: req.user?.userId,
+					moderatedAt: new Date(),
+				}
+			);
+
+			res.json({
+				message: `${result.modifiedCount} reports ${status}`,
+				modifiedCount: result.modifiedCount,
 			});
 		} catch (error) {
 			next(error);

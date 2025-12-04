@@ -73,7 +73,7 @@ export const cityService = {
 	},
 
 	/**
-	 * Get all stores in a city
+	 * Get all stores in a city (only showing confirmed product counts)
 	 */
 	async getCityStores(slug: string): Promise<CityStore[]> {
 		// First get the city page to get city name and state
@@ -89,10 +89,18 @@ export const cityService = {
 			type: 'brick_and_mortar', // Only physical stores for city pages
 		}).lean();
 
-		// Get product counts for each store
+		// Get product counts for each store (only confirmed or legacy availability)
 		const storeIds = stores.map((s) => s._id);
 		const availabilityCounts = await Availability.aggregate([
-			{ $match: { storeId: { $in: storeIds } } },
+			{
+				$match: {
+					storeId: { $in: storeIds },
+					$or: [
+						{ moderationStatus: 'confirmed' },
+						{ moderationStatus: { $exists: false } },
+					],
+				},
+			},
 			{ $group: { _id: '$storeId', count: { $sum: 1 } } },
 		]);
 
@@ -151,9 +159,13 @@ export const cityService = {
 		const storeIds = stores.map((s) => s._id);
 		const storeMap = new Map(stores.map((s) => [s._id.toString(), s.name]));
 
-		// Get all product IDs available at these stores
+		// Get all product IDs available at these stores (only confirmed or legacy availability)
 		const availabilities = await Availability.find({
 			storeId: { $in: storeIds },
+			$or: [
+				{ moderationStatus: 'confirmed' },
+				{ moderationStatus: { $exists: false } },
+			],
 		}).lean();
 
 		// Group by product ID and collect store names

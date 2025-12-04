@@ -9,3 +9,4 @@ export { AdminFeaturedProducts } from './AdminFeaturedProducts';
 export { AdminCityPages } from './AdminCityPages';
 export { AdminCityPageEditor } from './AdminCityPageEditor';
 export { AdminStoreAvailability } from './AdminStoreAvailability';
+export { AdminPendingReports } from './AdminPendingReports';

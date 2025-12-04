@@ -5,13 +5,15 @@ import {
 	adminApi,
 	AdminCityPage,
 	CityStore,
-	CityProduct,
+	StoreProductWithModeration,
+	StoreProductsResponse,
 } from '../../api/adminApi';
 import { productsApi } from '../../api/productsApi';
 import { ProductSummary } from '../../types';
 import './AdminCityPageEditor.css';
 
-type Tab = 'info' | 'stores' | 'products';
+type Tab = 'info' | 'stores';
+type StoreView = 'list' | 'detail';
 
 export function AdminCityPageEditor() {
 	const { slug } = useParams<{ slug: string }>();
@@ -34,6 +36,18 @@ export function AdminCityPageEditor() {
 
 	// Stores state
 	const [stores, setStores] = useState<CityStore[]>([]);
+	const [storeView, setStoreView] = useState<StoreView>('list');
+	const [selectedStore, setSelectedStore] = useState<CityStore | null>(null);
+	const [storeProducts, setStoreProducts] = useState<
+		StoreProductWithModeration[]
+	>([]);
+	const [storeStatusCounts, setStoreStatusCounts] = useState({
+		confirmed: 0,
+		pending: 0,
+		rejected: 0,
+	});
+
+	// Add store form
 	const [showAddStore, setShowAddStore] = useState(false);
 	const [newStore, setNewStore] = useState({
 		name: '',
@@ -44,19 +58,17 @@ export function AdminCityPageEditor() {
 		phoneNumber: '',
 	});
 
-	// Products state
-	const [products, setProducts] = useState<CityProduct[]>([]);
+	// Product search state
 	const [productSearchQuery, setProductSearchQuery] = useState('');
 	const [productSearchResults, setProductSearchResults] = useState<
 		ProductSummary[]
 	>([]);
-	const [selectedStoreForProduct, setSelectedStoreForProduct] =
-		useState<string>('');
 
 	// UI state
 	const [loading, setLoading] = useState(!isNew);
 	const [saving, setSaving] = useState(false);
 	const [searching, setSearching] = useState(false);
+	const [loadingStoreProducts, setLoadingStoreProducts] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -73,10 +85,9 @@ export function AdminCityPageEditor() {
 		if (isNew || !slug) return;
 
 		try {
-			const [pageRes, storesRes, productsRes] = await Promise.all([
+			const [pageRes, storesRes] = await Promise.all([
 				adminApi.getCityPage(slug),
 				adminApi.getCityStores(slug),
-				adminApi.getCityProducts(slug),
 			]);
 
 			setCityPage(pageRes.cityPage);
@@ -89,7 +100,6 @@ export function AdminCityPageEditor() {
 				isActive: pageRes.cityPage.isActive,
 			});
 			setStores(storesRes.stores);
-			setProducts(productsRes.products);
 		} catch (err) {
 			setError('Failed to load city page');
 			console.error(err);
@@ -102,7 +112,7 @@ export function AdminCityPageEditor() {
 		fetchCityData();
 	}, [fetchCityData]);
 
-	// Refresh just stores
+	// Refresh stores
 	const refreshStores = async () => {
 		if (!slug || isNew) return;
 		try {
@@ -113,15 +123,40 @@ export function AdminCityPageEditor() {
 		}
 	};
 
-	// Refresh just products
-	const refreshProducts = async () => {
-		if (!slug || isNew) return;
+	// Fetch store products
+	const fetchStoreProducts = async (storeId: string) => {
+		setLoadingStoreProducts(true);
 		try {
-			const res = await adminApi.getCityProducts(slug);
-			setProducts(res.products);
+			const res: StoreProductsResponse = await adminApi.getStoreProducts(
+				storeId
+			);
+			setStoreProducts(res.products);
+			setStoreStatusCounts(res.statusCounts);
 		} catch (err) {
-			console.error('Failed to refresh products:', err);
+			console.error('Failed to fetch store products:', err);
+			setError('Failed to load store products');
+		} finally {
+			setLoadingStoreProducts(false);
 		}
+	};
+
+	// Handle store selection (slide to detail)
+	const handleSelectStore = (store: CityStore) => {
+		setSelectedStore(store);
+		setStoreView('detail');
+		setProductSearchQuery('');
+		setProductSearchResults([]);
+		fetchStoreProducts(store.id);
+	};
+
+	// Handle back to store list
+	const handleBackToStores = () => {
+		setStoreView('list');
+		setSelectedStore(null);
+		setStoreProducts([]);
+		setProductSearchQuery('');
+		setProductSearchResults([]);
+		refreshStores();
 	};
 
 	// Handle city name change
@@ -201,14 +236,14 @@ export function AdminCityPageEditor() {
 	};
 
 	// Remove store from city
-	const handleRemoveStore = async (storeId: string) => {
+	const handleRemoveStore = async (storeId: string, e: React.MouseEvent) => {
+		e.stopPropagation();
 		if (!slug || !confirm('Remove this store from the city?')) return;
 
 		try {
 			await adminApi.removeStoreFromCity(slug, storeId);
 			setSuccessMessage('Store removed');
 			await refreshStores();
-			await refreshProducts();
 			setTimeout(() => setSuccessMessage(null), 3000);
 		} catch (err) {
 			setError('Failed to remove store');
@@ -228,8 +263,8 @@ export function AdminCityPageEditor() {
 				q: productSearchQuery,
 				pageSize: 15,
 			});
-			// Filter out products already in city
-			const existingIds = new Set(products.map((p) => p.id));
+			// Filter out products already at this store
+			const existingIds = new Set(storeProducts.map((p) => p.productId));
 			setProductSearchResults(
 				res.items.filter((p) => !existingIds.has(p.id))
 			);
@@ -240,26 +275,17 @@ export function AdminCityPageEditor() {
 		}
 	};
 
-	// Add product to a store
+	// Add product to store
 	const handleAddProduct = async (productId: string) => {
-		if (!slug || !selectedStoreForProduct) {
-			setError('Please select a store first');
-			setTimeout(() => setError(null), 3000);
-			return;
-		}
+		if (!selectedStore) return;
 
 		try {
-			await adminApi.addProductToCity(
-				slug,
-				productId,
-				selectedStoreForProduct
-			);
+			await adminApi.addProductToStore(selectedStore.id, productId);
 			setSuccessMessage('Product added!');
 			setProductSearchResults((prev) =>
 				prev.filter((p) => p.id !== productId)
 			);
-			await refreshProducts();
-			await refreshStores();
+			await fetchStoreProducts(selectedStore.id);
 			setTimeout(() => setSuccessMessage(null), 3000);
 		} catch (err: any) {
 			if (err.message?.includes('already available')) {
@@ -271,22 +297,38 @@ export function AdminCityPageEditor() {
 		}
 	};
 
-	// Remove product from city
-	const handleRemoveProduct = async (productId: string, storeId?: string) => {
-		if (!slug) return;
-		const msg = storeId
-			? 'Remove this product from this store?'
-			: 'Remove this product from ALL stores in this city?';
-		if (!confirm(msg)) return;
+	// Remove product from store
+	const handleRemoveProduct = async (productId: string) => {
+		if (!selectedStore) return;
+		if (!confirm('Remove this product from the store?')) return;
 
 		try {
-			await adminApi.removeProductFromCity(slug, productId, storeId);
+			await adminApi.removeProductFromStore(selectedStore.id, productId);
 			setSuccessMessage('Product removed');
-			await refreshProducts();
-			await refreshStores();
+			await fetchStoreProducts(selectedStore.id);
 			setTimeout(() => setSuccessMessage(null), 3000);
 		} catch (err) {
 			setError('Failed to remove product');
+			setTimeout(() => setError(null), 3000);
+		}
+	};
+
+	// Moderate availability (approve/reject)
+	const handleModerate = async (
+		availabilityId: string,
+		status: 'confirmed' | 'rejected'
+	) => {
+		try {
+			await adminApi.moderateAvailability(availabilityId, status);
+			setSuccessMessage(
+				status === 'confirmed' ? 'Approved!' : 'Rejected'
+			);
+			if (selectedStore) {
+				await fetchStoreProducts(selectedStore.id);
+			}
+			setTimeout(() => setSuccessMessage(null), 3000);
+		} catch (err) {
+			setError('Failed to moderate');
 			setTimeout(() => setError(null), 3000);
 		}
 	};
@@ -355,19 +397,14 @@ export function AdminCityPageEditor() {
 						className={`tab ${
 							activeTab === 'stores' ? 'active' : ''
 						}`}
-						onClick={() => setActiveTab('stores')}
+						onClick={() => {
+							setActiveTab('stores');
+							setStoreView('list');
+							setSelectedStore(null);
+						}}
 						disabled={isNew}>
 						<span className='tab-icon'>🏪</span>
-						Stores ({stores.length})
-					</button>
-					<button
-						className={`tab ${
-							activeTab === 'products' ? 'active' : ''
-						}`}
-						onClick={() => setActiveTab('products')}
-						disabled={isNew}>
-						<span className='tab-icon'>🥬</span>
-						Products ({products.length})
+						Stores & Products ({stores.length})
 					</button>
 				</nav>
 
@@ -492,386 +529,477 @@ export function AdminCityPageEditor() {
 					{/* Stores Tab */}
 					{activeTab === 'stores' && (
 						<div className='stores-tab'>
-							<div className='tab-header'>
-								<h2>
-									Stores in {form.cityName}, {form.state}
-								</h2>
-								<button
-									onClick={() =>
-										setShowAddStore(!showAddStore)
-									}
-									className='add-btn'>
-									{showAddStore ? 'Cancel' : '+ Add Store'}
-								</button>
-							</div>
-
-							{/* Add Store Form */}
-							{showAddStore && (
-								<form
-									onSubmit={handleAddStore}
-									className='add-store-form'>
-									<h3>Add New Store</h3>
-									<div className='form-row'>
-										<div className='form-group'>
-											<label>Store Name *</label>
-											<input
-												type='text'
-												value={newStore.name}
-												onChange={(e) =>
-													setNewStore((prev) => ({
-														...prev,
-														name: e.target.value,
-													}))
-												}
-												placeholder='e.g., Kroger - Delaware'
-												required
-											/>
-										</div>
-										<div className='form-group'>
-											<label>Type</label>
-											<select
-												value={newStore.type}
-												onChange={(e) =>
-													setNewStore((prev) => ({
-														...prev,
-														type: e.target.value,
-													}))
-												}>
-												<option value='brick_and_mortar'>
-													Physical Store
-												</option>
-												<option value='online'>
-													Online
-												</option>
-												<option value='brand_direct'>
-													Brand Direct
-												</option>
-											</select>
-										</div>
-									</div>
-									<div className='form-row'>
-										<div className='form-group'>
-											<label>Address</label>
-											<input
-												type='text'
-												value={newStore.address}
-												onChange={(e) =>
-													setNewStore((prev) => ({
-														...prev,
-														address: e.target.value,
-													}))
-												}
-												placeholder='123 Main St'
-											/>
-										</div>
-										<div className='form-group zip-group'>
-											<label>ZIP Code</label>
-											<input
-												type='text'
-												value={newStore.zipCode}
-												onChange={(e) =>
-													setNewStore((prev) => ({
-														...prev,
-														zipCode: e.target.value,
-													}))
-												}
-												placeholder='43015'
-											/>
-										</div>
-									</div>
-									<div className='form-row'>
-										<div className='form-group'>
-											<label>Website</label>
-											<input
-												type='url'
-												value={newStore.websiteUrl}
-												onChange={(e) =>
-													setNewStore((prev) => ({
-														...prev,
-														websiteUrl:
-															e.target.value,
-													}))
-												}
-												placeholder='https://...'
-											/>
-										</div>
-										<div className='form-group'>
-											<label>Phone</label>
-											<input
-												type='tel'
-												value={newStore.phoneNumber}
-												onChange={(e) =>
-													setNewStore((prev) => ({
-														...prev,
-														phoneNumber:
-															e.target.value,
-													}))
-												}
-												placeholder='(555) 123-4567'
-											/>
-										</div>
-									</div>
-									<button
-										type='submit'
-										disabled={saving}
-										className='submit-btn'>
-										{saving ? 'Adding...' : 'Add Store'}
-									</button>
-								</form>
-							)}
-
-							{/* Stores List */}
-							{stores.length === 0 ? (
-								<div className='empty-state'>
-									<p>No stores in this city yet.</p>
-									<p className='hint'>
-										Add stores to start tracking product
-										availability.
-									</p>
-								</div>
-							) : (
-								<div className='stores-list'>
-									{stores.map((store) => (
-										<div
-											key={store.id}
-											className='store-card'>
-											<div className='store-info'>
-												<h3>{store.name}</h3>
-												<p className='store-address'>
-													{store.address &&
-														`${store.address}, `}
-													{store.city}, {store.state}
-													{store.zipCode &&
-														` ${store.zipCode}`}
-												</p>
-												<div className='store-meta'>
-													<span className='product-count'>
-														{store.productCount}{' '}
-														products
-													</span>
-													<span className='store-type'>
-														{store.type.replace(
-															/_/g,
-															' '
-														)}
-													</span>
-												</div>
-											</div>
-											<button
-												onClick={() =>
-													handleRemoveStore(store.id)
-												}
-												className='remove-btn'
-												title='Remove from city'>
-												×
-											</button>
-										</div>
-									))}
-								</div>
-							)}
-						</div>
-					)}
-
-					{/* Products Tab */}
-					{activeTab === 'products' && (
-						<div className='products-tab'>
-							{/* Add Product Section */}
-							<div className='add-product-section'>
-								<h2>Add Products to Stores</h2>
-
-								{stores.length === 0 ? (
-									<div className='no-stores-warning'>
-										<p>
-											Add stores first before adding
-											products.
-										</p>
+							{/* Slide container */}
+							<div
+								className={`slide-container ${
+									storeView === 'detail' ? 'show-detail' : ''
+								}`}>
+								{/* Store List View */}
+								<div className='slide-panel store-list-view'>
+									<div className='tab-header'>
+										<h2>
+											Stores in {form.cityName},{' '}
+											{form.state}
+										</h2>
 										<button
 											onClick={() =>
-												setActiveTab('stores')
+												setShowAddStore(!showAddStore)
 											}
-											className='go-stores-btn'>
-											Go to Stores →
+											className='add-btn'>
+											{showAddStore
+												? 'Cancel'
+												: '+ Add Store'}
 										</button>
 									</div>
-								) : (
-									<>
-										<div className='store-selector'>
-											<label>Select Store:</label>
-											<select
-												value={selectedStoreForProduct}
-												onChange={(e) =>
-													setSelectedStoreForProduct(
-														e.target.value
-													)
-												}>
-												<option value=''>
-													-- Choose a store --
-												</option>
-												{stores.map((store) => (
-													<option
-														key={store.id}
-														value={store.id}>
-														{store.name}
-													</option>
-												))}
-											</select>
-										</div>
 
-										<div className='search-box'>
-											<input
-												type='text'
-												placeholder='Search for products to add...'
-												value={productSearchQuery}
-												onChange={(e) =>
-													setProductSearchQuery(
-														e.target.value
-													)
-												}
-												onKeyDown={(e) =>
-													e.key === 'Enter' &&
-													handleProductSearch()
-												}
-											/>
-											<button
-												onClick={handleProductSearch}
-												disabled={searching}>
-												{searching
-													? 'Searching...'
-													: 'Search'}
-											</button>
-										</div>
-
-										{productSearchResults.length > 0 && (
-											<div className='search-results'>
-												{productSearchResults.map(
-													(product) => (
-														<div
-															key={product.id}
-															className='search-result'>
-															<div className='result-image'>
-																{product.imageUrl ? (
-																	<img
-																		src={
-																			product.imageUrl
-																		}
-																		alt={
-																			product.name
-																		}
-																	/>
-																) : (
-																	<span>
-																		🌱
-																	</span>
-																)}
-															</div>
-															<div className='result-info'>
-																<span className='name'>
-																	{
-																		product.name
-																	}
-																</span>
-																<span className='brand'>
-																	{
-																		product.brand
-																	}
-																</span>
-															</div>
-															<button
-																onClick={() =>
-																	handleAddProduct(
-																		product.id
-																	)
-																}
-																className='add-product-btn'
-																disabled={
-																	!selectedStoreForProduct
-																}>
-																+ Add
-															</button>
-														</div>
-													)
-												)}
-											</div>
-										)}
-									</>
-								)}
-							</div>
-
-							{/* Products List */}
-							<div className='products-list-section'>
-								<h2>
-									Products in {form.cityName} (
-									{products.length})
-								</h2>
-
-								{products.length === 0 ? (
-									<div className='empty-state'>
-										<p>No products at city stores yet.</p>
-									</div>
-								) : (
-									<div className='products-list'>
-										{products.map((product) => (
-											<div
-												key={product.id}
-												className='product-card'>
-												<div className='product-image'>
-													{product.imageUrl ? (
-														<img
-															src={
-																product.imageUrl
-															}
-															alt={product.name}
-														/>
-													) : (
-														<span>🌱</span>
-													)}
+									{/* Add Store Form */}
+									{showAddStore && (
+										<form
+											onSubmit={handleAddStore}
+											className='add-store-form'>
+											<h3>Add New Store</h3>
+											<div className='form-row'>
+												<div className='form-group'>
+													<label>Store Name *</label>
+													<input
+														type='text'
+														value={newStore.name}
+														onChange={(e) =>
+															setNewStore(
+																(prev) => ({
+																	...prev,
+																	name: e
+																		.target
+																		.value,
+																})
+															)
+														}
+														placeholder='e.g., Kroger - Delaware'
+														required
+													/>
 												</div>
-												<div className='product-info'>
-													<h3>{product.name}</h3>
-													<p className='brand'>
-														{product.brand}
-													</p>
-													<div className='stores-badge'>
-														At {product.storeCount}{' '}
-														{product.storeCount ===
-														1
-															? 'store'
-															: 'stores'}
-														:{' '}
-														{product.storeNames.join(
-															', '
-														)}
-														{product.storeCount >
-															3 && '...'}
+												<div className='form-group'>
+													<label>Type</label>
+													<select
+														value={newStore.type}
+														onChange={(e) =>
+															setNewStore(
+																(prev) => ({
+																	...prev,
+																	type: e
+																		.target
+																		.value,
+																})
+															)
+														}>
+														<option value='brick_and_mortar'>
+															Physical Store
+														</option>
+														<option value='online'>
+															Online
+														</option>
+														<option value='brand_direct'>
+															Brand Direct
+														</option>
+													</select>
+												</div>
+											</div>
+											<div className='form-row'>
+												<div className='form-group'>
+													<label>Address</label>
+													<input
+														type='text'
+														value={newStore.address}
+														onChange={(e) =>
+															setNewStore(
+																(prev) => ({
+																	...prev,
+																	address:
+																		e.target
+																			.value,
+																})
+															)
+														}
+														placeholder='123 Main St'
+													/>
+												</div>
+												<div className='form-group zip-group'>
+													<label>ZIP Code</label>
+													<input
+														type='text'
+														value={newStore.zipCode}
+														onChange={(e) =>
+															setNewStore(
+																(prev) => ({
+																	...prev,
+																	zipCode:
+																		e.target
+																			.value,
+																})
+															)
+														}
+														placeholder='43015'
+													/>
+												</div>
+											</div>
+											<button
+												type='submit'
+												disabled={saving}
+												className='submit-btn'>
+												{saving
+													? 'Adding...'
+													: 'Add Store'}
+											</button>
+										</form>
+									)}
+
+									{/* Stores List */}
+									{stores.length === 0 ? (
+										<div className='empty-state'>
+											<p>No stores in this city yet.</p>
+											<p className='hint'>
+												Add stores to start tracking
+												products.
+											</p>
+										</div>
+									) : (
+										<div className='stores-list'>
+											{stores.map((store) => (
+												<div
+													key={store.id}
+													className='store-card clickable'
+													onClick={() =>
+														handleSelectStore(store)
+													}>
+													<div className='store-info'>
+														<h3>{store.name}</h3>
+														<p className='store-address'>
+															{store.address &&
+																`${store.address}, `}
+															{store.city},{' '}
+															{store.state}
+															{store.zipCode &&
+																` ${store.zipCode}`}
+														</p>
+														<div className='store-meta'>
+															<span className='product-count'>
+																{
+																	store.productCount
+																}{' '}
+																products
+															</span>
+															{(store.pendingCount ||
+																0) > 0 && (
+																<span className='pending-count'>
+																	{
+																		store.pendingCount
+																	}{' '}
+																	pending
+																</span>
+															)}
+														</div>
+													</div>
+													<div className='store-actions'>
+														<button
+															onClick={(e) =>
+																handleRemoveStore(
+																	store.id,
+																	e
+																)
+															}
+															className='remove-btn'
+															title='Remove from city'>
+															×
+														</button>
+														<span className='arrow'>
+															→
+														</span>
 													</div>
 												</div>
-												<div className='product-actions'>
-													{product.availabilities.map(
-														(avail) => (
-															<button
-																key={
-																	avail.storeId
-																}
-																onClick={() =>
-																	handleRemoveProduct(
-																		product.id,
-																		avail.storeId
-																	)
-																}
-																className='remove-from-store'
-																title={`Remove from ${avail.storeName}`}>
-																×{' '}
-																{
-																	avail.storeName
-																}
-															</button>
-														)
-													)}
+											))}
+										</div>
+									)}
+								</div>
+
+								{/* Store Detail View */}
+								<div className='slide-panel store-detail-view'>
+									{selectedStore && (
+										<>
+											<div className='detail-header'>
+												<button
+													onClick={handleBackToStores}
+													className='back-btn'>
+													← Back to stores
+												</button>
+												<div className='store-title'>
+													<h2>
+														{selectedStore.name}
+													</h2>
+													<p className='store-address'>
+														{selectedStore.address &&
+															`${selectedStore.address}, `}
+														{selectedStore.city},{' '}
+														{selectedStore.state}
+														{selectedStore.zipCode &&
+															` ${selectedStore.zipCode}`}
+													</p>
 												</div>
 											</div>
-										))}
-									</div>
-								)}
+
+											{/* Add Products Search */}
+											<div className='add-product-section'>
+												<h3>Add Products</h3>
+												<div className='search-box'>
+													<input
+														type='text'
+														placeholder='Search for products to add...'
+														value={
+															productSearchQuery
+														}
+														onChange={(e) =>
+															setProductSearchQuery(
+																e.target.value
+															)
+														}
+														onKeyDown={(e) =>
+															e.key === 'Enter' &&
+															handleProductSearch()
+														}
+													/>
+													<button
+														onClick={
+															handleProductSearch
+														}
+														disabled={searching}>
+														{searching
+															? 'Searching...'
+															: 'Search'}
+													</button>
+												</div>
+
+												{productSearchResults.length >
+													0 && (
+													<div className='search-results'>
+														{productSearchResults.map(
+															(product) => (
+																<div
+																	key={
+																		product.id
+																	}
+																	className='search-result'>
+																	<div className='result-image'>
+																		{product.imageUrl ? (
+																			<img
+																				src={
+																					product.imageUrl
+																				}
+																				alt={
+																					product.name
+																				}
+																			/>
+																		) : (
+																			<span>
+																				🌱
+																			</span>
+																		)}
+																	</div>
+																	<div className='result-info'>
+																		<span className='name'>
+																			{
+																				product.name
+																			}
+																		</span>
+																		<span className='brand'>
+																			{
+																				product.brand
+																			}
+																		</span>
+																	</div>
+																	<button
+																		onClick={() =>
+																			handleAddProduct(
+																				product.id
+																			)
+																		}
+																		className='add-product-btn'>
+																		+ Add
+																	</button>
+																</div>
+															)
+														)}
+													</div>
+												)}
+											</div>
+
+											{/* Products at Store */}
+											<div className='products-section'>
+												<div className='section-header'>
+													<h3>
+														Products at this Store (
+														{storeProducts.length})
+													</h3>
+													<div className='status-filters'>
+														<span className='status-pill confirmed'>
+															{
+																storeStatusCounts.confirmed
+															}{' '}
+															confirmed
+														</span>
+														{storeStatusCounts.pending >
+															0 && (
+															<span className='status-pill pending'>
+																{
+																	storeStatusCounts.pending
+																}{' '}
+																pending
+															</span>
+														)}
+													</div>
+												</div>
+
+												{loadingStoreProducts ? (
+													<div className='loading-products'>
+														<div className='loading-spinner' />
+														<span>
+															Loading products...
+														</span>
+													</div>
+												) : storeProducts.length ===
+												  0 ? (
+													<div className='empty-state'>
+														<p>
+															No products at this
+															store yet.
+														</p>
+														<p className='hint'>
+															Use the search above
+															to add products.
+														</p>
+													</div>
+												) : (
+													<div className='products-list'>
+														{storeProducts.map(
+															(product) => (
+																<div
+																	key={
+																		product.availabilityId
+																	}
+																	className={`product-card ${product.moderationStatus}`}>
+																	<div className='product-image'>
+																		{product.imageUrl ? (
+																			<img
+																				src={
+																					product.imageUrl
+																				}
+																				alt={
+																					product.name
+																				}
+																			/>
+																		) : (
+																			<span>
+																				🌱
+																			</span>
+																		)}
+																	</div>
+																	<div className='product-info'>
+																		<h4>
+																			{
+																				product.name
+																			}
+																		</h4>
+																		<p className='brand'>
+																			{
+																				product.brand
+																			}
+																		</p>
+																		<div className='product-badges'>
+																			<span
+																				className={`source-badge ${product.source}`}>
+																				{product.source ===
+																				'admin'
+																					? '👤 Admin'
+																					: product.source ===
+																					  'user_contribution'
+																					? '🙋 User Report'
+																					: product.source}
+																			</span>
+																			<span
+																				className={`status-badge ${product.moderationStatus}`}>
+																				{
+																					product.moderationStatus
+																				}
+																			</span>
+																		</div>
+																		{product.reportedBy && (
+																			<p className='reporter'>
+																				Reported
+																				by:{' '}
+																				{product
+																					.reportedBy
+																					.displayName ||
+																					product
+																						.reportedBy
+																						.email}
+																			</p>
+																		)}
+																		{product.notes && (
+																			<p className='notes'>
+																				"
+																				{
+																					product.notes
+																				}
+																				"
+																			</p>
+																		)}
+																	</div>
+																	<div className='product-actions'>
+																		{product.moderationStatus ===
+																			'pending' && (
+																			<>
+																				<button
+																					onClick={() =>
+																						handleModerate(
+																							product.availabilityId,
+																							'confirmed'
+																						)
+																					}
+																					className='approve-btn'
+																					title='Approve'>
+																					✓
+																				</button>
+																				<button
+																					onClick={() =>
+																						handleModerate(
+																							product.availabilityId,
+																							'rejected'
+																						)
+																					}
+																					className='reject-btn'
+																					title='Reject'>
+																					×
+																				</button>
+																			</>
+																		)}
+																		<button
+																			onClick={() =>
+																				handleRemoveProduct(
+																					product.productId
+																				)
+																			}
+																			className='remove-btn'
+																			title='Remove'>
+																			🗑
+																		</button>
+																	</div>
+																</div>
+															)
+														)}
+													</div>
+												)}
+											</div>
+										</>
+									)}
+								</div>
 							</div>
 						</div>
 					)}

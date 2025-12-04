@@ -1,293 +1,333 @@
 import mongoose from 'mongoose';
 import { UserProduct, Availability, Store } from '../models';
-import { ProductSummary, ProductDetail, AvailabilityInfo } from './productService';
+import {
+	ProductSummary,
+	ProductDetail,
+	AvailabilityInfo,
+} from './productService';
 
 export interface StoreAvailabilityInput {
-  storeId: string;
-  priceRange?: string;
-  status?: 'known' | 'user_reported' | 'unknown';
+	storeId: string;
+	priceRange?: string;
+	status?: 'known' | 'user_reported' | 'unknown';
 }
 
 export interface CreateUserProductInput {
-  userId: string;
-  name: string;
-  brand: string;
-  description?: string;
-  sizeOrVariant?: string;
-  categories?: string[];
-  tags?: string[];
-  isStrictVegan?: boolean;
-  imageUrl?: string;
-  nutritionSummary?: string;
-  ingredientSummary?: string;
-  storeAvailabilities?: StoreAvailabilityInput[];
-  sourceProductId?: string; // If editing an API product
+	userId: string;
+	name: string;
+	brand: string;
+	description?: string;
+	sizeOrVariant?: string;
+	categories?: string[];
+	tags?: string[];
+	isStrictVegan?: boolean;
+	imageUrl?: string;
+	nutritionSummary?: string;
+	ingredientSummary?: string;
+	storeAvailabilities?: StoreAvailabilityInput[];
+	sourceProductId?: string; // If editing an API product
 }
 
 export interface UpdateUserProductInput {
-  name?: string;
-  brand?: string;
-  description?: string;
-  sizeOrVariant?: string;
-  categories?: string[];
-  tags?: string[];
-  isStrictVegan?: boolean;
-  imageUrl?: string;
-  nutritionSummary?: string;
-  ingredientSummary?: string;
-  status?: 'pending' | 'approved' | 'rejected';
-  storeAvailabilities?: StoreAvailabilityInput[];
+	name?: string;
+	brand?: string;
+	description?: string;
+	sizeOrVariant?: string;
+	categories?: string[];
+	tags?: string[];
+	isStrictVegan?: boolean;
+	imageUrl?: string;
+	nutritionSummary?: string;
+	ingredientSummary?: string;
+	status?: 'pending' | 'approved' | 'rejected';
+	storeAvailabilities?: StoreAvailabilityInput[];
 }
 
 export const userProductService = {
-  /**
-   * Create a new user-contributed product or edit of an API product
-   */
-  async createProduct(input: CreateUserProductInput): Promise<ProductDetail> {
-    // Check if this is an edit of an existing API product
-    let existingEdit = null;
-    if (input.sourceProductId) {
-      existingEdit = await UserProduct.findOne({
-        sourceProductId: new mongoose.Types.ObjectId(input.sourceProductId),
-        status: 'approved',
-      });
-    }
+	/**
+	 * Create a new user-contributed product or edit of an API product
+	 */
+	async createProduct(input: CreateUserProductInput): Promise<ProductDetail> {
+		// Check if this is an edit of an existing API product
+		let existingEdit = null;
+		if (input.sourceProductId) {
+			existingEdit = await UserProduct.findOne({
+				sourceProductId: new mongoose.Types.ObjectId(
+					input.sourceProductId
+				),
+				status: 'approved',
+			});
+		}
 
-    const productData: any = {
-      userId: new mongoose.Types.ObjectId(input.userId),
-      name: input.name,
-      brand: input.brand,
-      description: input.description,
-      sizeOrVariant: input.sizeOrVariant || 'Standard',
-      categories: input.categories || [],
-      tags: input.tags || ['vegan'],
-      isStrictVegan: input.isStrictVegan !== false,
-      imageUrl: input.imageUrl,
-      nutritionSummary: input.nutritionSummary,
-      ingredientSummary: input.ingredientSummary,
-      source: 'user_contribution',
-      status: 'approved',
-    };
+		const productData: any = {
+			userId: new mongoose.Types.ObjectId(input.userId),
+			name: input.name,
+			brand: input.brand,
+			description: input.description,
+			sizeOrVariant: input.sizeOrVariant || 'Standard',
+			categories: input.categories || [],
+			tags: input.tags || ['vegan'],
+			isStrictVegan: input.isStrictVegan !== false,
+			imageUrl: input.imageUrl,
+			nutritionSummary: input.nutritionSummary,
+			ingredientSummary: input.ingredientSummary,
+			source: 'user_contribution',
+			status: 'approved',
+		};
 
-    if (input.sourceProductId) {
-      productData.sourceProductId = new mongoose.Types.ObjectId(input.sourceProductId);
-      productData.editedBy = new mongoose.Types.ObjectId(input.userId);
-    }
+		if (input.sourceProductId) {
+			productData.sourceProductId = new mongoose.Types.ObjectId(
+				input.sourceProductId
+			);
+			productData.editedBy = new mongoose.Types.ObjectId(input.userId);
+		}
 
-    // If editing an existing product, update it; otherwise create new
-    let product;
-    if (existingEdit) {
-      product = await UserProduct.findByIdAndUpdate(
-        existingEdit._id,
-        { $set: productData },
-        { new: true }
-      );
-    } else {
-      product = await UserProduct.create(productData);
-    }
+		// If editing an existing product, update it; otherwise create new
+		let product;
+		if (existingEdit) {
+			product = await UserProduct.findByIdAndUpdate(
+				existingEdit._id,
+				{ $set: productData },
+				{ new: true }
+			);
+		} else {
+			product = await UserProduct.create(productData);
+		}
 
-    if (!product) {
-      throw new Error('Failed to create or update product');
-    }
+		if (!product) {
+			throw new Error('Failed to create or update product');
+		}
 
-    // Create availability entries if provided
-    if (input.storeAvailabilities && input.storeAvailabilities.length > 0) {
-      const availabilityEntries = input.storeAvailabilities.map((avail) => ({
-        productId: product._id,
-        storeId: new mongoose.Types.ObjectId(avail.storeId),
-        status: (avail.status || 'user_reported') as 'known' | 'user_reported' | 'unknown',
-        priceRange: avail.priceRange,
-        lastConfirmedAt: new Date(),
-        source: 'user_contribution' as const,
-        isStale: false,
-      }));
+		// Update availability entries if provided
+		if (input.storeAvailabilities !== undefined) {
+			// First, delete any existing availability entries for this product
+			// This ensures we replace old entries rather than trying to insert duplicates
+			await Availability.deleteMany({ productId: product._id });
 
-      await Availability.insertMany(availabilityEntries, { ordered: false }).catch((error: any) => {
-        // Ignore duplicate key errors
-        if (error.code !== 11000) {
-          console.error('Error creating availability entries:', error);
-        }
-      });
-    }
+			// Create new availability entries if any are provided
+			if (input.storeAvailabilities.length > 0) {
+				const availabilityEntries = input.storeAvailabilities.map(
+					(avail) => ({
+						productId: product._id,
+						storeId: new mongoose.Types.ObjectId(avail.storeId),
+						status: (avail.status || 'user_reported') as
+							| 'known'
+							| 'user_reported'
+							| 'unknown',
+						priceRange: avail.priceRange,
+						lastConfirmedAt: new Date(),
+						source: 'user_contribution' as const,
+						isStale: false,
+					})
+				);
 
-    return await this.mapToProductDetail(product);
-  },
+				await Availability.insertMany(availabilityEntries, {
+					ordered: false,
+				}).catch((error: any) => {
+					// Ignore duplicate key errors (shouldn't happen now, but just in case)
+					if (error.code !== 11000) {
+						console.error(
+							'Error creating availability entries:',
+							error
+						);
+					}
+				});
+			}
+		}
 
-  /**
-   * Get user product by ID
-   */
-  async getProductById(id: string): Promise<ProductDetail | null> {
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return null;
-    }
+		return await this.mapToProductDetail(product);
+	},
 
-    const product = await UserProduct.findById(id).lean();
-    if (!product) {
-      return null;
-    }
+	/**
+	 * Get user product by ID
+	 */
+	async getProductById(id: string): Promise<ProductDetail | null> {
+		if (!mongoose.Types.ObjectId.isValid(id)) {
+			return null;
+		}
 
-    return await this.mapToProductDetail(product);
-  },
+		const product = await UserProduct.findById(id).lean();
+		if (!product) {
+			return null;
+		}
 
-  /**
-   * Get all products by a user
-   */
-  async getProductsByUser(userId: string): Promise<ProductSummary[]> {
-    const products = await UserProduct.find({
-      userId: new mongoose.Types.ObjectId(userId),
-      status: 'approved', // Only show approved products
-    })
-      .select('name brand sizeOrVariant imageUrl categories tags')
-      .sort({ createdAt: -1 })
-      .lean();
+		return await this.mapToProductDetail(product);
+	},
 
-    return products.map((p) => ({
-      id: p._id.toString(),
-      name: p.name,
-      brand: p.brand,
-      sizeOrVariant: p.sizeOrVariant,
-      imageUrl: p.imageUrl,
-      categories: p.categories,
-      tags: p.tags,
-    }));
-  },
+	/**
+	 * Get all products by a user
+	 */
+	async getProductsByUser(userId: string): Promise<ProductSummary[]> {
+		const products = await UserProduct.find({
+			userId: new mongoose.Types.ObjectId(userId),
+			status: 'approved', // Only show approved products
+		})
+			.select('name brand sizeOrVariant imageUrl categories tags')
+			.sort({ createdAt: -1 })
+			.lean();
 
-  /**
-   * Update a user product
-   */
-  async updateProduct(
-    id: string,
-    userId: string,
-    input: UpdateUserProductInput,
-    isAdmin: boolean = false
-  ): Promise<ProductDetail | null> {
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return null;
-    }
+		return products.map((p) => ({
+			id: p._id.toString(),
+			name: p.name,
+			brand: p.brand,
+			sizeOrVariant: p.sizeOrVariant,
+			imageUrl: p.imageUrl,
+			categories: p.categories,
+			tags: p.tags,
+		}));
+	},
 
-    // Build query: admins can edit any product, regular users can only edit their own
-    const query: any = {
-      _id: new mongoose.Types.ObjectId(id),
-    };
-    
-    if (!isAdmin) {
-      query.userId = new mongoose.Types.ObjectId(userId); // Ensure user owns it
-    }
+	/**
+	 * Update a user product
+	 */
+	async updateProduct(
+		id: string,
+		userId: string,
+		input: UpdateUserProductInput,
+		isAdmin: boolean = false
+	): Promise<ProductDetail | null> {
+		if (!mongoose.Types.ObjectId.isValid(id)) {
+			return null;
+		}
 
-    // Separate storeAvailabilities from other product fields
-    const { storeAvailabilities, ...productUpdateData } = input;
+		// Build query: admins can edit any product, regular users can only edit their own
+		const query: any = {
+			_id: new mongoose.Types.ObjectId(id),
+		};
 
-    const product = await UserProduct.findOneAndUpdate(
-      query,
-      { $set: productUpdateData },
-      { new: true, lean: true }
-    );
+		if (!isAdmin) {
+			query.userId = new mongoose.Types.ObjectId(userId); // Ensure user owns it
+		}
 
-    if (!product) {
-      return null;
-    }
+		// Separate storeAvailabilities from other product fields
+		const { storeAvailabilities, ...productUpdateData } = input;
 
-    // Update availability entries if provided
-    if (storeAvailabilities !== undefined) {
-      const productId = new mongoose.Types.ObjectId(id);
-      
-      // Delete existing availability entries for this product
-      await Availability.deleteMany({ productId });
+		const product = await UserProduct.findOneAndUpdate(
+			query,
+			{ $set: productUpdateData },
+			{ new: true, lean: true }
+		);
 
-      // Create new availability entries if any are provided
-      if (storeAvailabilities.length > 0) {
-        const availabilityEntries = storeAvailabilities.map((avail) => ({
-          productId,
-          storeId: new mongoose.Types.ObjectId(avail.storeId),
-          status: (avail.status || 'user_reported') as 'known' | 'user_reported' | 'unknown',
-          priceRange: avail.priceRange,
-          lastConfirmedAt: new Date(),
-          source: 'user_contribution' as const,
-          isStale: false,
-        }));
+		if (!product) {
+			return null;
+		}
 
-        await Availability.insertMany(availabilityEntries, { ordered: false }).catch((error: any) => {
-          // Ignore duplicate key errors
-          if (error.code !== 11000) {
-            console.error('Error creating availability entries:', error);
-          }
-        });
-      }
-    }
+		// Update availability entries if provided
+		if (storeAvailabilities !== undefined) {
+			const productId = new mongoose.Types.ObjectId(id);
 
-    return await this.mapToProductDetail(product);
-  },
+			// Delete existing availability entries for this product
+			await Availability.deleteMany({ productId });
 
-  /**
-   * Delete a user product
-   */
-  async deleteProduct(id: string, userId: string): Promise<boolean> {
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return false;
-    }
+			// Create new availability entries if any are provided
+			if (storeAvailabilities.length > 0) {
+				const availabilityEntries = storeAvailabilities.map(
+					(avail) => ({
+						productId,
+						storeId: new mongoose.Types.ObjectId(avail.storeId),
+						status: (avail.status || 'user_reported') as
+							| 'known'
+							| 'user_reported'
+							| 'unknown',
+						priceRange: avail.priceRange,
+						lastConfirmedAt: new Date(),
+						source: 'user_contribution' as const,
+						isStale: false,
+					})
+				);
 
-    const result = await UserProduct.deleteOne({
-      _id: new mongoose.Types.ObjectId(id),
-      userId: new mongoose.Types.ObjectId(userId), // Ensure user owns it
-    });
+				await Availability.insertMany(availabilityEntries, {
+					ordered: false,
+				}).catch((error: any) => {
+					// Ignore duplicate key errors
+					if (error.code !== 11000) {
+						console.error(
+							'Error creating availability entries:',
+							error
+						);
+					}
+				});
+			}
+		}
 
-    return result.deletedCount > 0;
-  },
+		return await this.mapToProductDetail(product);
+	},
 
-  /**
-   * Map UserProduct to ProductDetail format
-   */
-  async mapToProductDetail(product: any): Promise<ProductDetail> {
-    // Fetch availability for this product
-    const availabilities = await Availability.find({
-      productId: product._id instanceof mongoose.Types.ObjectId ? product._id : new mongoose.Types.ObjectId(product._id),
-    }).lean();
+	/**
+	 * Delete a user product
+	 */
+	async deleteProduct(id: string, userId: string): Promise<boolean> {
+		if (!mongoose.Types.ObjectId.isValid(id)) {
+			return false;
+		}
 
-    const storeIds = availabilities
-      .map((a) => a.storeId)
-      .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
-      .map((id) => new mongoose.Types.ObjectId(id));
+		const result = await UserProduct.deleteOne({
+			_id: new mongoose.Types.ObjectId(id),
+			userId: new mongoose.Types.ObjectId(userId), // Ensure user owns it
+		});
 
-    const stores = storeIds.length > 0
-      ? await Store.find({ _id: { $in: storeIds } }).lean()
-      : [];
+		return result.deletedCount > 0;
+	},
 
-    const storeMap = new Map(stores.map((s) => [s._id.toString(), s]));
+	/**
+	 * Map UserProduct to ProductDetail format
+	 */
+	async mapToProductDetail(product: any): Promise<ProductDetail> {
+		// Fetch availability for this product
+		const availabilities = await Availability.find({
+			productId:
+				product._id instanceof mongoose.Types.ObjectId
+					? product._id
+					: new mongoose.Types.ObjectId(product._id),
+		}).lean();
 
-    const availabilityInfo: AvailabilityInfo[] = availabilities.map((avail) => {
-      const storeIdStr = avail.storeId.toString();
-      const store = storeMap.get(storeIdStr);
-      return {
-        storeId: storeIdStr,
-        storeName: store?.name || 'Unknown Store',
-        storeType: store?.type || 'unknown',
-        regionOrScope: store?.regionOrScope || 'Unknown',
-        status: avail.status || 'unknown',
-        priceRange: avail.priceRange,
-        lastConfirmedAt: avail.lastConfirmedAt,
-        source: avail.source || 'user_contribution',
-      };
-    });
+		const storeIds = availabilities
+			.map((a) => a.storeId)
+			.filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+			.map((id) => new mongoose.Types.ObjectId(id));
 
-    return {
-      id: product._id.toString(),
-      name: product.name,
-      brand: product.brand,
-      description: product.description,
-      sizeOrVariant: product.sizeOrVariant,
-      categories: product.categories,
-      tags: product.tags,
-      isStrictVegan: product.isStrictVegan,
-      imageUrl: product.imageUrl,
-      nutritionSummary: product.nutritionSummary,
-      ingredientSummary: product.ingredientSummary,
-      createdAt: product.createdAt,
-      updatedAt: product.updatedAt,
-      availability: availabilityInfo,
-      // Add metadata to distinguish from API products
-      _source: 'user_contribution',
-      _userId: product.userId?.toString(),
-    };
-  },
+		const stores =
+			storeIds.length > 0
+				? await Store.find({ _id: { $in: storeIds } }).lean()
+				: [];
+
+		const storeMap = new Map(stores.map((s) => [s._id.toString(), s]));
+
+		const availabilityInfo: AvailabilityInfo[] = availabilities.map(
+			(avail) => {
+				const storeIdStr = avail.storeId.toString();
+				const store = storeMap.get(storeIdStr);
+				return {
+					storeId: storeIdStr,
+					storeName: store?.name || 'Unknown Store',
+					storeType: store?.type || 'unknown',
+					regionOrScope: store?.regionOrScope || 'Unknown',
+					status: avail.status || 'unknown',
+					priceRange: avail.priceRange,
+					lastConfirmedAt: avail.lastConfirmedAt,
+					source: avail.source || 'user_contribution',
+				};
+			}
+		);
+
+		return {
+			id: product._id.toString(),
+			name: product.name,
+			brand: product.brand,
+			description: product.description,
+			sizeOrVariant: product.sizeOrVariant,
+			categories: product.categories,
+			tags: product.tags,
+			isStrictVegan: product.isStrictVegan,
+			imageUrl: product.imageUrl,
+			nutritionSummary: product.nutritionSummary,
+			ingredientSummary: product.ingredientSummary,
+			createdAt: product.createdAt,
+			updatedAt: product.updatedAt,
+			availability: availabilityInfo,
+			// Add metadata to distinguish from API products
+			_source: 'user_contribution',
+			_userId: product.userId?.toString(),
+		};
+	},
 };
-
