@@ -64,6 +64,14 @@ app.use(errorHandler);
 connectDB()
 	.then(() => {
 		app.listen(PORT, () => {
+			// Log environment status after startup
+			if (process.env.GOOGLE_API_KEY) {
+				console.log('✅ Google Places API key configured');
+			} else {
+				console.warn(
+					'⚠️  GOOGLE_API_KEY not set - Maps features will be limited'
+				);
+			}
 			console.log(`🌱 PlantPantry server running on port ${PORT}`);
 		});
 	})
