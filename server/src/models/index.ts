@@ -4,7 +4,7 @@ export { Store, IStore, StoreType } from './Store';
 export {
 	Availability,
 	IAvailability,
-	AvailabilityStatus,
+	ModerationStatus,
 	AvailabilitySource,
 } from './Availability';
 export { User, IUser } from './User';

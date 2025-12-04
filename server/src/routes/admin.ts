@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { adminService } from '../services/adminService';
 import { reviewService } from '../services/reviewService';
 import { cityService } from '../services/cityService';
-import { authMiddleware, adminMiddleware } from '../middleware/auth';
+import { authMiddleware, adminMiddleware, AuthenticatedRequest } from '../middleware/auth';
 import { HttpError } from '../middleware/errorHandler';
 import { Product, UserProduct } from '../models';
 
@@ -1608,7 +1608,7 @@ router.get(
 						imageUrl: product.imageUrl,
 						categories: product.categories || [],
 						priceRange: avail.priceRange,
-						status: avail.status,
+						moderationStatus: avail.moderationStatus,
 						source: avail.source,
 						lastConfirmedAt: avail.lastConfirmedAt,
 						createdAt: avail.createdAt,
@@ -1679,10 +1679,10 @@ router.post(
 			const availability = await Availability.create({
 				productId,
 				storeId,
-				status: 'known',
+				moderationStatus: 'confirmed',
 				priceRange: priceRange || undefined,
 				lastConfirmedAt: new Date(),
-				source: 'user_contribution',
+				source: 'admin',
 			});
 
 			res.status(201).json({
@@ -1692,7 +1692,7 @@ router.post(
 					productId: availability.productId.toString(),
 					storeId: availability.storeId.toString(),
 					priceRange: availability.priceRange,
-					status: availability.status,
+					moderationStatus: availability.moderationStatus,
 				},
 			});
 		} catch (error) {
@@ -1710,7 +1710,7 @@ router.put(
 	async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { storeId, productId } = req.params;
-			const { priceRange, status } = req.body;
+			const { priceRange, moderationStatus } = req.body;
 
 			const updateData: any = {
 				lastConfirmedAt: new Date(),
@@ -1719,11 +1719,11 @@ router.put(
 			if (priceRange !== undefined) {
 				updateData.priceRange = priceRange;
 			}
-			if (status !== undefined) {
-				if (!['known', 'user_reported', 'unknown'].includes(status)) {
-					throw new HttpError('Invalid status value', 400);
+			if (moderationStatus !== undefined) {
+				if (!['confirmed', 'pending', 'rejected'].includes(moderationStatus)) {
+					throw new HttpError('Invalid moderationStatus value', 400);
 				}
-				updateData.status = status;
+				updateData.moderationStatus = moderationStatus;
 			}
 
 			const availability = await Availability.findOneAndUpdate(
@@ -1743,7 +1743,7 @@ router.put(
 					productId: availability.productId.toString(),
 					storeId: availability.storeId.toString(),
 					priceRange: availability.priceRange,
-					status: availability.status,
+					moderationStatus: availability.moderationStatus,
 				},
 			});
 		} catch (error) {

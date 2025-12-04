@@ -422,3 +422,4 @@ function ReportCard({
 		</div>
 	);
 }
+

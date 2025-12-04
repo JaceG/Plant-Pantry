@@ -15,6 +15,9 @@ declare global {
   }
 }
 
+// Export a type alias for authenticated requests
+export type AuthenticatedRequest = Request;
+
 /**
  * Middleware to authenticate JWT token
  * Attaches user info to request if valid token is provided

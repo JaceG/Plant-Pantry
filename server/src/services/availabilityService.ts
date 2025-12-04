@@ -95,8 +95,7 @@ export const availabilityService = {
 				return {
 					storeId: storeIdStr,
 					storeName: store?.name || 'Unknown Store',
-					available:
-						a.status === 'known' || a.status === 'user_reported',
+					available: a.moderationStatus === 'confirmed',
 					priceRange: a.priceRange,
 					lastUpdated: a.lastFetchedAt || a.lastConfirmedAt,
 				};

@@ -302,7 +302,7 @@ export const userProductService = {
 					storeName: store?.name || 'Unknown Store',
 					storeType: store?.type || 'unknown',
 					regionOrScope: store?.regionOrScope || 'Unknown',
-					status: avail.status || 'unknown',
+					status: avail.moderationStatus || 'pending',
 					priceRange: avail.priceRange,
 					lastConfirmedAt: avail.lastConfirmedAt,
 					source: avail.source || 'user_contribution',
