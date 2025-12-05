@@ -9,9 +9,20 @@
   transition: all 0.3s ease;
 }
 
+.list-item-card {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
 .list-item-card:hover {
   border-color: var(--color-sage);
   box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+
+.list-item-card:focus-visible {
+  outline: 2px solid var(--color-sage);
+  outline-offset: 2px;
 }
 
 .list-item-card.removing {

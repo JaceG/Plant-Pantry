@@ -61,7 +61,7 @@ export function EditProductForm({
 		imageUrl: product.imageUrl || '',
 		nutritionSummary: product.nutritionSummary || '',
 		ingredientSummary: product.ingredientSummary || '',
-		storeAvailabilities: product.availability.map((avail) => ({
+		storeAvailabilities: (product.availability || []).map((avail) => ({
 			storeId: avail.storeId,
 			priceRange: avail.priceRange,
 			status: avail.status as 'known' | 'user_reported' | 'unknown',
@@ -233,7 +233,7 @@ export function EditProductForm({
 	};
 
 	return (
-		<div className='edit-product-form-container'>
+		<div className='add-product-form-container'>
 			<div className='add-product-form-header'>
 				<h1>Edit Product</h1>
 				<p className='form-subtitle'>

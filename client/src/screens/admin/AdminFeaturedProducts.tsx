@@ -2,6 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { adminApi, FeaturedProduct, productsApi } from '../../api';
 import { ProductSummary } from '../../types';
 import { AdminLayout } from './AdminLayout';
+import {
+	ProductPreviewModal,
+	ProductPreviewData,
+} from '../../components/Common';
 import './AdminFeaturedProducts.css';
 
 export function AdminFeaturedProducts() {
@@ -14,6 +18,8 @@ export function AdminFeaturedProducts() {
 	const [searching, setSearching] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [successMessage, setSuccessMessage] = useState<string | null>(null);
+	const [previewProduct, setPreviewProduct] =
+		useState<ProductPreviewData | null>(null);
 
 	const fetchFeaturedProducts = useCallback(async () => {
 		try {
@@ -233,25 +239,64 @@ export function AdminFeaturedProducts() {
 					) : (
 						<div className='featured-list'>
 							{featuredProducts.map((product, index) => (
-								<div key={product.id} className='featured-item'>
+								<div
+									key={product.id}
+									className='featured-item'
+									onClick={(e) => {
+										// Don't open preview if clicking interactive elements
+										const target = e.target as HTMLElement;
+										if (
+											target.closest('.order-controls') ||
+											target.closest(
+												'.unfeature-button'
+											) ||
+											target.tagName === 'BUTTON'
+										) {
+											return;
+										}
+										setPreviewProduct({
+											id: product.id,
+											name: product.name,
+											brand: product.brand,
+											imageUrl: product.imageUrl,
+										});
+									}}
+									role='button'
+									tabIndex={0}
+									onKeyDown={(e) => {
+										if (
+											e.key === 'Enter' ||
+											e.key === ' '
+										) {
+											e.preventDefault();
+											setPreviewProduct({
+												id: product.id,
+												name: product.name,
+												brand: product.brand,
+												imageUrl: product.imageUrl,
+											});
+										}
+									}}>
 									<div className='item-order'>
 										<span className='order-number'>
 											{index + 1}
 										</span>
 										<div className='order-controls'>
 											<button
-												onClick={() =>
-													handleMoveUp(index)
-												}
+												onClick={(e) => {
+													e.stopPropagation();
+													handleMoveUp(index);
+												}}
 												disabled={index === 0}
 												className='order-btn'
 												title='Move up'>
 												↑
 											</button>
 											<button
-												onClick={() =>
-													handleMoveDown(index)
-												}
+												onClick={(e) => {
+													e.stopPropagation();
+													handleMoveDown(index);
+												}}
 												disabled={
 													index ===
 													featuredProducts.length - 1
@@ -294,9 +339,10 @@ export function AdminFeaturedProducts() {
 									</div>
 
 									<button
-										onClick={() =>
-											handleUnfeature(product.id)
-										}
+										onClick={(e) => {
+											e.stopPropagation();
+											handleUnfeature(product.id);
+										}}
 										className='unfeature-button'
 										title='Remove from featured'>
 										Remove
@@ -307,6 +353,12 @@ export function AdminFeaturedProducts() {
 					)}
 				</section>
 			</div>
+
+			<ProductPreviewModal
+				isOpen={!!previewProduct}
+				onClose={() => setPreviewProduct(null)}
+				product={previewProduct}
+			/>
 		</AdminLayout>
 	);
 }

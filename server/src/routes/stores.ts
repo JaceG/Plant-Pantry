@@ -129,13 +129,14 @@ router.post(
 				longitude,
 				googlePlaceId,
 				phoneNumber,
+				skipDuplicateCheck,
 			} = req.body;
 
 			if (!name || !type) {
 				throw new HttpError('Name and type are required', 400);
 			}
 
-			const store = await storeService.createStore({
+			const storeInput = {
 				name,
 				type,
 				regionOrScope: regionOrScope || 'Unknown',
@@ -149,9 +150,42 @@ router.post(
 				longitude,
 				googlePlaceId,
 				phoneNumber,
-			});
+			};
 
-			res.status(201).json({ store });
+			// Check for duplicates unless explicitly skipped
+			if (!skipDuplicateCheck) {
+				const duplicateCheck = await storeService.checkForDuplicates(
+					storeInput
+				);
+
+				if (duplicateCheck.hasDuplicates) {
+					// If exact match found, return the existing store
+					if (duplicateCheck.exactMatch) {
+						return res.status(200).json({
+							store: duplicateCheck.exactMatch,
+							isDuplicate: true,
+							duplicateType: 'exact',
+							message: 'An identical store already exists',
+						});
+					}
+
+					// If similar stores found, return them as a warning
+					if (duplicateCheck.similarStores.length > 0) {
+						return res.status(200).json({
+							store: null,
+							isDuplicate: true,
+							duplicateType: 'similar',
+							similarStores: duplicateCheck.similarStores,
+							message:
+								'Similar stores found. Please review before creating.',
+						});
+					}
+				}
+			}
+
+			const store = await storeService.createStore(storeInput);
+
+			res.status(201).json({ store, isDuplicate: false });
 		} catch (error) {
 			next(error);
 		}

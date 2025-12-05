@@ -1,0 +1,240 @@
+.preview-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 10000;
+  cursor: pointer;
+  animation: fadeIn 0.2s ease;
+}
+
+.preview-modal-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  z-index: 10001;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  cursor: pointer;
+  animation: slideIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.preview-modal-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-cream);
+  border: none;
+  font-size: 1.5rem;
+  color: var(--color-stone);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.preview-modal-close:hover {
+  background: var(--color-sage-light);
+  color: var(--color-forest);
+}
+
+.preview-modal-content {
+  padding: 1.5rem;
+}
+
+.preview-modal-image {
+  width: 100%;
+  height: 200px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-cream);
+  margin-bottom: 1.25rem;
+}
+
+.preview-modal-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4rem;
+  color: var(--color-sage);
+}
+
+.preview-modal-info {
+  text-align: center;
+}
+
+.preview-brand {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-sage-dark);
+  margin-bottom: 0.25rem;
+}
+
+.preview-name {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-charcoal);
+  margin: 0 0 0.5rem 0;
+  line-height: 1.3;
+}
+
+.preview-size {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--color-stone);
+  margin-bottom: 0.75rem;
+}
+
+.preview-rating {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.preview-rating-stars {
+  display: flex;
+  gap: 2px;
+}
+
+.preview-rating-stars .star {
+  font-size: 1.1rem;
+}
+
+.preview-rating-stars .star-full {
+  color: #f59e0b;
+}
+
+.preview-rating-stars .star-empty {
+  color: var(--color-sage-light);
+}
+
+.preview-rating-text {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: var(--color-stone);
+}
+
+.preview-description {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-stone);
+  margin: 0.75rem 0;
+  max-height: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.preview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.75rem;
+}
+
+.preview-tag {
+  display: inline-block;
+  padding: 0.25rem 0.625rem;
+  background: var(--color-mint);
+  color: var(--color-forest);
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.preview-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 1.5rem 1.25rem;
+  cursor: default;
+}
+
+.preview-actions button {
+  width: 100%;
+}
+
+.preview-loading {
+  padding: 1rem;
+  text-align: center;
+  color: var(--color-stone);
+  font-size: 0.875rem;
+}
+
+.preview-hint {
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: var(--color-stone);
+  margin: 0;
+  padding: 0 1.5rem 1rem;
+  opacity: 0.7;
+}
+
+@media (max-width: 480px) {
+  .preview-modal-container {
+    width: 95%;
+    max-height: 85vh;
+  }
+
+  .preview-modal-image {
+    height: 150px;
+  }
+
+  .preview-name {
+    font-size: 1.25rem;
+  }
+}

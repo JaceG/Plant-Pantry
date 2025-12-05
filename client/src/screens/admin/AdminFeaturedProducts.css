@@ -230,10 +230,18 @@
   border: 1px solid var(--color-sage-light);
   border-radius: var(--radius-md);
   transition: all var(--transition-fast);
+  cursor: pointer;
 }
 
 .featured-item:hover {
   border-color: var(--color-sage);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.featured-item:focus-visible {
+  outline: 2px solid var(--color-sage);
+  outline-offset: 2px;
 }
 
 .item-order {

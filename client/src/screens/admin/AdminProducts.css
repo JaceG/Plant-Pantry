@@ -184,15 +184,15 @@
 
 .archived-badge {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  padding: 0.25rem 0.5rem;
+  top: 0.75rem;
+  right: 0.75rem;
+  padding: 0.25rem 0.625rem;
   background: var(--color-stone);
   color: var(--color-white);
   border-radius: 4px;
   font-size: 0.75rem;
   font-weight: 500;
-  z-index: 2;
+  z-index: 10;
 }
 
 .admin-products .product-info {
