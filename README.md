@@ -1,8 +1,8 @@
-# 🌱 PlantPantry
+# 🌱 The Vegan Aisle
 
 A vegan-only grocery discovery and planning tool. Browse plant-based products as if they were all on the shelves of a single giant store, then see where they're available across brick-and-mortar stores, online retailers, and direct-from-brand sites.
 
-![PlantPantry Screenshot](./assets/plantpantry-homepage.png)
+![The Vegan Aisle Screenshot](./assets/plantpantry-homepage.png)
 
 ## ✨ Features
 
@@ -67,7 +67,7 @@ cp .env.example .env
 
 Edit `.env` and add your MongoDB connection string:
 ```
-MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/plantpantry?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/veganaisle?retryWrites=true&w=majority
 PORT=5000
 CLIENT_URL=http://localhost:5173
 ```

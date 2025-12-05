@@ -1,7 +1,7 @@
 {
-  "name": "plant-pantry-server",
+  "name": "vegan-aisle-server",
   "version": "1.0.0",
-  "description": "Plant Pantry Backend Server",
+  "description": "The Vegan Aisle Backend Server",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
@@ -20,7 +20,7 @@
     "lint": "eslint . --ext .ts"
   },
   "keywords": [
-    "plant-pantry",
+    "vegan-aisle",
     "backend",
     "express",
     "mongodb"

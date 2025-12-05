@@ -72,7 +72,7 @@ connectDB()
 					'⚠️  GOOGLE_API_KEY not set - Maps features will be limited'
 				);
 			}
-			console.log(`🌱 PlantPantry server running on port ${PORT}`);
+			console.log(`🌱 The Vegan Aisle server running on port ${PORT}`);
 		});
 	})
 	.catch((error) => {

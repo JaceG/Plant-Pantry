@@ -216,7 +216,7 @@ function AppContent() {
 			</main>
 			<footer className='app-footer'>
 				<div className='footer-content'>
-					<span className='footer-logo'>🌱 PlantPantry</span>
+					<span className='footer-logo'>🌱 The Vegan Aisle</span>
 					<span className='footer-tagline'>
 						Discover vegan groceries everywhere
 					</span>

@@ -13,7 +13,7 @@ import { Product, Store, Availability, User } from '../models';
 dotenv.config();
 
 const BASE_URL = 'https://world.openfoodfacts.org';
-const USER_AGENT = 'PlantPantry/1.0 (plantpantry-app@example.com)';
+const USER_AGENT = 'TheVeganAisle/1.0 (veganaisle-app@example.com)';
 const DEMO_USER_ID = '000000000000000000000001';
 
 // Rate limit delay (6 seconds between requests to stay under 10 req/min)
@@ -284,7 +284,7 @@ async function seedFromOpenFoodFacts() {
 		// Create demo user
 		await User.findOneAndUpdate(
 			{ _id: new mongoose.Types.ObjectId(DEMO_USER_ID) },
-			{ email: 'demo@plantpantry.app', displayName: 'Demo User' },
+			{ email: 'demo@theveganaisle.app', displayName: 'Demo User' },
 			{ upsert: true }
 		);
 		console.log('👤 Created demo user');

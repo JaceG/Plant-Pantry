@@ -1,4 +1,4 @@
-# 🧪 Testing PlantPantry
+# 🧪 Testing The Vegan Aisle
 
 ## Quick Start
 

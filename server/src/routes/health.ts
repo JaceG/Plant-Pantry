@@ -9,7 +9,7 @@ router.get('/', (req: Request, res: Response) => {
 
 	res.status(200).json({
 		status: 'ok',
-		message: 'PlantPantry API is running',
+		message: 'The Vegan Aisle API is running',
 		database: dbStatus,
 		timestamp: new Date().toISOString(),
 	});

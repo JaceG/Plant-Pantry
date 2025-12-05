@@ -1,7 +1,7 @@
-# Admin Panel Plan for PlantPantry
+# Admin Panel Plan for The Vegan Aisle
 
 ## Overview
-An admin panel to manage the PlantPantry platform, including user-contributed content moderation, store management, analytics, and system configuration.
+An admin panel to manage The Vegan Aisle platform, including user-contributed content moderation, store management, analytics, and system configuration.
 
 **Note**: This plan assumes authentication is implemented first. See "Authentication Prerequisites" section below.
 

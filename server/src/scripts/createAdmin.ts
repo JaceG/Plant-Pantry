@@ -40,7 +40,7 @@ async function createAdmin() {
 
 	// If arguments not provided, use defaults for demo
 	if (!email) {
-		email = 'admin@plantpantry.app';
+		email = 'admin@theveganaisle.app';
 	}
 	if (!password) {
 		password = 'admin123456';
@@ -66,14 +66,11 @@ async function createAdmin() {
 		if (existingAdmin) {
 			console.log('⚠️  User with this email already exists.');
 
-			if (existingAdmin.role === 'admin') {
-				console.log('   User is already an admin.');
-			} else {
-				// Update existing user to admin
-				existingAdmin.role = 'admin';
-				await existingAdmin.save();
-				console.log('   Updated user role to admin.');
-			}
+			// Update role to admin and reset password
+			existingAdmin.role = 'admin';
+			existingAdmin.password = password;
+			await existingAdmin.save();
+			console.log('   Updated user role to admin and reset password.');
 		} else {
 			// Create new admin user
 			const admin = await User.create({
