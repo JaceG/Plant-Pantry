@@ -76,6 +76,8 @@ export interface AdminStore {
 	address?: string;
 	city?: string;
 	state?: string;
+	zipCode?: string;
+	phoneNumber?: string;
 	websiteUrl?: string;
 	createdAt: string;
 }
