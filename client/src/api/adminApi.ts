@@ -331,6 +331,27 @@ export const adminApi = {
 		);
 	},
 
+	updateStore(
+		storeId: string,
+		updates: {
+			name?: string;
+			type?: 'brick_and_mortar' | 'online_retailer' | 'brand_direct';
+			regionOrScope?: string;
+			websiteUrl?: string;
+			address?: string;
+			city?: string;
+			state?: string;
+			zipCode?: string;
+			country?: string;
+			phoneNumber?: string;
+		}
+	): Promise<{ store: AdminStore }> {
+		return httpClient.put<{ store: AdminStore }>(
+			`/admin/stores/${storeId}`,
+			updates
+		);
+	},
+
 	getArchivedProducts(
 		page: number = 1,
 		pageSize: number = 20

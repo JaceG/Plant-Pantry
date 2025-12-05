@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { adminService } from '../services/adminService';
 import { reviewService } from '../services/reviewService';
 import { cityService } from '../services/cityService';
+import { storeService } from '../services/storeService';
 import {
 	authMiddleware,
 	adminMiddleware,
@@ -183,6 +184,58 @@ router.delete(
 			}
 
 			res.json({ message: 'Store deleted successfully' });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * PUT /api/admin/stores/:id
+ * Update a store
+ */
+router.put(
+	'/stores/:id',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const updates = req.body;
+
+			// Validate that at least one field is being updated
+			const allowedFields = [
+				'name',
+				'type',
+				'regionOrScope',
+				'websiteUrl',
+				'address',
+				'city',
+				'state',
+				'zipCode',
+				'country',
+				'phoneNumber',
+			];
+
+			const filteredUpdates: Record<string, any> = {};
+			for (const field of allowedFields) {
+				if (updates[field] !== undefined) {
+					filteredUpdates[field] = updates[field];
+				}
+			}
+
+			if (Object.keys(filteredUpdates).length === 0) {
+				throw new HttpError('No valid fields to update', 400);
+			}
+
+			const updatedStore = await storeService.updateStore(
+				id,
+				filteredUpdates
+			);
+
+			if (!updatedStore) {
+				throw new HttpError('Store not found', 404);
+			}
+
+			res.json({ store: updatedStore });
 		} catch (error) {
 			next(error);
 		}

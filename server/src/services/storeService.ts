@@ -288,4 +288,40 @@ export const storeService = {
 
 		return result;
 	},
+
+	async updateStore(
+		id: string,
+		updates: Partial<CreateStoreInput>
+	): Promise<StoreSummary | null> {
+		if (!mongoose.Types.ObjectId.isValid(id)) {
+			return null;
+		}
+
+		const store = await Store.findByIdAndUpdate(
+			id,
+			{ $set: updates },
+			{ new: true, runValidators: true }
+		).lean();
+
+		if (!store) {
+			return null;
+		}
+
+		return {
+			id: store._id.toString(),
+			name: store.name,
+			type: store.type,
+			regionOrScope: store.regionOrScope,
+			websiteUrl: store.websiteUrl,
+			address: store.address,
+			city: store.city,
+			state: store.state,
+			zipCode: store.zipCode,
+			country: store.country,
+			latitude: store.latitude,
+			longitude: store.longitude,
+			googlePlaceId: store.googlePlaceId,
+			phoneNumber: store.phoneNumber,
+		};
+	},
 };
