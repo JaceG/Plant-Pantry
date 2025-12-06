@@ -14,7 +14,7 @@ export const authApi = {
     return httpClient.get<{ user: User }>('/auth/me');
   },
 
-  updateProfile(updates: { displayName?: string; email?: string }): Promise<{ message: string; user: User }> {
+  updateProfile(updates: { name?: string; displayName?: string; email?: string }): Promise<{ message: string; user: User }> {
     return httpClient.put<{ message: string; user: User }>('/auth/profile', updates);
   },
 

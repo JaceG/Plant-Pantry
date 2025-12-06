@@ -3,6 +3,7 @@ export type UserRole = 'user' | 'admin' | 'moderator';
 export interface User {
   id: string;
   email: string;
+  name?: string; // Real name (optional)
   displayName: string;
   role: UserRole;
 }
@@ -16,6 +17,7 @@ export interface AuthResponse {
 export interface SignupInput {
   email: string;
   password: string;
+  name?: string; // Real name (optional)
   displayName: string;
 }
 

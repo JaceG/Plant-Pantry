@@ -4,6 +4,7 @@ import { generateToken } from '../utils/jwt';
 export interface SignupInput {
   email: string;
   password: string;
+  name?: string; // Real name (optional)
   displayName: string;
 }
 
@@ -16,6 +17,7 @@ export interface AuthResult {
   user: {
     id: string;
     email: string;
+    name?: string;
     displayName: string;
     role: UserRole;
   };
@@ -44,7 +46,7 @@ export const authService = {
    * Register a new user
    */
   async signup(input: SignupInput): Promise<AuthResult> {
-    const { email, password, displayName } = input;
+    const { email, password, name, displayName } = input;
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -55,6 +57,16 @@ export const authService = {
     // Validate password length
     if (password.length < 8) {
       throw new AuthServiceError('Password must be at least 8 characters', 400, 'password');
+    }
+
+    // Validate password contains at least one letter
+    if (!/[a-zA-Z]/.test(password)) {
+      throw new AuthServiceError('Password must contain at least one letter', 400, 'password');
+    }
+
+    // Validate password contains at least one number
+    if (!/[0-9]/.test(password)) {
+      throw new AuthServiceError('Password must contain at least one number', 400, 'password');
     }
 
     // Validate display name
@@ -72,6 +84,7 @@ export const authService = {
     const user = await User.create({
       email: email.toLowerCase(),
       password,
+      name: name?.trim() || undefined,
       displayName: displayName.trim(),
       role: 'user',
     });
@@ -83,6 +96,7 @@ export const authService = {
       user: {
         id: user._id.toString(),
         email: user.email,
+        name: user.name,
         displayName: user.displayName,
         role: user.role,
       },
@@ -119,6 +133,7 @@ export const authService = {
       user: {
         id: user._id.toString(),
         email: user.email,
+        name: user.name,
         displayName: user.displayName,
         role: user.role,
       },
@@ -138,6 +153,7 @@ export const authService = {
     return {
       id: user._id.toString(),
       email: user.email,
+      name: user.name,
       displayName: user.displayName,
       role: user.role,
     };
@@ -148,9 +164,14 @@ export const authService = {
    */
   async updateProfile(
     userId: string,
-    updates: { displayName?: string; email?: string }
+    updates: { name?: string; displayName?: string; email?: string }
   ): Promise<AuthResult['user'] | null> {
-    const updateData: Record<string, string> = {};
+    const updateData: Record<string, string | undefined> = {};
+    
+    // Handle name update (can be set to empty string to clear it)
+    if (updates.name !== undefined) {
+      updateData.name = updates.name.trim() || undefined;
+    }
     
     if (updates.displayName && updates.displayName.trim().length >= 2) {
       updateData.displayName = updates.displayName.trim();
@@ -187,6 +208,7 @@ export const authService = {
     return {
       id: user._id.toString(),
       email: user.email,
+      name: user.name,
       displayName: user.displayName,
       role: user.role,
     };

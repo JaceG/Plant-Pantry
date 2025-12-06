@@ -6,6 +6,7 @@ export type UserRole = 'user' | 'admin' | 'moderator';
 export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
   email: string;
+  name?: string; // Real name (optional)
   displayName: string;
   password: string;
   role: UserRole;
@@ -26,6 +27,10 @@ const userSchema = new Schema<IUser>(
       unique: true,
       trim: true,
       lowercase: true,
+    },
+    name: {
+      type: String,
+      trim: true,
     },
     displayName: {
       type: String,

@@ -1,9 +1,17 @@
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/Common/Button';
 import { Toast } from '../components/Common/Toast';
 import './AuthScreens.css';
+
+interface FieldErrors {
+	email?: string;
+	password?: string;
+}
+
+// Email validation regex
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function LoginScreen() {
 	const navigate = useNavigate();
@@ -14,18 +22,94 @@ export function LoginScreen() {
 	const [password, setPassword] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+	const [touched, setTouched] = useState<{
+		email?: boolean;
+		password?: boolean;
+	}>({});
 
 	// Get redirect path from location state
 	const from =
 		(location.state as { from?: { pathname: string } })?.from?.pathname ||
 		'/';
 
+	const validateEmail = useCallback((value: string): string | undefined => {
+		if (!value.trim()) {
+			return 'Email is required';
+		}
+		if (!EMAIL_REGEX.test(value)) {
+			return 'Please enter a valid email address';
+		}
+		return undefined;
+	}, []);
+
+	const validatePassword = useCallback(
+		(value: string): string | undefined => {
+			if (!value) {
+				return 'Password is required';
+			}
+			if (value.length < 8) {
+				return 'Password must be at least 8 characters';
+			}
+			return undefined;
+		},
+		[]
+	);
+
+	const handleEmailChange = (value: string) => {
+		setEmail(value);
+		if (touched.email) {
+			setFieldErrors((prev) => ({
+				...prev,
+				email: validateEmail(value),
+			}));
+		}
+	};
+
+	const handlePasswordChange = (value: string) => {
+		setPassword(value);
+		if (touched.password) {
+			setFieldErrors((prev) => ({
+				...prev,
+				password: validatePassword(value),
+			}));
+		}
+	};
+
+	const handleBlur = (field: 'email' | 'password') => {
+		setTouched((prev) => ({ ...prev, [field]: true }));
+		if (field === 'email') {
+			setFieldErrors((prev) => ({
+				...prev,
+				email: validateEmail(email),
+			}));
+		} else {
+			setFieldErrors((prev) => ({
+				...prev,
+				password: validatePassword(password),
+			}));
+		}
+	};
+
+	const validateForm = (): boolean => {
+		const emailError = validateEmail(email);
+		const passwordError = validatePassword(password);
+
+		setFieldErrors({
+			email: emailError,
+			password: passwordError,
+		});
+
+		setTouched({ email: true, password: true });
+
+		return !emailError && !passwordError;
+	};
+
 	const handleSubmit = async (e: FormEvent) => {
 		e.preventDefault();
 		setError(null);
 
-		if (!email || !password) {
-			setError('Please fill in all fields');
+		if (!validateForm()) {
 			return;
 		}
 
@@ -66,31 +150,63 @@ export function LoginScreen() {
 					</p>
 				</div>
 
-				<form onSubmit={handleSubmit} className='auth-form'>
-					<div className='form-group'>
+				<form onSubmit={handleSubmit} className='auth-form' noValidate>
+					<div
+						className={`form-group ${
+							fieldErrors.email && touched.email
+								? 'has-error'
+								: ''
+						}`}>
 						<label htmlFor='email'>Email</label>
 						<input
 							type='email'
 							id='email'
 							value={email}
-							onChange={(e) => setEmail(e.target.value)}
+							onChange={(e) => handleEmailChange(e.target.value)}
+							onBlur={() => handleBlur('email')}
 							placeholder='you@example.com'
 							autoComplete='email'
-							required
+							className={
+								fieldErrors.email && touched.email
+									? 'input-error'
+									: ''
+							}
 						/>
+						{fieldErrors.email && touched.email && (
+							<span className='field-error'>
+								{fieldErrors.email}
+							</span>
+						)}
 					</div>
 
-					<div className='form-group'>
+					<div
+						className={`form-group ${
+							fieldErrors.password && touched.password
+								? 'has-error'
+								: ''
+						}`}>
 						<label htmlFor='password'>Password</label>
 						<input
 							type='password'
 							id='password'
 							value={password}
-							onChange={(e) => setPassword(e.target.value)}
+							onChange={(e) =>
+								handlePasswordChange(e.target.value)
+							}
+							onBlur={() => handleBlur('password')}
 							placeholder='••••••••'
 							autoComplete='current-password'
-							required
+							className={
+								fieldErrors.password && touched.password
+									? 'input-error'
+									: ''
+							}
 						/>
+						{fieldErrors.password && touched.password && (
+							<span className='field-error'>
+								{fieldErrors.password}
+							</span>
+						)}
 					</div>
 
 					<Button

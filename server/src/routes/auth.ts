@@ -11,13 +11,13 @@ const router = Router();
  */
 router.post('/signup', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, password, displayName } = req.body;
+    const { email, password, name, displayName } = req.body;
 
     if (!email || !password || !displayName) {
       throw new HttpError('Email, password, and display name are required', 400);
     }
 
-    const result = await authService.signup({ email, password, displayName });
+    const result = await authService.signup({ email, password, name, displayName });
     
     res.status(201).json({
       message: 'Account created successfully',
@@ -94,8 +94,8 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response, next:
       throw new HttpError('User not authenticated', 401);
     }
 
-    const { displayName, email } = req.body;
-    const user = await authService.updateProfile(userId, { displayName, email });
+    const { name, displayName, email } = req.body;
+    const user = await authService.updateProfile(userId, { name, displayName, email });
     
     if (!user) {
       throw new HttpError('User not found', 404);
