@@ -11,8 +11,17 @@ interface SocialLoginButtonsProps {
 
 // Check if OAuth providers are configured
 const isGoogleConfigured = !!import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const APPLE_CLIENT_ID = import.meta.env.VITE_APPLE_CLIENT_ID || 'com.plantpantry.web';
-const APPLE_REDIRECT_URI = typeof window !== 'undefined' ? window.location.origin : '';
+const APPLE_CLIENT_ID =
+	import.meta.env.VITE_APPLE_CLIENT_ID || 'com.plantpantry.web';
+const APPLE_REDIRECT_URI =
+	typeof window !== 'undefined' ? window.location.origin : '';
+
+// Apple Sign-In only works on HTTPS with verified domains (not localhost)
+const isLocalhost =
+	typeof window !== 'undefined' &&
+	(window.location.hostname === 'localhost' ||
+		window.location.hostname === '127.0.0.1');
+const canUseAppleSignIn = !isLocalhost && window.location.protocol === 'https:';
 
 // Declare Apple's global type
 declare global {
@@ -140,7 +149,8 @@ function AppleLoginButton({
 			}
 
 			const script = document.createElement('script');
-			script.src = 'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js';
+			script.src =
+				'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js';
 			script.async = true;
 			script.onload = () => initAppleAuth();
 			script.onerror = () => {
@@ -169,18 +179,30 @@ function AppleLoginButton({
 	}, []);
 
 	const handleAppleLogin = useCallback(async () => {
+		// Apple Sign-In requires HTTPS and a verified domain
+		if (!canUseAppleSignIn) {
+			onError?.(
+				'Apple Sign-In requires HTTPS and only works on the production domain. Please use Google or email to sign in during local development.'
+			);
+			return;
+		}
+
 		if (!window.AppleID) {
-			onError?.('Apple Sign-In is not available. Please try again later.');
+			onError?.(
+				'Apple Sign-In is not available. Please try again later.'
+			);
 			return;
 		}
 
 		setIsLoading(true);
 		try {
 			const response = await window.AppleID.auth.signIn();
-			
+
 			// Extract user info (only available on first sign-in)
 			const userName = response.user?.name
-				? `${response.user.name.firstName || ''} ${response.user.name.lastName || ''}`.trim()
+				? `${response.user.name.firstName || ''} ${
+						response.user.name.lastName || ''
+				  }`.trim()
 				: undefined;
 			const userEmail = response.user?.email;
 
@@ -196,12 +218,19 @@ function AppleLoginButton({
 				onError?.(result.error || 'Apple sign-in failed');
 			}
 		} catch (error) {
-			console.error('Apple login error:', error);
+			console.error('Apple login error:', JSON.stringify(error, null, 2));
 			// Apple returns an error object with 'error' property when user cancels
 			if (error && typeof error === 'object' && 'error' in error) {
 				const appleError = error as { error: string };
-				if (appleError.error === 'popup_closed_by_user') {
+				if (
+					appleError.error === 'popup_closed_by_user' ||
+					appleError.error === 'user_cancelled_authorize'
+				) {
 					onError?.('Sign-in was cancelled');
+				} else if (appleError.error === 'popup_blocked_by_browser') {
+					onError?.(
+						'Please allow popups for this site to use Apple Sign-In'
+					);
 				} else {
 					onError?.(`Apple sign-in failed: ${appleError.error}`);
 				}
@@ -209,7 +238,7 @@ function AppleLoginButton({
 				onError?.(
 					error instanceof Error
 						? error.message
-						: 'Apple sign-in failed'
+						: 'Apple sign-in failed. Please try again.'
 				);
 			}
 		} finally {
