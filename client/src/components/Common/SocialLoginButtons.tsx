@@ -1,6 +1,6 @@
 import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../../context/AuthContext';
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import './SocialLoginButtons.css';
 
 interface SocialLoginButtonsProps {
