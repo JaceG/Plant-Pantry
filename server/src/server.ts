@@ -14,6 +14,7 @@ import {
 	listRoutes,
 	userProductRoutes,
 	authRoutes,
+	oauthRoutes,
 	adminRoutes,
 	reviewRoutes,
 	cityRoutes,
@@ -38,6 +39,7 @@ app.use(express.urlencoded({ extended: true }));
 // API Routes
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/oauth', oauthRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/user-products', userProductRoutes);

@@ -1,4 +1,5 @@
 export type UserRole = 'user' | 'admin' | 'moderator';
+export type AuthProvider = 'local' | 'google' | 'apple';
 
 export interface User {
   id: string;
@@ -6,6 +7,8 @@ export interface User {
   name?: string; // Real name (optional)
   displayName: string;
   role: UserRole;
+  profilePicture?: string;
+  authProvider: AuthProvider;
 }
 
 export interface AuthResponse {

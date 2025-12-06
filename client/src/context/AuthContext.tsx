@@ -1,11 +1,20 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { authApi } from '../api/authApi';
+import { oauthApi } from '../api/oauthApi';
 import { httpClient } from '../api/httpClient';
 import { User, AuthState, SignupInput, LoginInput } from '../types/auth';
+
+interface OAuthResult {
+  success: boolean;
+  error?: string;
+  isNewUser?: boolean;
+}
 
 interface AuthContextType extends AuthState {
   login: (input: LoginInput) => Promise<{ success: boolean; error?: string }>;
   signup: (input: SignupInput) => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: (credential: string) => Promise<OAuthResult>;
+  loginWithApple: (identityToken: string, user?: { name?: string; email?: string }) => Promise<OAuthResult>;
   logout: () => void;
   updateUser: (user: User) => void;
 }
@@ -91,6 +100,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
+  const loginWithGoogle = useCallback(async (credential: string): Promise<OAuthResult> => {
+    try {
+      const response = await oauthApi.google(credential);
+      
+      // Store token
+      httpClient.setToken(response.token);
+      setToken(response.token);
+      setUser(response.user);
+      
+      return { success: true, isNewUser: response.isNewUser };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Google sign-in failed';
+      return { success: false, error: message };
+    }
+  }, []);
+
+  const loginWithApple = useCallback(async (
+    identityToken: string, 
+    userData?: { name?: string; email?: string }
+  ): Promise<OAuthResult> => {
+    try {
+      const response = await oauthApi.apple(identityToken, userData);
+      
+      // Store token
+      httpClient.setToken(response.token);
+      setToken(response.token);
+      setUser(response.user);
+      
+      return { success: true, isNewUser: response.isNewUser };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Apple sign-in failed';
+      return { success: false, error: message };
+    }
+  }, []);
+
   const logout = useCallback(() => {
     httpClient.removeToken();
     setToken(null);
@@ -109,6 +153,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAdmin,
     login,
     signup,
+    loginWithGoogle,
+    loginWithApple,
     logout,
     updateUser,
   };
@@ -131,4 +177,3 @@ export function useAuth(): AuthContextType {
 }
 
 export { AuthContext };
-

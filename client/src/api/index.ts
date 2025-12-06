@@ -4,6 +4,7 @@ export { userProductsApi } from './userProductsApi';
 export { storesApi } from './storesApi';
 export { listsApi } from './listsApi';
 export { authApi } from './authApi';
+export { oauthApi } from './oauthApi';
 export { adminApi } from './adminApi';
 export { citiesApi } from './citiesApi';
 export type {

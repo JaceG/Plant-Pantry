@@ -6,6 +6,7 @@ import {
 	Navigate,
 	useLocation,
 } from 'react-router-dom';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components';
 import { ProtectedRoute } from './components/Common/ProtectedRoute';
@@ -34,6 +35,10 @@ import {
 } from './screens/admin';
 import { listsApi } from './api';
 import './App.css';
+
+// Google OAuth Client ID - Replace with your actual client ID from Google Cloud Console
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const isGoogleOAuthConfigured = !!GOOGLE_CLIENT_ID;
 
 function AppContent() {
 	const [defaultListId, setDefaultListId] = useState<string | null>(null);
@@ -226,7 +231,7 @@ function AppContent() {
 	);
 }
 
-function App() {
+function AppWithRouter() {
 	return (
 		<Router
 			future={{
@@ -238,6 +243,19 @@ function App() {
 			</AuthProvider>
 		</Router>
 	);
+}
+
+function App() {
+	// Only wrap with GoogleOAuthProvider if a client ID is configured
+	if (isGoogleOAuthConfigured) {
+		return (
+			<GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+				<AppWithRouter />
+			</GoogleOAuthProvider>
+		);
+	}
+
+	return <AppWithRouter />;
 }
 
 export default App;

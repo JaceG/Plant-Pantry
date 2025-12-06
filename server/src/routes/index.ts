@@ -4,6 +4,7 @@ export { default as userProductRoutes } from './userProducts';
 export { default as storeRoutes } from './stores';
 export { default as listRoutes } from './lists';
 export { default as authRoutes } from './auth';
+export { default as oauthRoutes } from './oauth';
 export { default as adminRoutes } from './admin';
 export { default as reviewRoutes } from './reviews';
 export { default as cityRoutes } from './cities';

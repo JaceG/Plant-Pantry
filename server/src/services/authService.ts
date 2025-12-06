@@ -1,4 +1,4 @@
-import { User, IUser, UserRole } from '../models/User';
+import { User, IUser, UserRole, AuthProvider } from '../models/User';
 import { generateToken } from '../utils/jwt';
 
 export interface SignupInput {
@@ -20,6 +20,8 @@ export interface AuthResult {
     name?: string;
     displayName: string;
     role: UserRole;
+    profilePicture?: string;
+    authProvider: AuthProvider;
   };
   token: string;
 }
@@ -87,6 +89,7 @@ export const authService = {
       name: name?.trim() || undefined,
       displayName: displayName.trim(),
       role: 'user',
+      authProvider: 'local',
     });
 
     // Generate token
@@ -99,6 +102,8 @@ export const authService = {
         name: user.name,
         displayName: user.displayName,
         role: user.role,
+        profilePicture: user.profilePicture,
+        authProvider: user.authProvider,
       },
       token,
     };
@@ -136,6 +141,8 @@ export const authService = {
         name: user.name,
         displayName: user.displayName,
         role: user.role,
+        profilePicture: user.profilePicture,
+        authProvider: user.authProvider,
       },
       token,
     };
@@ -156,6 +163,8 @@ export const authService = {
       name: user.name,
       displayName: user.displayName,
       role: user.role,
+      profilePicture: user.profilePicture,
+      authProvider: user.authProvider,
     };
   },
 
@@ -211,6 +220,8 @@ export const authService = {
       name: user.name,
       displayName: user.displayName,
       role: user.role,
+      profilePicture: user.profilePicture,
+      authProvider: user.authProvider,
     };
   },
 

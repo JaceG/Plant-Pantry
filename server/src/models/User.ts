@@ -2,14 +2,18 @@ import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcrypt';
 
 export type UserRole = 'user' | 'admin' | 'moderator';
+export type AuthProvider = 'local' | 'google' | 'apple';
 
 export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
   email: string;
   name?: string; // Real name (optional)
   displayName: string;
-  password: string;
+  password?: string; // Optional for OAuth users
   role: UserRole;
+  authProvider: AuthProvider;
+  providerId?: string; // ID from OAuth provider
+  profilePicture?: string; // Profile picture URL from OAuth
   lastLogin?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -39,13 +43,28 @@ const userSchema = new Schema<IUser>(
     },
     password: {
       type: String,
-      required: true,
+      required: function(this: IUser) {
+        // Password is required only for local auth
+        return this.authProvider === 'local';
+      },
       minlength: 8,
     },
     role: {
       type: String,
       enum: ['user', 'admin', 'moderator'],
       default: 'user',
+    },
+    authProvider: {
+      type: String,
+      enum: ['local', 'google', 'apple'],
+      default: 'local',
+    },
+    providerId: {
+      type: String,
+      sparse: true, // Allows null/undefined values while maintaining index
+    },
+    profilePicture: {
+      type: String,
     },
     lastLogin: {
       type: Date,
@@ -58,8 +77,8 @@ const userSchema = new Schema<IUser>(
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {
-  // Only hash the password if it has been modified (or is new)
-  if (!this.isModified('password')) {
+  // Only hash the password if it has been modified (or is new) and exists
+  if (!this.isModified('password') || !this.password) {
     return next();
   }
 
@@ -74,11 +93,14 @@ userSchema.pre('save', async function (next) {
 
 // Method to compare passwords
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
+  if (!this.password) {
+    return false; // OAuth users can't use password login
+  }
   return bcrypt.compare(candidatePassword, this.password);
 };
 
 // Note: email index is already created by `unique: true` in the schema
 userSchema.index({ role: 1 });
+userSchema.index({ authProvider: 1, providerId: 1 });
 
 export const User = mongoose.model<IUser>('User', userSchema);
-

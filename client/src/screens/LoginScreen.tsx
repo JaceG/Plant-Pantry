@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/Common/Button';
 import { Toast } from '../components/Common/Toast';
+import { SocialLoginButtons } from '../components/Common/SocialLoginButtons';
 import './AuthScreens.css';
 
 interface FieldErrors {
@@ -216,6 +217,12 @@ export function LoginScreen() {
 						size='lg'>
 						{loading ? 'Signing in...' : 'Sign In'}
 					</Button>
+
+					<SocialLoginButtons
+						onSuccess={() => navigate(from, { replace: true })}
+						onError={(err) => setError(err)}
+						disabled={loading}
+					/>
 				</form>
 
 				<div className='auth-footer'>
