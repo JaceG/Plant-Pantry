@@ -12,7 +12,7 @@ interface SocialLoginButtonsProps {
 // Check if OAuth providers are configured
 const isGoogleConfigured = !!import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const APPLE_CLIENT_ID =
-	import.meta.env.VITE_APPLE_CLIENT_ID || 'com.plantpantry.web';
+	import.meta.env.VITE_APPLE_CLIENT_ID || 'com.theveganaisle.web';
 const APPLE_REDIRECT_URI =
 	typeof window !== 'undefined' ? window.location.origin : '';
 
@@ -85,9 +85,8 @@ function GoogleLoginButton({
 				setIsLoading(false);
 			}
 		},
-		onError: (error) => {
-			console.error('Google OAuth error:', error);
-			onError?.('Google sign-in was cancelled or failed');
+		onError: () => {
+			// User closed the popup or cancelled - no error needed
 		},
 	});
 
@@ -218,15 +217,16 @@ function AppleLoginButton({
 				onError?.(result.error || 'Apple sign-in failed');
 			}
 		} catch (error) {
-			console.error('Apple login error:', JSON.stringify(error, null, 2));
 			// Apple returns an error object with 'error' property when user cancels
 			if (error && typeof error === 'object' && 'error' in error) {
 				const appleError = error as { error: string };
+				// Don't show error for user-initiated cancellations
 				if (
 					appleError.error === 'popup_closed_by_user' ||
 					appleError.error === 'user_cancelled_authorize'
 				) {
-					onError?.('Sign-in was cancelled');
+					// User closed the popup - no error needed
+					return;
 				} else if (appleError.error === 'popup_blocked_by_browser') {
 					onError?.(
 						'Please allow popups for this site to use Apple Sign-In'
