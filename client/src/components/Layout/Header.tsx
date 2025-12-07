@@ -67,26 +67,58 @@ export function Header({ defaultListId }: HeaderProps) {
 	return (
 		<>
 			<header className='header'>
-				<div className='header-container'>
+				{/* Top Row: Logo and Auth */}
+				<div className='header-top'>
 					<Link to='/' className='header-logo'>
 						<span className='logo-icon'>🌱</span>
 						<span className='logo-text'>The Vegan Aisle</span>
 					</Link>
 
-					{!isHomePage && (
-						<div className='header-search'>
-							<SearchBar
-								initialValue={
-									new URLSearchParams(location.search).get(
-										'q'
-									) || ''
-								}
-								onSearch={handleHeaderSearch}
-								placeholder='Search products...'
-							/>
-						</div>
-					)}
+					<div className='header-auth'>
+						{isAuthenticated ? (
+							<div className='auth-user-menu'>
+								<Link to='/profile' className='user-greeting'>
+									Hi,{' '}
+									{user?.displayName?.split(' ')[0] || 'User'}
+								</Link>
+								{isAdmin && (
+									<Link
+										to='/admin'
+										className={`auth-button admin-button ${
+											location.pathname.startsWith(
+												'/admin'
+											)
+												? 'active'
+												: ''
+										}`}>
+										⚙️ Admin
+									</Link>
+								)}
+								<button
+									onClick={handleLogout}
+									className='auth-button logout-button'>
+									Logout
+								</button>
+							</div>
+						) : (
+							<div className='auth-buttons'>
+								<Link
+									to='/login'
+									className='auth-button login-button'>
+									Sign In
+								</Link>
+								<Link
+									to='/signup'
+									className='auth-button signup-button'>
+									Sign Up
+								</Link>
+							</div>
+						)}
+					</div>
+				</div>
 
+				{/* Bottom Row: Nav, Search, Location */}
+				<div className='header-bottom'>
 					<nav className='header-nav'>
 						<Link
 							to='/'
@@ -124,52 +156,24 @@ export function Header({ defaultListId }: HeaderProps) {
 							<span className='nav-icon'>📝</span>
 							<span className='nav-text'>My List</span>
 						</Link>
-
-						{isAdmin && (
-							<Link
-								to='/admin'
-								className={`nav-link admin-link ${
-									location.pathname.startsWith('/admin')
-										? 'active'
-										: ''
-								}`}>
-								<span className='nav-icon'>⚙️</span>
-								<span className='nav-text'>Admin</span>
-							</Link>
-						)}
 					</nav>
+
+					{!isHomePage && (
+						<div className='header-search'>
+							<SearchBar
+								initialValue={
+									new URLSearchParams(location.search).get(
+										'q'
+									) || ''
+								}
+								onSearch={handleHeaderSearch}
+								placeholder='Search products...'
+							/>
+						</div>
+					)}
 
 					<div className='header-location'>
 						<LocationSelector />
-					</div>
-
-					<div className='header-auth'>
-						{isAuthenticated ? (
-							<div className='auth-user-menu'>
-								<Link to='/profile' className='user-greeting'>
-									Hi,{' '}
-									{user?.displayName?.split(' ')[0] || 'User'}
-								</Link>
-								<button
-									onClick={handleLogout}
-									className='auth-button logout-button'>
-									Logout
-								</button>
-							</div>
-						) : (
-							<div className='auth-buttons'>
-								<Link
-									to='/login'
-									className='auth-button login-button'>
-									Sign In
-								</Link>
-								<Link
-									to='/signup'
-									className='auth-button signup-button'>
-									Sign Up
-								</Link>
-							</div>
-						)}
 					</div>
 				</div>
 			</header>
