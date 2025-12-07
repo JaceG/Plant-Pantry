@@ -18,6 +18,9 @@ function buildQueryString(filters: ProductFilters): string {
 		params.set('minRating', filters.minRating.toString());
 	if (filters.page) params.set('page', filters.page.toString());
 	if (filters.pageSize) params.set('pageSize', filters.pageSize.toString());
+	// Location-based filtering
+	if (filters.city) params.set('city', filters.city);
+	if (filters.state) params.set('state', filters.state);
 
 	const queryString = params.toString();
 	return queryString ? `?${queryString}` : '';

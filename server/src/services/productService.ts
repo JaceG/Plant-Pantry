@@ -27,6 +27,9 @@ export interface ProductFilters {
 	minRating?: number;
 	page?: number;
 	pageSize?: number;
+	// Location-based filtering
+	city?: string;
+	state?: string;
 }
 
 export interface ProductSummary {
@@ -110,8 +113,57 @@ export const productService = {
 				minRating,
 				page = 1,
 				pageSize = 20,
+				city,
+				state,
 			} = filters;
 			const skip = (page - 1) * pageSize;
+
+			// Location-based filtering: find products available in the specified city/state
+			let locationProductIds: string[] | null = null;
+			if (city && state) {
+				// Find stores in the specified city/state
+				const storesInLocation = await Store.find({
+					city: { $regex: new RegExp(`^${city}$`, 'i') },
+					state: { $regex: new RegExp(`^${state}$`, 'i') },
+				})
+					.select('_id')
+					.lean();
+
+				const storeIds = storesInLocation.map((s) => s._id);
+
+				if (storeIds.length === 0) {
+					// No stores in this location, return empty results
+					return {
+						items: [],
+						page,
+						pageSize,
+						totalCount: 0,
+					};
+				}
+
+				// Find all products available at these stores
+				const availabilities = await Availability.find({
+					storeId: { $in: storeIds },
+				})
+					.select('productId')
+					.lean();
+
+				locationProductIds = [
+					...new Set(
+						availabilities.map((a) => a.productId.toString())
+					),
+				];
+
+				if (locationProductIds.length === 0) {
+					// No products available at stores in this location
+					return {
+						items: [],
+						page,
+						pageSize,
+						totalCount: 0,
+					};
+				}
+			}
 
 			// Build query for both Product and UserProduct collections
 			const query: Record<string, unknown> = {};
@@ -299,6 +351,47 @@ export const productService = {
 					pageSize,
 					totalCount: 0,
 				};
+			}
+
+			// If location filter is applied, only include products available in that location
+			if (locationProductIds !== null) {
+				const locationObjectIds = locationProductIds.map(
+					(id) => new mongoose.Types.ObjectId(id)
+				);
+				// Combine with existing _id filter if any (e.g., from minRating)
+				if (userProductQuery._id) {
+					// Intersection: products must be in both lists
+					const existingIds = new Set(
+						(
+							userProductQuery._id
+								.$in as mongoose.Types.ObjectId[]
+						).map((id) => id.toString())
+					);
+					const intersectionIds = locationProductIds.filter((id) =>
+						existingIds.has(id)
+					);
+					if (intersectionIds.length === 0) {
+						return {
+							items: [],
+							page,
+							pageSize,
+							totalCount: 0,
+						};
+					}
+					userProductQuery._id = {
+						$in: intersectionIds.map(
+							(id) => new mongoose.Types.ObjectId(id)
+						),
+					};
+					apiProductQuery._id = {
+						$in: intersectionIds.map(
+							(id) => new mongoose.Types.ObjectId(id)
+						),
+					};
+				} else {
+					userProductQuery._id = { $in: locationObjectIds };
+					apiProductQuery._id = { $in: locationObjectIds };
+				}
 			}
 
 			const [apiProducts, userProducts, apiCount, userCount] =

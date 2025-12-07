@@ -101,7 +101,8 @@ router.get(
 // GET /api/products - List products with optional filters
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { q, category, tag, minRating, page, pageSize } = req.query;
+		const { q, category, tag, minRating, page, pageSize, city, state } =
+			req.query;
 
 		const result = await productService.getProducts({
 			q: q as string | undefined,
@@ -110,6 +111,8 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 			minRating: minRating ? parseFloat(minRating as string) : undefined,
 			page: page ? parseInt(page as string, 10) : undefined,
 			pageSize: pageSize ? parseInt(pageSize as string, 10) : undefined,
+			city: city as string | undefined,
+			state: state as string | undefined,
 		});
 
 		res.json(result);

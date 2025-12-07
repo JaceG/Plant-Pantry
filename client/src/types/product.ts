@@ -96,6 +96,9 @@ export interface ProductFilters {
 	minRating?: number;
 	page?: number;
 	pageSize?: number;
+	// Location-based filtering
+	city?: string;
+	state?: string;
 }
 
 export interface CategoriesResponse {

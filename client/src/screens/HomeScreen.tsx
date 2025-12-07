@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import {
 	ProductList,
 	SearchBar,
@@ -7,6 +7,7 @@ import {
 	Pagination,
 } from '../components';
 import { useProducts, useCategories } from '../hooks';
+import { useLocation } from '../context/LocationContext';
 import './HomeScreen.css';
 
 export function HomeScreen() {
@@ -28,6 +29,24 @@ export function HomeScreen() {
 		initialRating
 	);
 
+	// Get location from context
+	const {
+		location: userLocation,
+		hasLocation,
+		locationDisplay,
+		clearLocation,
+		cities,
+	} = useLocation();
+
+	// Find the city slug for linking to city page
+	const citySlug = userLocation
+		? cities.find(
+				(c) =>
+					c.cityName === userLocation.city &&
+					c.state === userLocation.state
+		  )?.slug
+		: undefined;
+
 	// Initialize useProducts with filters from URL
 	const {
 		products,
@@ -44,6 +63,8 @@ export function HomeScreen() {
 		tag: initialTag || undefined,
 		minRating: initialRating,
 		page: initialPage,
+		city: userLocation?.city,
+		state: userLocation?.state,
 	});
 	const { categories, loading: categoriesLoading } = useCategories();
 
@@ -51,6 +72,41 @@ export function HomeScreen() {
 	const prevParamsRef = useRef<string>('');
 	const isMountedRef = useRef(false);
 	const isPageChangeRef = useRef(false);
+	const prevLocationRef = useRef<string | undefined>(undefined);
+
+	// Refetch when location changes
+	useEffect(() => {
+		const currentLocationKey = userLocation
+			? `${userLocation.city}|${userLocation.state}`
+			: undefined;
+
+		// Skip on initial mount - let the other effect handle initial load
+		if (prevLocationRef.current === undefined) {
+			prevLocationRef.current = currentLocationKey;
+			return;
+		}
+
+		// Only refetch if location actually changed
+		if (prevLocationRef.current !== currentLocationKey) {
+			prevLocationRef.current = currentLocationKey;
+			fetchProducts({
+				q: searchQuery || undefined,
+				category: selectedCategory || undefined,
+				tag: selectedTag || undefined,
+				minRating: selectedRating,
+				page: 1,
+				city: userLocation?.city,
+				state: userLocation?.state,
+			});
+		}
+	}, [
+		userLocation,
+		fetchProducts,
+		searchQuery,
+		selectedCategory,
+		selectedTag,
+		selectedRating,
+	]);
 
 	useEffect(() => {
 		// Skip if we're programmatically changing the page
@@ -93,6 +149,8 @@ export function HomeScreen() {
 				tag: tagParam || undefined,
 				minRating: ratingParam,
 				page: 1,
+				city: userLocation?.city,
+				state: userLocation?.state,
 			});
 
 			prevParamsRef.current = currentParams;
@@ -132,6 +190,8 @@ export function HomeScreen() {
 				tag: selectedTag || undefined,
 				minRating: selectedRating,
 				page: 1,
+				city: userLocation?.city,
+				state: userLocation?.state,
 			});
 		},
 		[
@@ -172,9 +232,18 @@ export function HomeScreen() {
 				tag: selectedTag || undefined,
 				minRating: selectedRating,
 				page: 1,
+				city: userLocation?.city,
+				state: userLocation?.state,
 			});
 		},
-		[fetchProducts, searchQuery, selectedTag, selectedRating, searchParams]
+		[
+			fetchProducts,
+			searchQuery,
+			selectedTag,
+			selectedRating,
+			searchParams,
+			userLocation,
+		]
 	);
 
 	const handleTagSelect = useCallback(
@@ -206,6 +275,8 @@ export function HomeScreen() {
 				tag: tag || undefined,
 				minRating: selectedRating,
 				page: 1,
+				city: userLocation?.city,
+				state: userLocation?.state,
 			});
 		},
 		[
@@ -214,6 +285,7 @@ export function HomeScreen() {
 			selectedCategory,
 			selectedRating,
 			searchParams,
+			userLocation,
 		]
 	);
 
@@ -309,6 +381,8 @@ export function HomeScreen() {
 								tag: selectedTag || undefined,
 								minRating: rating,
 								page: 1,
+								city: userLocation?.city,
+								state: userLocation?.state,
 							});
 						}}
 						loading={categoriesLoading}
@@ -319,6 +393,8 @@ export function HomeScreen() {
 							<h2 className='results-title'>
 								{searchQuery || selectedCategory
 									? 'Search Results'
+									: hasLocation
+									? `Products in ${locationDisplay}`
 									: 'All Products'}
 							</h2>
 							{!loading && (
@@ -328,6 +404,28 @@ export function HomeScreen() {
 								</span>
 							)}
 						</div>
+
+						{hasLocation && (
+							<div className='location-filter-banner'>
+								<span className='location-icon'>📍</span>
+								<span className='location-text'>
+									Showing products available in{' '}
+									<strong>{locationDisplay}</strong>
+								</span>
+								<button
+									className='clear-location-btn'
+									onClick={clearLocation}>
+									Show all locations
+								</button>
+								{citySlug && (
+									<Link
+										to={`/cities/${citySlug}`}
+										className='explore-city-link'>
+										Explore {locationDisplay} →
+									</Link>
+								)}
+							</div>
+						)}
 
 						{error && (
 							<div className='error-banner'>
@@ -339,12 +437,17 @@ export function HomeScreen() {
 						<ProductList
 							products={products}
 							loading={loading}
+							showNearYou={hasLocation}
 							emptyMessage={
 								searchQuery ||
 								selectedCategory ||
 								selectedTag ||
 								selectedRating
-									? `No products found matching your filters`
+									? hasLocation
+										? `No products found in ${locationDisplay} matching your filters`
+										: `No products found matching your filters`
+									: hasLocation
+									? `No products available in ${locationDisplay}`
 									: 'No products available'
 							}
 						/>

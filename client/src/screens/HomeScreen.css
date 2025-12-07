@@ -192,3 +192,72 @@
   font-size: 1.2rem;
 }
 
+/* Location Filter Banner */
+.location-filter-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: linear-gradient(135deg, var(--color-sage-light) 0%, #e8f5e9 100%);
+  border: 1px solid var(--color-sage);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+  flex-wrap: wrap;
+}
+
+.location-filter-banner .location-icon {
+  font-size: 1.2rem;
+}
+
+.location-filter-banner .location-text {
+  flex: 1;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--color-charcoal);
+}
+
+.location-filter-banner .clear-location-btn {
+  background: transparent;
+  border: 1px solid var(--color-stone);
+  color: var(--color-stone);
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.location-filter-banner .clear-location-btn:hover {
+  background: var(--color-white);
+  border-color: var(--color-charcoal);
+  color: var(--color-charcoal);
+}
+
+.location-filter-banner .explore-city-link {
+  color: var(--color-forest);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.location-filter-banner .explore-city-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .location-filter-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+  
+  .location-filter-banner .location-text {
+    width: 100%;
+  }
+  
+  .location-filter-banner .clear-location-btn,
+  .location-filter-banner .explore-city-link {
+    margin-top: 0.25rem;
+  }
+}
+

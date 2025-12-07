@@ -5,4 +5,5 @@ export { ShoppingListScreen } from './ShoppingListScreen';
 export { AddProductScreen } from './AddProductScreen';
 export { LoginScreen } from './LoginScreen';
 export { SignupScreen } from './SignupScreen';
+export { ProfileScreen } from './ProfileScreen';
 export * from './admin';

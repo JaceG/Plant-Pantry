@@ -81,6 +81,18 @@ export interface CityProductsResponse {
 
 export const citiesApi = {
 	/**
+	 * Reverse geocode coordinates to city/state using Google Maps API
+	 */
+	reverseGeocode(
+		lat: number,
+		lng: number
+	): Promise<{ city: string | null; state: string | null }> {
+		return httpClient.get<{ city: string | null; state: string | null }>(
+			`/cities/geocode?lat=${lat}&lng=${lng}`
+		);
+	},
+
+	/**
 	 * Get all active city landing pages
 	 */
 	getActiveCities(): Promise<{ cities: CityPageData[] }> {

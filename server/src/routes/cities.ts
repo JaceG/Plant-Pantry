@@ -6,6 +6,124 @@ import { Availability, Product, UserProduct, Review } from '../models';
 
 const router = Router();
 
+// GET /api/cities/geocode - Reverse geocode coordinates to city/state using Google Maps API
+router.get(
+	'/geocode',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { lat, lng } = req.query;
+
+			if (!lat || !lng) {
+				throw new HttpError(
+					'lat and lng query parameters are required',
+					400
+				);
+			}
+
+			const latitude = parseFloat(lat as string);
+			const longitude = parseFloat(lng as string);
+
+			if (isNaN(latitude) || isNaN(longitude)) {
+				throw new HttpError('Invalid lat/lng values', 400);
+			}
+
+			const apiKey = process.env.GOOGLE_API_KEY;
+			if (!apiKey) {
+				throw new HttpError('Google API key not configured', 500);
+			}
+
+			// Call Google Maps Geocoding API
+			const response = await fetch(
+				`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`
+			);
+
+			if (!response.ok) {
+				throw new HttpError('Geocoding request failed', 500);
+			}
+
+			interface AddressComponent {
+				long_name: string;
+				short_name: string;
+				types: string[];
+			}
+
+			interface GeocodeResult {
+				address_components: AddressComponent[];
+			}
+
+			interface GeocodeResponse {
+				status: string;
+				results: GeocodeResult[];
+			}
+
+			const data = (await response.json()) as GeocodeResponse;
+
+			if (
+				data.status !== 'OK' ||
+				!data.results ||
+				data.results.length === 0
+			) {
+				return res.json({ city: null, state: null });
+			}
+
+			// Parse the address components to find city and state
+			let city = '';
+			let state = '';
+
+			// Look through results to find the most specific location
+			for (const result of data.results) {
+				for (const component of result.address_components) {
+					const types = component.types;
+
+					// Get city (locality or sublocality)
+					if (
+						types.includes('locality') ||
+						types.includes('sublocality') ||
+						types.includes('sublocality_level_1')
+					) {
+						if (!city) {
+							city = component.long_name;
+						}
+					}
+
+					// Get state (administrative_area_level_1)
+					if (types.includes('administrative_area_level_1')) {
+						if (!state) {
+							// Google returns short_name as abbreviation (e.g., "CA")
+							state = component.short_name;
+						}
+					}
+				}
+
+				// If we found both, we're done
+				if (city && state) break;
+			}
+
+			// If no city found, try county or neighborhood
+			if (!city) {
+				for (const result of data.results) {
+					for (const component of result.address_components) {
+						const types = component.types;
+						if (
+							types.includes('administrative_area_level_2') ||
+							types.includes('neighborhood')
+						) {
+							city = component.long_name;
+							break;
+						}
+					}
+					if (city) break;
+				}
+			}
+
+			res.json({ city, state });
+		} catch (error) {
+			console.error('Error in GET /api/cities/geocode:', error);
+			next(error);
+		}
+	}
+);
+
 // GET /api/cities - Get all active city landing pages
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 	try {

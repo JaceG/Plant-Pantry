@@ -4,9 +4,10 @@ import './ProductCard.css';
 
 interface ProductCardProps {
 	product: ProductSummary;
+	showNearYou?: boolean;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, showNearYou }: ProductCardProps) {
 	return (
 		<Link to={`/products/${product.id}`} className='product-card'>
 			<div className='product-image-container'>
@@ -23,6 +24,9 @@ export function ProductCard({ product }: ProductCardProps) {
 					</div>
 				)}
 				<div className='product-image-overlay' />
+				{showNearYou && (
+					<span className='near-you-badge'>📍 Near you</span>
+				)}
 			</div>
 
 			<div className='product-content'>

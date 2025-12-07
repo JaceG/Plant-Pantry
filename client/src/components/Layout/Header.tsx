@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { RegistrationModal } from '../Common/RegistrationModal';
+import { LocationSelector } from '../Common/LocationSelector';
 import { SearchBar } from '../Products/SearchBar';
 import './Header.css';
 
@@ -138,13 +139,17 @@ export function Header({ defaultListId }: HeaderProps) {
 						)}
 					</nav>
 
+					<div className='header-location'>
+						<LocationSelector />
+					</div>
+
 					<div className='header-auth'>
 						{isAuthenticated ? (
 							<div className='auth-user-menu'>
-								<span className='user-greeting'>
+								<Link to='/profile' className='user-greeting'>
 									Hi,{' '}
 									{user?.displayName?.split(' ')[0] || 'User'}
-								</span>
+								</Link>
 								<button
 									onClick={handleLogout}
 									className='auth-button logout-button'>

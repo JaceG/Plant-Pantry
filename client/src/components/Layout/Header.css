@@ -129,6 +129,34 @@
   }
 }
 
+/* Location Selector */
+.header-location {
+  flex-shrink: 0;
+}
+
+.header-location .location-trigger {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--color-cream);
+}
+
+.header-location .location-trigger:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.header-location .location-trigger.has-location {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: var(--color-cream);
+}
+
+@media (max-width: 768px) {
+  .header-location {
+    order: 1;
+  }
+}
+
 /* Auth Section */
 .header-auth {
   display: flex;
@@ -187,6 +215,15 @@
   font-size: 0.9rem;
   font-weight: 500;
   display: none;
+  text-decoration: none;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.user-greeting:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--color-cream);
 }
 
 @media (min-width: 768px) {

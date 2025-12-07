@@ -196,3 +196,18 @@
   border-radius: var(--radius-full);
 }
 
+/* Near You Badge */
+.near-you-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, var(--color-forest) 0%, var(--color-sage-dark) 100%);
+  border-radius: var(--radius-full);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+}
+

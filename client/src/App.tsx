@@ -8,6 +8,7 @@ import {
 } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LocationProvider } from './context/LocationContext';
 import { Header } from './components';
 import { ProtectedRoute } from './components/Common/ProtectedRoute';
 import {
@@ -18,6 +19,7 @@ import {
 	AddProductScreen,
 	LoginScreen,
 	SignupScreen,
+	ProfileScreen,
 } from './screens';
 import { CityLandingScreen } from './screens/CityLandingScreen';
 import {
@@ -214,6 +216,14 @@ function AppContent() {
 							</ProtectedRoute>
 						}
 					/>
+					<Route
+						path='/profile'
+						element={
+							<ProtectedRoute>
+								<ProfileScreen />
+							</ProtectedRoute>
+						}
+					/>
 
 					{/* Catch-all redirect */}
 					<Route path='*' element={<Navigate to='/' replace />} />
@@ -239,7 +249,9 @@ function AppWithRouter() {
 				v7_relativeSplatPath: true,
 			}}>
 			<AuthProvider>
-				<AppContent />
+				<LocationProvider>
+					<AppContent />
+				</LocationProvider>
 			</AuthProvider>
 		</Router>
 	);
