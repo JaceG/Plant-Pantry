@@ -54,7 +54,7 @@ export const storeChainService = {
 		const query = includeInactive ? {} : { isActive: true };
 		const chains = await StoreChain.find(query).sort({ name: 1 }).lean();
 
-		return chains.map((c) => toChainSummary(c as IStoreChain));
+		return chains.map((c) => toChainSummary(c as unknown as IStoreChain));
 	},
 
 	/**
@@ -68,7 +68,7 @@ export const storeChainService = {
 		const chain = await StoreChain.findById(id).lean();
 		if (!chain) return null;
 
-		return toChainSummary(chain as IStoreChain);
+		return toChainSummary(chain as unknown as IStoreChain);
 	},
 
 	/**
@@ -80,7 +80,7 @@ export const storeChainService = {
 		}).lean();
 		if (!chain) return null;
 
-		return toChainSummary(chain as IStoreChain);
+		return toChainSummary(chain as unknown as IStoreChain);
 	},
 
 	/**
@@ -127,7 +127,7 @@ export const storeChainService = {
 
 		if (!chain) return null;
 
-		return toChainSummary(chain as IStoreChain);
+		return toChainSummary(chain as unknown as IStoreChain);
 	},
 
 	/**
@@ -284,7 +284,7 @@ export const storeChainService = {
 			.limit(10)
 			.lean();
 
-		return chains.map((c) => toChainSummary(c as IStoreChain));
+		return chains.map((c) => toChainSummary(c as unknown as IStoreChain));
 	},
 
 	/**
@@ -309,10 +309,10 @@ export const storeChainService = {
 					typeMap[item._id] = item.count;
 				});
 
-				return {
-					...toChainSummary(chain as IStoreChain),
-					storesByType: typeMap,
-				};
+			return {
+				...toChainSummary(chain as unknown as IStoreChain),
+				storesByType: typeMap,
+			};
 			})
 		);
 
