@@ -274,8 +274,9 @@ export const storeService = {
 
 	/**
 	 * Get stores grouped by chain
+	 * @param includeEmptyChains - If true, includes chains with no stores (useful for admin views)
 	 */
-	async getStoresGroupedByChain(): Promise<{
+	async getStoresGroupedByChain(includeEmptyChains = false): Promise<{
 		chains: Array<{
 			chain: ChainInfo;
 			stores: StoreSummary[];
@@ -322,14 +323,20 @@ export const storeService = {
 			}
 		}
 
-		const chainGroups = Array.from(chainMap.entries())
+		let chainGroups = Array.from(chainMap.entries())
 			.map(([chainId, chainInfo]) => ({
 				chain: chainInfo,
 				stores: chainStoresMap.get(chainId) || [],
 				locationCount: chainStoresMap.get(chainId)?.length || 0,
 			}))
-			.filter((group) => group.locationCount > 0)
 			.sort((a, b) => a.chain.name.localeCompare(b.chain.name));
+
+		// Filter out empty chains unless includeEmptyChains is true
+		if (!includeEmptyChains) {
+			chainGroups = chainGroups.filter(
+				(group) => group.locationCount > 0
+			);
+		}
 
 		return {
 			chains: chainGroups,

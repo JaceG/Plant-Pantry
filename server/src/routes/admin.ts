@@ -494,13 +494,14 @@ router.post(
 
 /**
  * GET /api/admin/stores/grouped
- * Get stores grouped by chain
+ * Get stores grouped by chain (includes empty chains for admin management)
  */
 router.get(
 	'/stores/grouped',
 	async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const result = await storeService.getStoresGroupedByChain();
+			// Pass true to include chains with no stores (for admin management)
+			const result = await storeService.getStoresGroupedByChain(true);
 			res.json(result);
 		} catch (error) {
 			next(error);
