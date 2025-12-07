@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { userProductsApi } from '../../api/userProductsApi';
 import { productsApi } from '../../api/productsApi';
-import { CreateUserProductInput } from '../../types/product';
+import { CreateUserProductInput, ProductSummary } from '../../types/product';
 import { Button } from '../Common';
 import { Toast } from '../Common/Toast';
 import { useToast } from '../Common/useToast';
@@ -32,23 +32,82 @@ function formatTagLabel(tag: string): string {
 		.join(' ');
 }
 
+// Template data interface for navigation state
+interface TemplateData {
+	name?: string;
+	brand?: string;
+	description?: string;
+	sizeOrVariant?: string;
+	categories?: string[];
+	tags?: string[];
+	isStrictVegan?: boolean;
+	imageUrl?: string;
+	nutritionSummary?: string;
+	ingredientSummary?: string;
+}
+
+interface LocationState {
+	template?: TemplateData;
+}
+
+// Default empty form data
+const getDefaultFormData = (): CreateUserProductInput => ({
+	name: '',
+	brand: '',
+	description: '',
+	sizeOrVariant: '',
+	categories: [],
+	tags: ['vegan'],
+	isStrictVegan: true,
+	imageUrl: '',
+	nutritionSummary: '',
+	ingredientSummary: '',
+	storeAvailabilities: [],
+});
+
+// Apply template to form data
+const applyTemplate = (template: TemplateData): CreateUserProductInput => ({
+	name: template.name || '',
+	brand: template.brand || '',
+	description: template.description || '',
+	sizeOrVariant: template.sizeOrVariant || '',
+	categories: template.categories || [],
+	tags: template.tags || ['vegan'],
+	isStrictVegan: template.isStrictVegan ?? true,
+	imageUrl: template.imageUrl || '',
+	nutritionSummary: template.nutritionSummary || '',
+	ingredientSummary: template.ingredientSummary || '',
+	storeAvailabilities: [],
+});
+
 export function AddProductForm() {
 	const navigate = useNavigate();
+	const location = useLocation();
 	const { showToast, toast, hideToast } = useToast();
 	const [loading, setLoading] = useState(false);
-	const [formData, setFormData] = useState<CreateUserProductInput>({
-		name: '',
-		brand: '',
-		description: '',
-		sizeOrVariant: '',
-		categories: [],
-		tags: ['vegan'],
-		isStrictVegan: true,
-		imageUrl: '',
-		nutritionSummary: '',
-		ingredientSummary: '',
-		storeAvailabilities: [],
-	});
+
+	// Check for template from navigation state
+	const locationState = location.state as LocationState | null;
+	const initialTemplate = locationState?.template;
+
+	const [formData, setFormData] = useState<CreateUserProductInput>(() =>
+		initialTemplate ? applyTemplate(initialTemplate) : getDefaultFormData()
+	);
+
+	// Template search state
+	const [templateSearchQuery, setTemplateSearchQuery] = useState('');
+	const [templateSearchResults, setTemplateSearchResults] = useState<
+		ProductSummary[]
+	>([]);
+	const [isSearchingTemplates, setIsSearchingTemplates] = useState(false);
+	const [showTemplateSearch, setShowTemplateSearch] = useState(
+		!initialTemplate
+	);
+	const [loadedTemplateName, setLoadedTemplateName] = useState<string | null>(
+		initialTemplate
+			? `${initialTemplate.brand} ${initialTemplate.name}`
+			: null
+	);
 
 	const [newCategory, setNewCategory] = useState('');
 	const [availableCategories, setAvailableCategories] = useState<string[]>(
@@ -153,6 +212,84 @@ export function AddProductForm() {
 		}
 	};
 
+	// Template search functionality
+	const handleTemplateSearch = useCallback(async () => {
+		if (!templateSearchQuery.trim()) {
+			setTemplateSearchResults([]);
+			return;
+		}
+
+		setIsSearchingTemplates(true);
+		try {
+			const response = await productsApi.getProducts({
+				q: templateSearchQuery,
+				pageSize: 10,
+			});
+			setTemplateSearchResults(response.items);
+		} catch (error) {
+			console.error('Failed to search products:', error);
+			showToast('Failed to search products', 'error');
+		} finally {
+			setIsSearchingTemplates(false);
+		}
+	}, [templateSearchQuery, showToast]);
+
+	// Debounced search effect
+	useEffect(() => {
+		const debounceTimer = setTimeout(() => {
+			if (templateSearchQuery.trim()) {
+				handleTemplateSearch();
+			} else {
+				setTemplateSearchResults([]);
+			}
+		}, 300);
+
+		return () => clearTimeout(debounceTimer);
+	}, [templateSearchQuery, handleTemplateSearch]);
+
+	const loadProductAsTemplate = useCallback(
+		async (productId: string) => {
+			try {
+				const response = await productsApi.getProductById(productId);
+				const product = response.product;
+
+				setFormData({
+					name: product.name,
+					brand: product.brand,
+					description: product.description || '',
+					sizeOrVariant: product.sizeOrVariant || '',
+					categories: product.categories || [],
+					tags: product.tags || ['vegan'],
+					isStrictVegan: product.isStrictVegan ?? true,
+					imageUrl: product.imageUrl || '',
+					nutritionSummary: product.nutritionSummary || '',
+					ingredientSummary: product.ingredientSummary || '',
+					storeAvailabilities: [],
+				});
+
+				setLoadedTemplateName(`${product.brand} ${product.name}`);
+				setShowTemplateSearch(false);
+				setTemplateSearchQuery('');
+				setTemplateSearchResults([]);
+				showToast(
+					`Loaded "${product.brand} ${product.name}" as template`,
+					'success'
+				);
+			} catch (error) {
+				console.error('Failed to load product:', error);
+				showToast('Failed to load product as template', 'error');
+			}
+		},
+		[showToast]
+	);
+
+	const clearTemplate = useCallback(() => {
+		setFormData(getDefaultFormData());
+		setLoadedTemplateName(null);
+		setShowTemplateSearch(true);
+		showToast('Form cleared', 'success');
+	}, [showToast]);
+
 	return (
 		<div className='add-product-form-container'>
 			<div className='add-product-form-header'>
@@ -160,6 +297,115 @@ export function AddProductForm() {
 				<p className='form-subtitle'>
 					Contribute a vegan product to help others discover it
 				</p>
+			</div>
+
+			{/* Template Search Section */}
+			<div className='template-section'>
+				{loadedTemplateName && (
+					<div className='template-loaded-banner'>
+						<span className='template-loaded-icon'>📋</span>
+						<span className='template-loaded-text'>
+							Using template:{' '}
+							<strong>{loadedTemplateName}</strong>
+						</span>
+						<div className='template-loaded-actions'>
+							<button
+								type='button'
+								className='template-change-btn'
+								onClick={() => setShowTemplateSearch(true)}>
+								Change
+							</button>
+							<button
+								type='button'
+								className='template-clear-btn'
+								onClick={clearTemplate}>
+								Clear
+							</button>
+						</div>
+					</div>
+				)}
+
+				{showTemplateSearch && (
+					<div className='template-search-container'>
+						<div className='template-search-header'>
+							<span className='template-search-icon'>🔍</span>
+							<h3>Start from an existing product</h3>
+							<p>
+								Search for a similar product to use as a
+								template, or start from scratch below
+							</p>
+						</div>
+						<div className='template-search-input-wrapper'>
+							<input
+								type='text'
+								className='template-search-input'
+								placeholder='Search products to use as template...'
+								value={templateSearchQuery}
+								onChange={(e) =>
+									setTemplateSearchQuery(e.target.value)
+								}
+							/>
+							{isSearchingTemplates && (
+								<span className='template-search-spinner' />
+							)}
+						</div>
+						{templateSearchResults.length > 0 && (
+							<div className='template-search-results'>
+								{templateSearchResults.map((product) => (
+									<button
+										key={product.id}
+										type='button'
+										className='template-result-item'
+										onClick={() =>
+											loadProductAsTemplate(product.id)
+										}>
+										<div className='template-result-image'>
+											{product.imageUrl ? (
+												<img
+													src={product.imageUrl}
+													alt={product.name}
+												/>
+											) : (
+												<span className='template-result-placeholder'>
+													🌿
+												</span>
+											)}
+										</div>
+										<div className='template-result-info'>
+											<span className='template-result-brand'>
+												{product.brand}
+											</span>
+											<span className='template-result-name'>
+												{product.name}
+											</span>
+											<span className='template-result-size'>
+												{product.sizeOrVariant}
+											</span>
+										</div>
+										<span className='template-use-btn'>
+											Use
+										</span>
+									</button>
+								))}
+							</div>
+						)}
+						{templateSearchQuery &&
+							!isSearchingTemplates &&
+							templateSearchResults.length === 0 && (
+								<div className='template-no-results'>
+									No products found. Start from scratch below!
+								</div>
+							)}
+						{loadedTemplateName && (
+							<button
+								type='button'
+								className='template-skip-btn'
+								onClick={() => setShowTemplateSearch(false)}>
+								Keep current template
+							</button>
+						)}
+					</div>
+				)}
 			</div>
 
 			<form onSubmit={handleSubmit} className='add-product-form'>

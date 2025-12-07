@@ -591,6 +591,37 @@ export function ProductDetailScreen() {
 									Add to Shopping List
 								</Button>
 							)}
+							{isAuthenticated && (
+								<Button
+									onClick={() =>
+										navigate('/add-product', {
+											state: {
+												template: {
+													name: product.name,
+													brand: product.brand,
+													description:
+														product.description,
+													sizeOrVariant:
+														product.sizeOrVariant,
+													categories:
+														product.categories,
+													tags: product.tags,
+													isStrictVegan:
+														product.isStrictVegan,
+													imageUrl: product.imageUrl,
+													nutritionSummary:
+														product.nutritionSummary,
+													ingredientSummary:
+														product.ingredientSummary,
+												},
+											},
+										})
+									}
+									variant='secondary'
+									size='lg'>
+									📋 Use as Template
+								</Button>
+							)}
 						</div>
 					</div>
 				</div>

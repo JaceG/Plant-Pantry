@@ -270,6 +270,9 @@
 .detail-actions {
   margin-top: auto;
   padding-top: var(--spacing-lg);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
 }
 
 /* Availability Section */
