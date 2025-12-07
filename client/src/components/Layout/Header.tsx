@@ -92,7 +92,7 @@ export function Header({ defaultListId }: HeaderProps) {
 							className={`nav-link ${
 								location.pathname === '/' ? 'active' : ''
 							}`}>
-							<span className='nav-icon'>🛒</span>
+							<span className='nav-icon'>🛍️</span>
 							<span className='nav-text'>Browse</span>
 						</Link>
 
