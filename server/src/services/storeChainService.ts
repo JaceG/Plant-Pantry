@@ -309,10 +309,10 @@ export const storeChainService = {
 					typeMap[item._id] = item.count;
 				});
 
-			return {
-				...toChainSummary(chain as unknown as IStoreChain),
-				storesByType: typeMap,
-			};
+				return {
+					...toChainSummary(chain as unknown as IStoreChain),
+					storesByType: typeMap,
+				};
 			})
 		);
 
