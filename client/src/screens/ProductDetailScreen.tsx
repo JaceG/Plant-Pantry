@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button, Toast } from '../components';
 import { RegistrationModal } from '../components/Common/RegistrationModal';
@@ -11,8 +11,9 @@ import { useAuth } from '../context/AuthContext';
 import { storesApi } from '../api/storesApi';
 import { adminApi } from '../api/adminApi';
 import { reviewsApi } from '../api/reviewsApi';
+import { productsApi } from '../api/productsApi';
 import { Store } from '../types/store';
-import { ProductDetail } from '../types/product';
+import { ProductDetail, AvailabilityInfo } from '../types/product';
 import {
 	Review,
 	ReviewStats as ReviewStatsType,
@@ -48,6 +49,15 @@ export function ProductDetailScreen() {
 	const [, setReviewsLoading] = useState(false);
 	const [showReviewForm, setShowReviewForm] = useState(false);
 	const [editingReview, setEditingReview] = useState<Review | null>(null);
+
+	// Availability confirmation state
+	const [confirmingStoreId, setConfirmingStoreId] = useState<string | null>(
+		null
+	);
+	const [confirmModalStore, setConfirmModalStore] = useState<{
+		storeId: string;
+		storeName: string;
+	} | null>(null);
 	const [reviewsSortBy, setReviewsSortBy] = useState<
 		'newest' | 'oldest' | 'helpful' | 'rating'
 	>('newest');
@@ -83,6 +93,59 @@ export function ProductDetailScreen() {
 
 		loadStores();
 	}, [product]);
+
+	// Group availability by chain
+	const groupedAvailability = useMemo(() => {
+		if (!product?.availability || product.availability.length === 0) {
+			return { chainGroups: [], independentStores: [] };
+		}
+
+		const chainGroupsMap = new Map<
+			string,
+			{
+				chain: { id: string; name: string; slug: string };
+				items: AvailabilityInfo[];
+			}
+		>();
+		const independentStores: AvailabilityInfo[] = [];
+
+		for (const avail of product.availability) {
+			if (avail.chain) {
+				if (!chainGroupsMap.has(avail.chain.id)) {
+					chainGroupsMap.set(avail.chain.id, {
+						chain: avail.chain,
+						items: [],
+					});
+				}
+				chainGroupsMap.get(avail.chain.id)!.items.push(avail);
+			} else {
+				independentStores.push(avail);
+			}
+		}
+
+		const chainGroups = Array.from(chainGroupsMap.values()).sort(
+			(a, b) => b.items.length - a.items.length
+		);
+
+		return { chainGroups, independentStores };
+	}, [product?.availability]);
+
+	// State for expanded chain groups in availability
+	const [expandedAvailChains, setExpandedAvailChains] = useState<Set<string>>(
+		new Set()
+	);
+
+	const toggleAvailChainExpanded = (chainId: string) => {
+		setExpandedAvailChains((prev) => {
+			const next = new Set(prev);
+			if (next.has(chainId)) {
+				next.delete(chainId);
+			} else {
+				next.add(chainId);
+			}
+			return next;
+		});
+	};
 
 	// Load review stats and reviews
 	useEffect(() => {
@@ -263,6 +326,46 @@ export function ProductDetailScreen() {
 			}
 		},
 		[isAuthenticated]
+	);
+
+	// Confirm availability handler
+	const handleConfirmAvailability = useCallback(
+		async (storeId: string) => {
+			if (!isAuthenticated) {
+				setConfirmModalStore(null);
+				setShowRegistrationModal(true);
+				return;
+			}
+			if (!id) return;
+
+			setConfirmingStoreId(storeId);
+			try {
+				const response = await productsApi.confirmAvailability(
+					id,
+					storeId
+				);
+				setToast({ message: response.message, type: 'success' });
+				setConfirmModalStore(null);
+				// Refresh product to get updated availability
+				refresh();
+			} catch (error: any) {
+				setToast({
+					message: error?.message || 'Failed to confirm availability',
+					type: 'error',
+				});
+			} finally {
+				setConfirmingStoreId(null);
+			}
+		},
+		[id, isAuthenticated, refresh]
+	);
+
+	// Open confirmation modal
+	const openConfirmModal = useCallback(
+		(storeId: string, storeName: string) => {
+			setConfirmModalStore({ storeId, storeName });
+		},
+		[]
 	);
 
 	const handleAddToList = useCallback(async () => {
@@ -450,6 +553,13 @@ export function ProductDetailScreen() {
 		brand_direct: '🏷️ Direct',
 	};
 
+	const availabilityStatusLabels: Record<string, string> = {
+		known: 'Available',
+		user_reported: 'User Reported',
+		unknown: 'Unconfirmed',
+		pending: 'Pending',
+	};
+
 	return (
 		<div className='product-detail-screen'>
 			<div className='detail-container'>
@@ -634,6 +744,36 @@ export function ProductDetailScreen() {
 
 					{(product.availability?.length || 0) > 0 ? (
 						<>
+							{/* Chain availability badges */}
+							{groupedAvailability.chainGroups.length > 0 && (
+								<div className='chain-availability-badges'>
+									<span className='badges-label'>
+										Available at:
+									</span>
+									<div className='chain-badges'>
+										{groupedAvailability.chainGroups.map(
+											({ chain, items }) => (
+												<span
+													key={chain.id}
+													className='chain-avail-badge'
+													title={`${
+														items.length
+													} location${
+														items.length !== 1
+															? 's'
+															: ''
+													}`}>
+													✓ {chain.name}
+													<span className='badge-count'>
+														({items.length})
+													</span>
+												</span>
+											)
+										)}
+									</div>
+								</div>
+							)}
+
 							{stores.length > 0 &&
 								stores.some(
 									(s) => s.latitude && s.longitude
@@ -645,37 +785,205 @@ export function ProductDetailScreen() {
 										/>
 									</div>
 								)}
-							<div className='availability-grid'>
-								{(product.availability || []).map((avail) => (
-									<div
-										key={avail.storeId}
-										className='availability-card'>
-										<div className='store-header'>
-											<span className='store-type'>
-												{storeTypeLabels[
-													avail.storeType
-												] || avail.storeType}
-											</span>
-											<span
-												className={`availability-status status-${avail.status}`}>
-												{avail.status === 'known'
-													? 'Available'
-													: avail.status}
-											</span>
+
+							<div className='availability-grouped'>
+								{/* Chain Groups */}
+								{groupedAvailability.chainGroups.map(
+									({ chain, items }) => (
+										<div
+											key={chain.id}
+											className='availability-chain-group'>
+											<div
+												className='chain-group-header'
+												onClick={() =>
+													toggleAvailChainExpanded(
+														chain.id
+													)
+												}>
+												<span className='chain-expand'>
+													{expandedAvailChains.has(
+														chain.id
+													)
+														? '▼'
+														: '▶'}
+												</span>
+												<div className='chain-group-info'>
+													<h3 className='chain-group-name'>
+														{chain.name}
+													</h3>
+													<span className='chain-group-count'>
+														{items.length} location
+														{items.length !== 1
+															? 's'
+															: ''}
+													</span>
+												</div>
+											</div>
+
+											{expandedAvailChains.has(
+												chain.id
+											) && (
+												<div className='chain-locations'>
+													{items.map((avail) => (
+														<div
+															key={avail.storeId}
+															className='availability-card chain-location'>
+															<div className='store-header'>
+																<span className='store-type'>
+																	{storeTypeLabels[
+																		avail
+																			.storeType
+																	] ||
+																		avail.storeType}
+																</span>
+																{avail.status ===
+																'known' ? (
+																	<span
+																		className={`availability-status status-${avail.status}`}>
+																		{availabilityStatusLabels[
+																			avail
+																				.status
+																		] ||
+																			avail.status}
+																	</span>
+																) : (
+																	<button
+																		type='button'
+																		className={`availability-status status-${avail.status} clickable`}
+																		onClick={(
+																			e
+																		) => {
+																			e.stopPropagation();
+																			openConfirmModal(
+																				avail.storeId,
+																				avail.locationIdentifier ||
+																					avail.address ||
+																					avail.storeName
+																			);
+																		}}
+																		title='Click to confirm this product is still here'>
+																		{availabilityStatusLabels[
+																			avail
+																				.status
+																		] ||
+																			avail.status}
+																	</button>
+																)}
+															</div>
+															<h4 className='store-name'>
+																{avail.locationIdentifier ||
+																	avail.address ||
+																	avail.storeName}
+															</h4>
+															{avail.address && (
+																<span className='store-address'>
+																	{
+																		avail.address
+																	}
+																	{avail.city &&
+																		`, ${avail.city}`}
+																	{avail.state &&
+																		`, ${avail.state}`}
+																</span>
+															)}
+															{avail.priceRange && (
+																<span className='store-price'>
+																	{
+																		avail.priceRange
+																	}
+																</span>
+															)}
+														</div>
+													))}
+												</div>
+											)}
 										</div>
-										<h4 className='store-name'>
-											{avail.storeName}
-										</h4>
-										<span className='store-region'>
-											{avail.regionOrScope}
-										</span>
-										{avail.priceRange && (
-											<span className='store-price'>
-												{avail.priceRange}
-											</span>
+									)
+								)}
+
+								{/* Independent Stores */}
+								{groupedAvailability.independentStores.length >
+									0 && (
+									<>
+										{groupedAvailability.chainGroups
+											.length > 0 && (
+											<div className='availability-section-divider'>
+												<span>Independent Stores</span>
+											</div>
 										)}
-									</div>
-								))}
+										<div className='availability-grid'>
+											{groupedAvailability.independentStores.map(
+												(avail) => (
+													<div
+														key={avail.storeId}
+														className='availability-card'>
+														<div className='store-header'>
+															<span className='store-type'>
+																{storeTypeLabels[
+																	avail
+																		.storeType
+																] ||
+																	avail.storeType}
+															</span>
+															{avail.status ===
+															'known' ? (
+																<span
+																	className={`availability-status status-${avail.status}`}>
+																	{availabilityStatusLabels[
+																		avail
+																			.status
+																	] ||
+																		avail.status}
+																</span>
+															) : (
+																<button
+																	type='button'
+																	className={`availability-status status-${avail.status} clickable`}
+																	onClick={(
+																		e
+																	) => {
+																		e.stopPropagation();
+																		openConfirmModal(
+																			avail.storeId,
+																			avail.storeName
+																		);
+																	}}
+																	title='Click to confirm this product is still here'>
+																	{availabilityStatusLabels[
+																		avail
+																			.status
+																	] ||
+																		avail.status}
+																</button>
+															)}
+														</div>
+														<h4 className='store-name'>
+															{avail.storeName}
+														</h4>
+														<span className='store-region'>
+															{avail.address
+																? `${
+																		avail.address
+																  }${
+																		avail.city
+																			? `, ${avail.city}`
+																			: ''
+																  }`
+																: avail.regionOrScope}
+														</span>
+														{avail.priceRange && (
+															<span className='store-price'>
+																{
+																	avail.priceRange
+																}
+															</span>
+														)}
+													</div>
+												)
+											)}
+										</div>
+									</>
+								)}
 							</div>
 						</>
 					) : (
@@ -805,6 +1113,51 @@ export function ProductDetailScreen() {
 				onClose={() => setShowRegistrationModal(false)}
 				onSuccess={handleRegistrationSuccess}
 			/>
+
+			{/* Confirm Availability Modal */}
+			{confirmModalStore && (
+				<div
+					className='confirm-modal-overlay'
+					onClick={() => setConfirmModalStore(null)}>
+					<div
+						className='confirm-modal'
+						onClick={(e) => e.stopPropagation()}>
+						<button
+							className='confirm-modal-close'
+							onClick={() => setConfirmModalStore(null)}>
+							×
+						</button>
+						<div className='confirm-modal-icon'>📍</div>
+						<h3>Confirm Availability</h3>
+						<p>
+							Is <strong>{product?.name}</strong> still available
+							at <strong>{confirmModalStore.storeName}</strong>?
+						</p>
+						<div className='confirm-modal-actions'>
+							<button
+								className='confirm-modal-cancel'
+								onClick={() => setConfirmModalStore(null)}>
+								Cancel
+							</button>
+							<button
+								className='confirm-modal-confirm'
+								onClick={() =>
+									handleConfirmAvailability(
+										confirmModalStore.storeId
+									)
+								}
+								disabled={
+									confirmingStoreId ===
+									confirmModalStore.storeId
+								}>
+								{confirmingStoreId === confirmModalStore.storeId
+									? 'Confirming...'
+									: 'Yes, still here!'}
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

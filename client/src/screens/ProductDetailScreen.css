@@ -389,6 +389,278 @@
   margin-top: var(--spacing-xs);
 }
 
+/* Clickable availability status badge */
+.availability-status.clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  font-family: inherit;
+}
+
+.availability-status.clickable:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.availability-status.status-unknown.clickable:hover,
+.availability-status.status-user_reported.clickable:hover {
+  background: #fbbf24;
+  color: #92400e;
+}
+
+/* Confirm Availability Modal */
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--spacing-md);
+}
+
+.confirm-modal {
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+}
+
+.confirm-modal-close {
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--color-stone);
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.confirm-modal-close:hover {
+  color: var(--color-charcoal);
+}
+
+.confirm-modal-icon {
+  font-size: 3rem;
+  margin-bottom: var(--spacing-md);
+}
+
+.confirm-modal h3 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-charcoal);
+  margin: 0 0 var(--spacing-sm) 0;
+}
+
+.confirm-modal p {
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  color: var(--color-stone);
+  margin: 0 0 var(--spacing-lg) 0;
+  line-height: 1.5;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: center;
+}
+
+.confirm-modal-cancel,
+.confirm-modal-confirm {
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.confirm-modal-cancel {
+  background: var(--color-cream);
+  border: 1px solid var(--color-sage-light);
+  color: var(--color-stone);
+}
+
+.confirm-modal-cancel:hover {
+  background: var(--color-sage-light);
+  color: var(--color-charcoal);
+}
+
+.confirm-modal-confirm {
+  background: var(--color-forest);
+  border: 1px solid var(--color-forest);
+  color: var(--color-white);
+}
+
+.confirm-modal-confirm:hover:not(:disabled) {
+  background: var(--color-charcoal);
+  border-color: var(--color-charcoal);
+}
+
+.confirm-modal-confirm:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Chain Availability Badges */
+.chain-availability-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: linear-gradient(135deg, var(--color-mint) 0%, var(--color-cream) 100%);
+  border: 1px solid var(--color-sage-light);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.badges-label {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-stone);
+}
+
+.chain-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.chain-avail-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.75rem;
+  background: var(--color-white);
+  border: 1px solid var(--color-sage);
+  border-radius: var(--radius-full);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-forest);
+  transition: all 0.2s ease;
+}
+
+.chain-avail-badge:hover {
+  background: var(--color-forest);
+  color: var(--color-white);
+  border-color: var(--color-forest);
+}
+
+.chain-avail-badge .badge-count {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+/* Grouped Availability */
+.availability-grouped {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.availability-chain-group {
+  background: var(--color-white);
+  border: 1px solid var(--color-sage-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.chain-group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--color-cream);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.chain-group-header:hover {
+  background: var(--color-mint);
+}
+
+.chain-expand {
+  font-size: 0.75rem;
+  color: var(--color-stone);
+  width: 1rem;
+  flex-shrink: 0;
+}
+
+.chain-group-info {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+}
+
+.chain-group-name {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-charcoal);
+  margin: 0;
+}
+
+.chain-group-count {
+  font-size: 0.8rem;
+  color: var(--color-stone);
+}
+
+.chain-locations {
+  padding: var(--spacing-sm);
+  background: var(--color-white);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.chain-location {
+  background: var(--color-cream);
+}
+
+.chain-location .store-address {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--color-stone);
+  margin-bottom: var(--spacing-xs);
+}
+
+.availability-section-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) 0;
+}
+
+.availability-section-divider::before,
+.availability-section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-sage-light);
+}
+
+.availability-section-divider span {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-stone);
+}
+
 .availability-empty {
   padding: var(--spacing-xl);
   text-align: center;

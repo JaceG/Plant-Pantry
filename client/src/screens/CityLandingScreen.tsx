@@ -1,7 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { citiesApi } from '../api';
-import { CityPageData, CityStore, StoreProduct } from '../api/citiesApi';
+import {
+	CityPageData,
+	CityStore,
+	CityStoresGrouped,
+	StoreProduct,
+} from '../api/citiesApi';
 import { SearchBar } from '../components';
 import './CityLandingScreen.css';
 
@@ -12,15 +17,33 @@ export function CityLandingScreen() {
 	const navigate = useNavigate();
 
 	const [cityData, setCityData] = useState<CityPageData | null>(null);
-	const [stores, setStores] = useState<CityStore[]>([]);
+	const [groupedStores, setGroupedStores] =
+		useState<CityStoresGrouped | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+
+	// Expanded chain groups
+	const [expandedChains, setExpandedChains] = useState<Set<string>>(
+		new Set()
+	);
 
 	// Slide view state
 	const [view, setView] = useState<View>('stores');
 	const [selectedStore, setSelectedStore] = useState<CityStore | null>(null);
 	const [storeProducts, setStoreProducts] = useState<StoreProduct[]>([]);
 	const [loadingProducts, setLoadingProducts] = useState(false);
+
+	// Computed values
+	const stores = useMemo(() => {
+		if (!groupedStores) return [];
+		const allStores = [
+			...groupedStores.chainGroups.flatMap((g) => g.stores),
+			...groupedStores.independentStores,
+		];
+		return allStores;
+	}, [groupedStores]);
+
+	const totalChains = groupedStores?.chainGroups.length || 0;
 
 	useEffect(() => {
 		const fetchCityData = async () => {
@@ -32,11 +55,20 @@ export function CityLandingScreen() {
 			try {
 				const [cityRes, storesRes] = await Promise.all([
 					citiesApi.getCityPage(slug),
-					citiesApi.getCityStores(slug),
+					citiesApi.getCityStoresGrouped(slug),
 				]);
 
 				setCityData(cityRes.city);
-				setStores(storesRes.stores);
+				setGroupedStores(storesRes);
+
+				// Auto-expand chains with few locations
+				const autoExpand = new Set<string>();
+				storesRes.chainGroups.forEach((group) => {
+					if (group.stores.length <= 3) {
+						autoExpand.add(group.chain.id);
+					}
+				});
+				setExpandedChains(autoExpand);
 			} catch (err) {
 				console.error('Error fetching city data:', err);
 				setError('City page not found');
@@ -47,6 +79,18 @@ export function CityLandingScreen() {
 
 		fetchCityData();
 	}, [slug]);
+
+	const toggleChainExpanded = (chainId: string) => {
+		setExpandedChains((prev) => {
+			const next = new Set(prev);
+			if (next.has(chainId)) {
+				next.delete(chainId);
+			} else {
+				next.add(chainId);
+			}
+			return next;
+		});
+	};
 
 	const handleSearch = (query: string) => {
 		navigate(`/search?q=${encodeURIComponent(query.trim())}`);
@@ -138,10 +182,20 @@ export function CityLandingScreen() {
 					</div>
 
 					<div className='city-stats'>
+						{totalChains > 0 && (
+							<div className='stat'>
+								<span className='stat-value'>
+									{totalChains}
+								</span>
+								<span className='stat-label'>
+									{totalChains === 1 ? 'Chain' : 'Chains'}
+								</span>
+							</div>
+						)}
 						<div className='stat'>
 							<span className='stat-value'>{stores.length}</span>
 							<span className='stat-label'>
-								{stores.length === 1 ? 'Store' : 'Stores'}
+								{stores.length === 1 ? 'Location' : 'Locations'}
 							</span>
 						</div>
 						<div className='stat'>
@@ -173,43 +227,170 @@ export function CityLandingScreen() {
 								</p>
 							</div>
 
-							{stores.length > 0 ? (
-								<div className='stores-list'>
-									{stores.map((store) => (
+							{groupedStores &&
+							(groupedStores.chainGroups.length > 0 ||
+								groupedStores.independentStores.length > 0) ? (
+								<div className='stores-list grouped'>
+									{/* Chain Groups */}
+									{groupedStores.chainGroups.map((group) => (
 										<div
-											key={store.id}
-											className='store-card'
-											onClick={() =>
-												handleSelectStore(store)
-											}>
-											<div className='store-info'>
-												<h3 className='store-name'>
-													{store.name}
-												</h3>
-												{store.address && (
-													<p className='store-address'>
-														{store.address}
-														{store.zipCode &&
-															`, ${store.zipCode}`}
-													</p>
-												)}
+											key={group.chain.id}
+											className='chain-group'>
+											<div
+												className='chain-header'
+												onClick={() =>
+													toggleChainExpanded(
+														group.chain.id
+													)
+												}>
+												<span className='chain-expand-icon'>
+													{expandedChains.has(
+														group.chain.id
+													)
+														? '▼'
+														: '▶'}
+												</span>
+												<div className='chain-info'>
+													<h3 className='chain-name'>
+														{group.chain.name}
+													</h3>
+													<span className='chain-meta'>
+														{group.stores.length}{' '}
+														location
+														{group.stores.length !==
+														1
+															? 's'
+															: ''}{' '}
+														•{' '}
+														{
+															group.totalProductCount
+														}{' '}
+														product
+														{group.totalProductCount !==
+														1
+															? 's'
+															: ''}
+													</span>
+												</div>
+												<span className='chain-arrow'>
+													→
+												</span>
 											</div>
-											<div className='store-meta'>
-												{store.productCount !==
-													undefined &&
-													store.productCount > 0 && (
-														<span className='product-badge'>
-															{store.productCount}{' '}
-															{store.productCount ===
-															1
-																? 'product'
-																: 'products'}
-														</span>
+
+											{expandedChains.has(
+												group.chain.id
+											) && (
+												<div className='chain-stores'>
+													{group.stores.map(
+														(store) => (
+															<div
+																key={store.id}
+																className='store-card chain-store'
+																onClick={() =>
+																	handleSelectStore(
+																		store
+																	)
+																}>
+																<div className='store-info'>
+																	<h4 className='store-name'>
+																		{store.locationIdentifier ||
+																			store.address ||
+																			store.name}
+																	</h4>
+																	{store.address &&
+																		store.locationIdentifier && (
+																			<p className='store-address'>
+																				{
+																					store.address
+																				}
+																				{store.zipCode &&
+																					`, ${store.zipCode}`}
+																			</p>
+																		)}
+																</div>
+																<div className='store-meta'>
+																	{store.productCount !==
+																		undefined &&
+																		store.productCount >
+																			0 && (
+																			<span className='product-badge'>
+																				{
+																					store.productCount
+																				}
+																			</span>
+																		)}
+																	<span className='arrow'>
+																		→
+																	</span>
+																</div>
+															</div>
+														)
 													)}
-												<span className='arrow'>→</span>
-											</div>
+												</div>
+											)}
 										</div>
 									))}
+
+									{/* Independent Stores */}
+									{groupedStores.independentStores.length >
+										0 && (
+										<>
+											{groupedStores.chainGroups.length >
+												0 && (
+												<div className='stores-section-divider'>
+													<span>
+														Independent Stores
+													</span>
+												</div>
+											)}
+											{groupedStores.independentStores.map(
+												(store) => (
+													<div
+														key={store.id}
+														className='store-card'
+														onClick={() =>
+															handleSelectStore(
+																store
+															)
+														}>
+														<div className='store-info'>
+															<h3 className='store-name'>
+																{store.name}
+															</h3>
+															{store.address && (
+																<p className='store-address'>
+																	{
+																		store.address
+																	}
+																	{store.zipCode &&
+																		`, ${store.zipCode}`}
+																</p>
+															)}
+														</div>
+														<div className='store-meta'>
+															{store.productCount !==
+																undefined &&
+																store.productCount >
+																	0 && (
+																	<span className='product-badge'>
+																		{
+																			store.productCount
+																		}{' '}
+																		{store.productCount ===
+																		1
+																			? 'product'
+																			: 'products'}
+																	</span>
+																)}
+															<span className='arrow'>
+																→
+															</span>
+														</div>
+													</div>
+												)
+											)}
+										</>
+									)}
 								</div>
 							) : (
 								<div className='empty-state'>

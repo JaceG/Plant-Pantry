@@ -3,6 +3,7 @@ import {
 	CityLandingPage,
 	ICityLandingPage,
 	Store,
+	StoreChain,
 	Availability,
 	Product,
 	UserProduct,
@@ -18,6 +19,13 @@ export interface CityPageData {
 	isActive: boolean;
 }
 
+export interface ChainInfo {
+	id: string;
+	name: string;
+	slug: string;
+	logoUrl?: string;
+}
+
 export interface CityStore {
 	id: string;
 	name: string;
@@ -31,6 +39,21 @@ export interface CityStore {
 	websiteUrl?: string;
 	phoneNumber?: string;
 	productCount?: number;
+	// Chain info
+	chainId?: string;
+	locationIdentifier?: string;
+	chain?: ChainInfo;
+}
+
+export interface CityChainGroup {
+	chain: ChainInfo;
+	stores: CityStore[];
+	totalProductCount: number;
+}
+
+export interface CityStoresGrouped {
+	chainGroups: CityChainGroup[];
+	independentStores: CityStore[];
 }
 
 export interface CityProduct {
@@ -108,6 +131,33 @@ export const cityService = {
 			availabilityCounts.map((a) => [a._id.toString(), a.count])
 		);
 
+		// Get chain info for stores that have chains
+		const chainIds = [
+			...new Set(
+				stores
+					.map((s) => s.chainId?.toString())
+					.filter((id): id is string => !!id)
+			),
+		];
+
+		let chainMap = new Map<string, ChainInfo>();
+		if (chainIds.length > 0) {
+			const chains = await StoreChain.find({
+				_id: { $in: chainIds },
+			}).lean();
+			chainMap = new Map(
+				chains.map((c) => [
+					c._id.toString(),
+					{
+						id: c._id.toString(),
+						name: c.name,
+						slug: c.slug,
+						logoUrl: c.logoUrl,
+					},
+				])
+			);
+		}
+
 		return stores.map((store) => ({
 			id: store._id.toString(),
 			name: store.name,
@@ -121,7 +171,59 @@ export const cityService = {
 			websiteUrl: store.websiteUrl,
 			phoneNumber: store.phoneNumber,
 			productCount: countMap.get(store._id.toString()) || 0,
+			chainId: store.chainId?.toString(),
+			locationIdentifier: store.locationIdentifier,
+			chain: store.chainId
+				? chainMap.get(store.chainId.toString())
+				: undefined,
 		}));
+	},
+
+	/**
+	 * Get city stores grouped by chain
+	 */
+	async getCityStoresGrouped(slug: string): Promise<CityStoresGrouped> {
+		const stores = await this.getCityStores(slug);
+
+		// Group stores by chain
+		const chainGroupsMap = new Map<string, CityChainGroup>();
+		const independentStores: CityStore[] = [];
+
+		for (const store of stores) {
+			if (store.chain) {
+				if (!chainGroupsMap.has(store.chain.id)) {
+					chainGroupsMap.set(store.chain.id, {
+						chain: store.chain,
+						stores: [],
+						totalProductCount: 0,
+					});
+				}
+				const group = chainGroupsMap.get(store.chain.id)!;
+				group.stores.push(store);
+				group.totalProductCount += store.productCount || 0;
+			} else {
+				independentStores.push(store);
+			}
+		}
+
+		// Sort chain groups by total product count (most products first)
+		const chainGroups = Array.from(chainGroupsMap.values()).sort(
+			(a, b) => b.totalProductCount - a.totalProductCount
+		);
+
+		// Sort stores within each group by product count
+		chainGroups.forEach((group) => {
+			group.stores.sort(
+				(a, b) => (b.productCount || 0) - (a.productCount || 0)
+			);
+		});
+
+		// Sort independent stores by product count
+		independentStores.sort(
+			(a, b) => (b.productCount || 0) - (a.productCount || 0)
+		);
+
+		return { chainGroups, independentStores };
 	},
 
 	/**

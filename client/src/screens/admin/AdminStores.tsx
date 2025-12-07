@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { adminApi, AdminStore } from '../../api/adminApi';
+import {
+	adminApi,
+	AdminStore,
+	AdminStoreChain,
+	StoresGroupedResponse,
+} from '../../api/adminApi';
 import { AdminLayout } from './AdminLayout';
 import { Button } from '../../components/Common/Button';
 import { Toast } from '../../components/Common/Toast';
@@ -10,6 +15,8 @@ type StoreFilter =
 	| 'brick_and_mortar'
 	| 'online_retailer'
 	| 'brand_direct';
+
+type ViewMode = 'list' | 'grouped';
 
 type SortField = 'name' | 'regionOrScope' | 'createdAt';
 type SortDirection = 'asc' | 'desc';
@@ -24,6 +31,16 @@ interface EditStoreData {
 	state: string;
 	zipCode: string;
 	phoneNumber: string;
+	chainId: string;
+	locationIdentifier: string;
+}
+
+interface ChainFormData {
+	name: string;
+	slug: string;
+	websiteUrl: string;
+	logoUrl: string;
+	type: 'national' | 'regional' | 'local';
 }
 
 export function AdminStores() {
@@ -38,6 +55,17 @@ export function AdminStores() {
 		message: string;
 		type: 'success' | 'error';
 	} | null>(null);
+
+	// View mode state
+	const [viewMode, setViewMode] = useState<ViewMode>('list');
+	const [groupedData, setGroupedData] =
+		useState<StoresGroupedResponse | null>(null);
+	const [expandedChains, setExpandedChains] = useState<Set<string>>(
+		new Set()
+	);
+
+	// Chains state
+	const [chains, setChains] = useState<AdminStoreChain[]>([]);
 
 	// Sorting state
 	const [sortField, setSortField] = useState<SortField>('name');
@@ -55,8 +83,32 @@ export function AdminStores() {
 		state: '',
 		zipCode: '',
 		phoneNumber: '',
+		chainId: '',
+		locationIdentifier: '',
 	});
 	const [saveLoading, setSaveLoading] = useState(false);
+
+	// Bulk selection state
+	const [selectedStoreIds, setSelectedStoreIds] = useState<Set<string>>(
+		new Set()
+	);
+	const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
+	const [bulkAssignChainId, setBulkAssignChainId] = useState('');
+	const [bulkAssignLoading, setBulkAssignLoading] = useState(false);
+
+	// Chain modal state
+	const [showChainModal, setShowChainModal] = useState(false);
+	const [editingChain, setEditingChain] = useState<AdminStoreChain | null>(
+		null
+	);
+	const [chainForm, setChainForm] = useState<ChainFormData>({
+		name: '',
+		slug: '',
+		websiteUrl: '',
+		logoUrl: '',
+		type: 'regional',
+	});
+	const [chainSaveLoading, setChainSaveLoading] = useState(false);
 
 	// Sort stores
 	const sortedStores = useMemo(() => {
@@ -82,10 +134,8 @@ export function AdminStores() {
 	// Handle sort click
 	const handleSort = (field: SortField) => {
 		if (sortField === field) {
-			// Toggle direction if same field
 			setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
 		} else {
-			// New field, default to ascending
 			setSortField(field);
 			setSortDirection('asc');
 		}
@@ -97,6 +147,17 @@ export function AdminStores() {
 		return sortDirection === 'asc' ? '↑' : '↓';
 	};
 
+	// Fetch chains
+	const fetchChains = useCallback(async () => {
+		try {
+			const response = await adminApi.getChains(true);
+			setChains(response.chains);
+		} catch (err) {
+			console.error('Failed to load chains:', err);
+		}
+	}, []);
+
+	// Fetch stores (list view)
 	const fetchStores = useCallback(async () => {
 		try {
 			setLoading(true);
@@ -116,9 +177,32 @@ export function AdminStores() {
 		}
 	}, [page, filter]);
 
+	// Fetch grouped data
+	const fetchGroupedStores = useCallback(async () => {
+		try {
+			setLoading(true);
+			const response = await adminApi.getStoresGrouped();
+			setGroupedData(response);
+		} catch (err) {
+			setError(
+				err instanceof Error ? err.message : 'Failed to load stores'
+			);
+		} finally {
+			setLoading(false);
+		}
+	}, []);
+
 	useEffect(() => {
-		fetchStores();
-	}, [fetchStores]);
+		fetchChains();
+	}, [fetchChains]);
+
+	useEffect(() => {
+		if (viewMode === 'list') {
+			fetchStores();
+		} else {
+			fetchGroupedStores();
+		}
+	}, [viewMode, fetchStores, fetchGroupedStores]);
 
 	const handleDelete = async (storeId: string, storeName: string) => {
 		if (
@@ -132,8 +216,12 @@ export function AdminStores() {
 		setDeleteLoading(storeId);
 		try {
 			await adminApi.deleteStore(storeId);
-			setStores(stores.filter((s) => s.id !== storeId));
-			setTotal(total - 1);
+			if (viewMode === 'list') {
+				setStores(stores.filter((s) => s.id !== storeId));
+				setTotal(total - 1);
+			} else {
+				fetchGroupedStores();
+			}
 			setToast({
 				message: 'Store deleted successfully',
 				type: 'success',
@@ -160,6 +248,8 @@ export function AdminStores() {
 			state: store.state || '',
 			zipCode: store.zipCode || '',
 			phoneNumber: store.phoneNumber || '',
+			chainId: store.chainId || '',
+			locationIdentifier: store.locationIdentifier || '',
 		});
 	};
 
@@ -175,15 +265,22 @@ export function AdminStores() {
 
 		setSaveLoading(true);
 		try {
-			const response = await adminApi.updateStore(
-				editingStore.id,
-				editForm
-			);
-			setStores(
-				stores.map((s) =>
-					s.id === editingStore.id ? { ...s, ...response.store } : s
-				)
-			);
+			const response = await adminApi.updateStore(editingStore.id, {
+				...editForm,
+				chainId: editForm.chainId || null,
+			});
+			if (viewMode === 'list') {
+				setStores(
+					stores.map((s) =>
+						s.id === editingStore.id
+							? { ...s, ...response.store }
+							: s
+					)
+				);
+			} else {
+				fetchGroupedStores();
+			}
+			fetchChains(); // Refresh chain counts
 			setEditingStore(null);
 			setToast({
 				message: 'Store updated successfully',
@@ -198,6 +295,170 @@ export function AdminStores() {
 
 	const handleCancelEdit = () => {
 		setEditingStore(null);
+	};
+
+	// Chain management
+	const handleCreateChain = () => {
+		setEditingChain(null);
+		setChainForm({
+			name: '',
+			slug: '',
+			websiteUrl: '',
+			logoUrl: '',
+			type: 'regional',
+		});
+		setShowChainModal(true);
+	};
+
+	const handleEditChain = (chain: AdminStoreChain) => {
+		setEditingChain(chain);
+		setChainForm({
+			name: chain.name,
+			slug: chain.slug,
+			websiteUrl: chain.websiteUrl || '',
+			logoUrl: chain.logoUrl || '',
+			type: chain.type,
+		});
+		setShowChainModal(true);
+	};
+
+	const handleChainFormChange = (
+		field: keyof ChainFormData,
+		value: string
+	) => {
+		setChainForm((prev) => ({ ...prev, [field]: value }));
+	};
+
+	const handleSaveChain = async () => {
+		setChainSaveLoading(true);
+		try {
+			if (editingChain) {
+				await adminApi.updateChain(editingChain.id, chainForm);
+				setToast({
+					message: 'Chain updated successfully',
+					type: 'success',
+				});
+			} else {
+				await adminApi.createChain(chainForm);
+				setToast({
+					message: 'Chain created successfully',
+					type: 'success',
+				});
+			}
+			fetchChains();
+			if (viewMode === 'grouped') {
+				fetchGroupedStores();
+			}
+			setShowChainModal(false);
+		} catch (err: any) {
+			setToast({
+				message: err.message || 'Failed to save chain',
+				type: 'error',
+			});
+		} finally {
+			setChainSaveLoading(false);
+		}
+	};
+
+	const handleDeleteChain = async (chain: AdminStoreChain) => {
+		if (chain.locationCount > 0) {
+			setToast({
+				message: `Cannot delete chain: ${chain.locationCount} stores are assigned. Remove stores first.`,
+				type: 'error',
+			});
+			return;
+		}
+
+		if (
+			!window.confirm(`Are you sure you want to delete "${chain.name}"?`)
+		) {
+			return;
+		}
+
+		try {
+			await adminApi.deleteChain(chain.id);
+			fetchChains();
+			if (viewMode === 'grouped') {
+				fetchGroupedStores();
+			}
+			setToast({
+				message: 'Chain deleted successfully',
+				type: 'success',
+			});
+		} catch (err: any) {
+			setToast({
+				message: err.message || 'Failed to delete chain',
+				type: 'error',
+			});
+		}
+	};
+
+	const toggleChainExpanded = (chainId: string) => {
+		setExpandedChains((prev) => {
+			const next = new Set(prev);
+			if (next.has(chainId)) {
+				next.delete(chainId);
+			} else {
+				next.add(chainId);
+			}
+			return next;
+		});
+	};
+
+	// Bulk selection handlers
+	const handleToggleStoreSelection = (storeId: string) => {
+		setSelectedStoreIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(storeId)) {
+				next.delete(storeId);
+			} else {
+				next.add(storeId);
+			}
+			return next;
+		});
+	};
+
+	const handleSelectAllStores = () => {
+		if (selectedStoreIds.size === sortedStores.length) {
+			setSelectedStoreIds(new Set());
+		} else {
+			setSelectedStoreIds(new Set(sortedStores.map((s) => s.id)));
+		}
+	};
+
+	const handleClearSelection = () => {
+		setSelectedStoreIds(new Set());
+	};
+
+	const handleBulkAssign = async () => {
+		if (!bulkAssignChainId || selectedStoreIds.size === 0) return;
+
+		setBulkAssignLoading(true);
+		try {
+			const result = await adminApi.bulkAssignStoresToChain(
+				Array.from(selectedStoreIds),
+				bulkAssignChainId
+			);
+			setToast({
+				message: `Assigned ${result.updated} stores to chain`,
+				type: 'success',
+			});
+			setShowBulkAssignModal(false);
+			setBulkAssignChainId('');
+			setSelectedStoreIds(new Set());
+			fetchStores();
+			fetchChains();
+			if (viewMode === 'grouped') {
+				fetchGroupedStores();
+			}
+		} catch (err: any) {
+			setToast({
+				message: err.message || 'Failed to assign stores',
+				type: 'error',
+			});
+		} finally {
+			setBulkAssignLoading(false);
+		}
 	};
 
 	const getStoreTypeIcon = (type: string) => {
@@ -226,7 +487,7 @@ export function AdminStores() {
 		}
 	};
 
-	if (loading && stores.length === 0) {
+	if (loading && stores.length === 0 && !groupedData) {
 		return (
 			<AdminLayout>
 				<div className='admin-loading'>
@@ -241,58 +502,95 @@ export function AdminStores() {
 		<AdminLayout>
 			<div className='admin-stores'>
 				<header className='page-header'>
-					<div>
-						<h1>Store Management</h1>
-						<p className='page-subtitle'>
-							{total} store{total !== 1 ? 's' : ''} total
-						</p>
+					<div className='page-header-main'>
+						<div>
+							<h1>Store Management</h1>
+							<p className='page-subtitle'>
+								{viewMode === 'list'
+									? `${total} store${
+											total !== 1 ? 's' : ''
+									  } total`
+									: groupedData
+									? `${groupedData.chains.length} chains, ${groupedData.independentStores.length} independent stores`
+									: 'Loading...'}
+							</p>
+						</div>
+						<div className='header-actions'>
+							<Button
+								variant='secondary'
+								size='sm'
+								onClick={handleCreateChain}>
+								+ Add Chain
+							</Button>
+						</div>
 					</div>
 				</header>
 
-				{/* Filters */}
+				{/* View Mode Toggle & Filters */}
 				<div className='filters-bar'>
-					<div className='filter-buttons'>
+					<div className='view-toggle'>
 						<button
-							className={`filter-btn ${
-								filter === 'all' ? 'active' : ''
+							className={`view-btn ${
+								viewMode === 'list' ? 'active' : ''
 							}`}
-							onClick={() => {
-								setFilter('all');
-								setPage(1);
-							}}>
-							All
+							onClick={() => setViewMode('list')}>
+							📋 List
 						</button>
 						<button
-							className={`filter-btn ${
-								filter === 'brick_and_mortar' ? 'active' : ''
+							className={`view-btn ${
+								viewMode === 'grouped' ? 'active' : ''
 							}`}
-							onClick={() => {
-								setFilter('brick_and_mortar');
-								setPage(1);
-							}}>
-							🏪 Physical
-						</button>
-						<button
-							className={`filter-btn ${
-								filter === 'online_retailer' ? 'active' : ''
-							}`}
-							onClick={() => {
-								setFilter('online_retailer');
-								setPage(1);
-							}}>
-							🌐 Online
-						</button>
-						<button
-							className={`filter-btn ${
-								filter === 'brand_direct' ? 'active' : ''
-							}`}
-							onClick={() => {
-								setFilter('brand_direct');
-								setPage(1);
-							}}>
-							🏷️ Brand Direct
+							onClick={() => setViewMode('grouped')}>
+							🏬 Grouped
 						</button>
 					</div>
+
+					{viewMode === 'list' && (
+						<div className='filter-buttons'>
+							<button
+								className={`filter-btn ${
+									filter === 'all' ? 'active' : ''
+								}`}
+								onClick={() => {
+									setFilter('all');
+									setPage(1);
+								}}>
+								All
+							</button>
+							<button
+								className={`filter-btn ${
+									filter === 'brick_and_mortar'
+										? 'active'
+										: ''
+								}`}
+								onClick={() => {
+									setFilter('brick_and_mortar');
+									setPage(1);
+								}}>
+								🏪 Physical
+							</button>
+							<button
+								className={`filter-btn ${
+									filter === 'online_retailer' ? 'active' : ''
+								}`}
+								onClick={() => {
+									setFilter('online_retailer');
+									setPage(1);
+								}}>
+								🌐 Online
+							</button>
+							<button
+								className={`filter-btn ${
+									filter === 'brand_direct' ? 'active' : ''
+								}`}
+								onClick={() => {
+									setFilter('brand_direct');
+									setPage(1);
+								}}>
+								🏷️ Brand Direct
+							</button>
+						</div>
+					)}
 				</div>
 
 				{error && (
@@ -301,159 +599,483 @@ export function AdminStores() {
 					</div>
 				)}
 
-				{stores.length === 0 ? (
-					<div className='empty-state'>
-						<span className='empty-icon'>🏪</span>
-						<h2>No Stores Found</h2>
-						<p>
-							{filter !== 'all'
-								? `No ${getStoreTypeLabel(
-										filter
-								  ).toLowerCase()} stores found.`
-								: 'No stores have been added yet.'}
-						</p>
-					</div>
-				) : (
-					<div className='stores-table-container'>
-						<table className='stores-table'>
-							<thead>
-								<tr>
-									<th
-										className='sortable-header'
-										onClick={() => handleSort('name')}>
-										Store{' '}
-										<span className='sort-indicator'>
-											{getSortIndicator('name')}
+				{/* List View */}
+				{viewMode === 'list' && (
+					<>
+						{stores.length === 0 ? (
+							<div className='empty-state'>
+								<span className='empty-icon'>🏪</span>
+								<h2>No Stores Found</h2>
+								<p>
+									{filter !== 'all'
+										? `No ${getStoreTypeLabel(
+												filter
+										  ).toLowerCase()} stores found.`
+										: 'No stores have been added yet.'}
+								</p>
+							</div>
+						) : (
+							<div className='stores-table-container'>
+								{/* Bulk action bar */}
+								{selectedStoreIds.size > 0 && (
+									<div className='bulk-action-bar'>
+										<span className='selection-count'>
+											{selectedStoreIds.size} store
+											{selectedStoreIds.size !== 1
+												? 's'
+												: ''}{' '}
+											selected
 										</span>
-									</th>
-									<th>Type</th>
-									<th
-										className='sortable-header'
-										onClick={() =>
-											handleSort('regionOrScope')
-										}>
-										Region{' '}
-										<span className='sort-indicator'>
-											{getSortIndicator('regionOrScope')}
-										</span>
-									</th>
-									<th>Website</th>
-									<th
-										className='sortable-header'
-										onClick={() => handleSort('createdAt')}>
-										Added{' '}
-										<span className='sort-indicator'>
-											{getSortIndicator('createdAt')}
-										</span>
-									</th>
-									<th>Actions</th>
-								</tr>
-							</thead>
-							<tbody>
-								{sortedStores.map((store) => (
-									<tr key={store.id}>
-										<td className='store-name-cell'>
-											<span className='store-icon'>
-												{getStoreTypeIcon(store.type)}
-											</span>
-											<div className='store-name-info'>
-												<span className='store-name'>
-													{store.name}
-												</span>
-												{store.address && (
-													<span className='store-address'>
-														{store.address}
-														{store.city &&
-															`, ${store.city}`}
-														{store.state &&
-															`, ${store.state}`}
-													</span>
-												)}
-											</div>
-										</td>
-										<td>
-											<span
-												className={`type-badge type-${store.type}`}>
-												{getStoreTypeLabel(store.type)}
-											</span>
-										</td>
-										<td className='region-cell'>
-											{store.regionOrScope}
-										</td>
-										<td>
-											{store.websiteUrl ? (
-												<a
-													href={store.websiteUrl}
-													target='_blank'
-													rel='noopener noreferrer'
-													className='website-link'>
-													Visit →
-												</a>
-											) : (
-												<span className='no-website'>
-													—
-												</span>
-											)}
-										</td>
-										<td className='date-cell'>
-											{new Date(
-												store.createdAt
-											).toLocaleDateString()}
-										</td>
-										<td className='actions-cell'>
+										<div className='bulk-actions'>
 											<Button
-												onClick={() =>
-													handleEdit(store)
-												}
-												variant='secondary'
-												size='sm'>
-												✏️
-											</Button>
-											<Button
-												onClick={() =>
-													handleDelete(
-														store.id,
-														store.name
-													)
-												}
 												variant='secondary'
 												size='sm'
-												isLoading={
-													deleteLoading === store.id
-												}
-												disabled={
-													deleteLoading !== null
+												onClick={() =>
+													setShowBulkAssignModal(true)
 												}>
-												🗑️
+												🏬 Assign to Chain
 											</Button>
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
+											<Button
+												variant='secondary'
+												size='sm'
+												onClick={handleClearSelection}>
+												✕ Clear
+											</Button>
+										</div>
+									</div>
+								)}
+
+								<table className='stores-table'>
+									<thead>
+										<tr>
+											<th className='checkbox-cell'>
+												<input
+													type='checkbox'
+													checked={
+														selectedStoreIds.size ===
+															sortedStores.length &&
+														sortedStores.length > 0
+													}
+													onChange={
+														handleSelectAllStores
+													}
+													title='Select all'
+												/>
+											</th>
+											<th
+												className='sortable-header'
+												onClick={() =>
+													handleSort('name')
+												}>
+												Store{' '}
+												<span className='sort-indicator'>
+													{getSortIndicator('name')}
+												</span>
+											</th>
+											<th>Type</th>
+											<th>Chain</th>
+											<th
+												className='sortable-header'
+												onClick={() =>
+													handleSort('regionOrScope')
+												}>
+												Region{' '}
+												<span className='sort-indicator'>
+													{getSortIndicator(
+														'regionOrScope'
+													)}
+												</span>
+											</th>
+											<th>Website</th>
+											<th
+												className='sortable-header'
+												onClick={() =>
+													handleSort('createdAt')
+												}>
+												Added{' '}
+												<span className='sort-indicator'>
+													{getSortIndicator(
+														'createdAt'
+													)}
+												</span>
+											</th>
+											<th>Actions</th>
+										</tr>
+									</thead>
+									<tbody>
+										{sortedStores.map((store) => (
+											<tr
+												key={store.id}
+												className={
+													selectedStoreIds.has(
+														store.id
+													)
+														? 'selected'
+														: ''
+												}>
+												<td className='checkbox-cell'>
+													<input
+														type='checkbox'
+														checked={selectedStoreIds.has(
+															store.id
+														)}
+														onChange={() =>
+															handleToggleStoreSelection(
+																store.id
+															)
+														}
+													/>
+												</td>
+												<td className='store-name-cell'>
+													<span className='store-icon'>
+														{getStoreTypeIcon(
+															store.type
+														)}
+													</span>
+													<div className='store-name-info'>
+														<span className='store-name'>
+															{store.name}
+														</span>
+														{store.locationIdentifier && (
+															<span className='store-location-id'>
+																{
+																	store.locationIdentifier
+																}
+															</span>
+														)}
+														{store.address && (
+															<span className='store-address'>
+																{store.address}
+																{store.city &&
+																	`, ${store.city}`}
+																{store.state &&
+																	`, ${store.state}`}
+															</span>
+														)}
+													</div>
+												</td>
+												<td>
+													<span
+														className={`type-badge type-${store.type}`}>
+														{getStoreTypeLabel(
+															store.type
+														)}
+													</span>
+												</td>
+												<td>
+													{store.chain ? (
+														<span className='chain-badge'>
+															{store.chain.name}
+														</span>
+													) : (
+														<span className='no-chain'>
+															—
+														</span>
+													)}
+												</td>
+												<td className='region-cell'>
+													{store.regionOrScope}
+												</td>
+												<td>
+													{store.websiteUrl ? (
+														<a
+															href={
+																store.websiteUrl
+															}
+															target='_blank'
+															rel='noopener noreferrer'
+															className='website-link'>
+															Visit →
+														</a>
+													) : (
+														<span className='no-website'>
+															—
+														</span>
+													)}
+												</td>
+												<td className='date-cell'>
+													{new Date(
+														store.createdAt
+													).toLocaleDateString()}
+												</td>
+												<td className='actions-cell'>
+													<Button
+														onClick={() =>
+															handleEdit(store)
+														}
+														variant='secondary'
+														size='sm'>
+														✏️
+													</Button>
+													<Button
+														onClick={() =>
+															handleDelete(
+																store.id,
+																store.name
+															)
+														}
+														variant='secondary'
+														size='sm'
+														isLoading={
+															deleteLoading ===
+															store.id
+														}
+														disabled={
+															deleteLoading !==
+															null
+														}>
+														🗑️
+													</Button>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						)}
+
+						{/* Pagination */}
+						{total > 20 && (
+							<div className='pagination'>
+								<Button
+									onClick={() =>
+										setPage((p) => Math.max(1, p - 1))
+									}
+									disabled={page === 1}
+									variant='secondary'
+									size='sm'>
+									← Previous
+								</Button>
+								<span className='page-info'>
+									Page {page} of {Math.ceil(total / 20)}
+								</span>
+								<Button
+									onClick={() => setPage((p) => p + 1)}
+									disabled={page >= Math.ceil(total / 20)}
+									variant='secondary'
+									size='sm'>
+									Next →
+								</Button>
+							</div>
+						)}
+					</>
 				)}
 
-				{/* Pagination */}
-				{total > 20 && (
-					<div className='pagination'>
-						<Button
-							onClick={() => setPage((p) => Math.max(1, p - 1))}
-							disabled={page === 1}
-							variant='secondary'
-							size='sm'>
-							← Previous
-						</Button>
-						<span className='page-info'>
-							Page {page} of {Math.ceil(total / 20)}
-						</span>
-						<Button
-							onClick={() => setPage((p) => p + 1)}
-							disabled={page >= Math.ceil(total / 20)}
-							variant='secondary'
-							size='sm'>
-							Next →
-						</Button>
+				{/* Grouped View */}
+				{viewMode === 'grouped' && groupedData && (
+					<div className='grouped-stores-view'>
+						{/* Chains Section */}
+						<div className='chains-section'>
+							<h2 className='section-title'>
+								🏬 Store Chains ({groupedData.chains.length})
+							</h2>
+
+							{groupedData.chains.length === 0 ? (
+								<div className='empty-chains'>
+									<p>No chains created yet.</p>
+									<Button
+										variant='primary'
+										size='sm'
+										onClick={handleCreateChain}>
+										+ Create First Chain
+									</Button>
+								</div>
+							) : (
+								<div className='chains-list'>
+									{groupedData.chains.map(
+										({ chain, stores: chainStores }) => (
+											<div
+												key={chain.id}
+												className='chain-group'>
+												<div
+													className='chain-header'
+													onClick={() =>
+														toggleChainExpanded(
+															chain.id
+														)
+													}>
+													<span className='chain-expand-icon'>
+														{expandedChains.has(
+															chain.id
+														)
+															? '▼'
+															: '▶'}
+													</span>
+													<div className='chain-info'>
+														<span className='chain-name'>
+															{chain.name}
+														</span>
+														<span className='chain-count'>
+															(
+															{chainStores.length}{' '}
+															locations)
+														</span>
+													</div>
+													<div className='chain-actions'>
+														<Button
+															variant='secondary'
+															size='sm'
+															onClick={(e) => {
+																e.stopPropagation();
+																handleEditChain(
+																	chains.find(
+																		(c) =>
+																			c.id ===
+																			chain.id
+																	)!
+																);
+															}}>
+															✏️
+														</Button>
+													</div>
+												</div>
+
+												{expandedChains.has(
+													chain.id
+												) && (
+													<div className='chain-stores'>
+														{chainStores.map(
+															(store) => (
+																<div
+																	key={
+																		store.id
+																	}
+																	className='chain-store-item'>
+																	<span className='store-icon'>
+																		{getStoreTypeIcon(
+																			store.type
+																		)}
+																	</span>
+																	<div className='store-details'>
+																		<span className='store-name'>
+																			{store.locationIdentifier ||
+																				store.name}
+																		</span>
+																		{store.address && (
+																			<span className='store-address'>
+																				{
+																					store.address
+																				}
+																				{store.city &&
+																					`, ${store.city}`}
+																				{store.state &&
+																					`, ${store.state}`}
+																			</span>
+																		)}
+																	</div>
+																	<div className='store-actions'>
+																		<Button
+																			variant='secondary'
+																			size='sm'
+																			onClick={() =>
+																				handleEdit(
+																					store
+																				)
+																			}>
+																			✏️
+																		</Button>
+																		<Button
+																			variant='secondary'
+																			size='sm'
+																			onClick={() =>
+																				handleDelete(
+																					store.id,
+																					store.name
+																				)
+																			}
+																			isLoading={
+																				deleteLoading ===
+																				store.id
+																			}>
+																			🗑️
+																		</Button>
+																	</div>
+																</div>
+															)
+														)}
+													</div>
+												)}
+											</div>
+										)
+									)}
+								</div>
+							)}
+						</div>
+
+						{/* Independent Stores Section */}
+						<div className='independent-section'>
+							<h2 className='section-title'>
+								🏪 Independent Stores (
+								{groupedData.independentStores.length})
+							</h2>
+
+							{groupedData.independentStores.length === 0 ? (
+								<div className='empty-independent'>
+									<p>All stores are assigned to chains.</p>
+								</div>
+							) : (
+								<div className='independent-stores-list'>
+									{groupedData.independentStores.map(
+										(store) => (
+											<div
+												key={store.id}
+												className='independent-store-item'>
+												<span className='store-icon'>
+													{getStoreTypeIcon(
+														store.type
+													)}
+												</span>
+												<div className='store-details'>
+													<span className='store-name'>
+														{store.name}
+													</span>
+													{store.address && (
+														<span className='store-address'>
+															{store.address}
+															{store.city &&
+																`, ${store.city}`}
+															{store.state &&
+																`, ${store.state}`}
+														</span>
+													)}
+												</div>
+												<span
+													className={`type-badge type-${store.type}`}>
+													{getStoreTypeLabel(
+														store.type
+													)}
+												</span>
+												<div className='store-actions'>
+													<Button
+														variant='secondary'
+														size='sm'
+														onClick={() =>
+															handleEdit(store)
+														}>
+														✏️
+													</Button>
+													<Button
+														variant='secondary'
+														size='sm'
+														onClick={() =>
+															handleDelete(
+																store.id,
+																store.name
+															)
+														}
+														isLoading={
+															deleteLoading ===
+															store.id
+														}>
+														🗑️
+													</Button>
+												</div>
+											</div>
+										)
+									)}
+								</div>
+							)}
+						</div>
 					</div>
 				)}
 			</div>
@@ -497,6 +1119,49 @@ export function AdminStores() {
 									required
 								/>
 							</div>
+
+							<div className='form-group'>
+								<label htmlFor='edit-chain'>Chain</label>
+								<select
+									id='edit-chain'
+									value={editForm.chainId}
+									onChange={(e) =>
+										handleEditFormChange(
+											'chainId',
+											e.target.value
+										)
+									}>
+									<option value=''>
+										— Independent Store —
+									</option>
+									{chains.map((chain) => (
+										<option key={chain.id} value={chain.id}>
+											{chain.name} ({chain.locationCount}{' '}
+											locations)
+										</option>
+									))}
+								</select>
+							</div>
+
+							{editForm.chainId && (
+								<div className='form-group'>
+									<label htmlFor='edit-location-id'>
+										Location Identifier
+									</label>
+									<input
+										type='text'
+										id='edit-location-id'
+										value={editForm.locationIdentifier}
+										onChange={(e) =>
+											handleEditFormChange(
+												'locationIdentifier',
+												e.target.value
+											)
+										}
+										placeholder='e.g., #1234, Downtown, Main & High'
+									/>
+								</div>
+							)}
 
 							<div className='form-group'>
 								<label htmlFor='edit-type'>Store Type *</label>
@@ -668,6 +1333,256 @@ export function AdminStores() {
 									!editForm.regionOrScope.trim()
 								}>
 								Save Changes
+							</Button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Chain Modal */}
+			{showChainModal && (
+				<div
+					className='modal-overlay'
+					onClick={() => setShowChainModal(false)}>
+					<div
+						className='modal-content chain-modal'
+						onClick={(e) => e.stopPropagation()}>
+						<div className='modal-header'>
+							<h2>
+								{editingChain ? 'Edit Chain' : 'Create Chain'}
+							</h2>
+							<button
+								className='modal-close'
+								onClick={() => setShowChainModal(false)}>
+								×
+							</button>
+						</div>
+
+						<div className='modal-body'>
+							<div className='form-group'>
+								<label htmlFor='chain-name'>Chain Name *</label>
+								<input
+									type='text'
+									id='chain-name'
+									value={chainForm.name}
+									onChange={(e) =>
+										handleChainFormChange(
+											'name',
+											e.target.value
+										)
+									}
+									placeholder='e.g., Kroger, Whole Foods'
+									required
+								/>
+							</div>
+
+							<div className='form-group'>
+								<label htmlFor='chain-slug'>
+									URL Slug (optional)
+								</label>
+								<input
+									type='text'
+									id='chain-slug'
+									value={chainForm.slug}
+									onChange={(e) =>
+										handleChainFormChange(
+											'slug',
+											e.target.value
+										)
+									}
+									placeholder='Auto-generated from name'
+								/>
+							</div>
+
+							<div className='form-group'>
+								<label htmlFor='chain-type'>Chain Type</label>
+								<select
+									id='chain-type'
+									value={chainForm.type}
+									onChange={(e) =>
+										handleChainFormChange(
+											'type',
+											e.target.value
+										)
+									}>
+									<option value='national'>
+										🌎 National
+									</option>
+									<option value='regional'>
+										📍 Regional
+									</option>
+									<option value='local'>🏘️ Local</option>
+								</select>
+							</div>
+
+							<div className='form-group'>
+								<label htmlFor='chain-website'>
+									Website URL
+								</label>
+								<input
+									type='url'
+									id='chain-website'
+									value={chainForm.websiteUrl}
+									onChange={(e) =>
+										handleChainFormChange(
+											'websiteUrl',
+											e.target.value
+										)
+									}
+									placeholder='https://...'
+								/>
+							</div>
+
+							<div className='form-group'>
+								<label htmlFor='chain-logo'>Logo URL</label>
+								<input
+									type='url'
+									id='chain-logo'
+									value={chainForm.logoUrl}
+									onChange={(e) =>
+										handleChainFormChange(
+											'logoUrl',
+											e.target.value
+										)
+									}
+									placeholder='https://...'
+								/>
+							</div>
+
+							{editingChain && (
+								<div className='chain-meta'>
+									<p>
+										<strong>Locations:</strong>{' '}
+										{editingChain.locationCount}
+									</p>
+								</div>
+							)}
+						</div>
+
+						<div className='modal-footer'>
+							{editingChain && (
+								<Button
+									variant='secondary'
+									onClick={() =>
+										handleDeleteChain(editingChain)
+									}
+									disabled={
+										chainSaveLoading ||
+										editingChain.locationCount > 0
+									}>
+									🗑️ Delete
+								</Button>
+							)}
+							<div style={{ flex: 1 }} />
+							<Button
+								variant='secondary'
+								onClick={() => setShowChainModal(false)}
+								disabled={chainSaveLoading}>
+								Cancel
+							</Button>
+							<Button
+								variant='primary'
+								onClick={handleSaveChain}
+								isLoading={chainSaveLoading}
+								disabled={!chainForm.name.trim()}>
+								{editingChain ? 'Save Changes' : 'Create Chain'}
+							</Button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Bulk Assign Modal */}
+			{showBulkAssignModal && (
+				<div className='modal-overlay'>
+					<div className='modal bulk-assign-modal'>
+						<div className='modal-header'>
+							<h2>Assign Stores to Chain</h2>
+							<button
+								className='modal-close'
+								onClick={() => {
+									setShowBulkAssignModal(false);
+									setBulkAssignChainId('');
+								}}>
+								×
+							</button>
+						</div>
+
+						<div className='modal-body'>
+							<p className='bulk-assign-info'>
+								Assign {selectedStoreIds.size} selected store
+								{selectedStoreIds.size !== 1 ? 's' : ''} to a
+								chain:
+							</p>
+
+							<div className='form-group'>
+								<label htmlFor='bulk-chain-select'>
+									Select Chain
+								</label>
+								<select
+									id='bulk-chain-select'
+									value={bulkAssignChainId}
+									onChange={(e) =>
+										setBulkAssignChainId(e.target.value)
+									}
+									className='form-select'>
+									<option value=''>— Select a chain —</option>
+									{chains.map((chain) => (
+										<option key={chain.id} value={chain.id}>
+											{chain.name} ({chain.locationCount}{' '}
+											locations)
+										</option>
+									))}
+								</select>
+							</div>
+
+							<div className='selected-stores-preview'>
+								<h4>Selected Stores:</h4>
+								<ul>
+									{sortedStores
+										.filter((s) =>
+											selectedStoreIds.has(s.id)
+										)
+										.slice(0, 5)
+										.map((store) => (
+											<li key={store.id}>
+												{store.name}
+												{store.city &&
+													` — ${store.city}`}
+												{store.chain && (
+													<span className='current-chain'>
+														(currently:{' '}
+														{store.chain.name})
+													</span>
+												)}
+											</li>
+										))}
+									{selectedStoreIds.size > 5 && (
+										<li className='more-stores'>
+											...and {selectedStoreIds.size - 5}{' '}
+											more
+										</li>
+									)}
+								</ul>
+							</div>
+						</div>
+
+						<div className='modal-footer'>
+							<Button
+								variant='secondary'
+								onClick={() => {
+									setShowBulkAssignModal(false);
+									setBulkAssignChainId('');
+								}}
+								disabled={bulkAssignLoading}>
+								Cancel
+							</Button>
+							<Button
+								variant='primary'
+								onClick={handleBulkAssign}
+								isLoading={bulkAssignLoading}
+								disabled={!bulkAssignChainId}>
+								Assign to Chain
 							</Button>
 						</div>
 					</div>

@@ -39,6 +39,9 @@ export interface ProductSummary {
 	tags: string[];
 	averageRating?: number;
 	reviewCount?: number;
+	// Availability summary
+	storeCount?: number;
+	chainNames?: string[];
 }
 
 export interface ProductListResult {
@@ -46,6 +49,12 @@ export interface ProductListResult {
 	page: number;
 	pageSize: number;
 	totalCount: number;
+}
+
+export interface AvailabilityChainInfo {
+	id: string;
+	name: string;
+	slug: string;
 }
 
 export interface AvailabilityInfo {
@@ -57,6 +66,15 @@ export interface AvailabilityInfo {
 	priceRange?: string;
 	lastConfirmedAt?: Date;
 	source: string;
+	// Store location details
+	address?: string;
+	city?: string;
+	state?: string;
+	zipCode?: string;
+	// Chain info
+	chainId?: string;
+	locationIdentifier?: string;
+	chain?: AvailabilityChainInfo;
 }
 
 export interface ProductDetail {
@@ -311,6 +329,93 @@ export const productService = {
 				{ averageRating: number; reviewCount: number }
 			>();
 
+			// Get availability stats for all products (store count and chain names)
+			const availabilityStatsMap = new Map<
+				string,
+				{ storeCount: number; chainNames: string[] }
+			>();
+
+			if (allProductIds.length > 0) {
+				try {
+					// Fetch availability aggregated by product
+					const productObjectIds = allProductIds
+						.filter((id) => mongoose.Types.ObjectId.isValid(id))
+						.map((id) => new mongoose.Types.ObjectId(id));
+
+					if (productObjectIds.length > 0) {
+						const availabilityAgg = await Availability.aggregate([
+							{
+								$match: {
+									productId: { $in: productObjectIds },
+								},
+							},
+							{
+								$lookup: {
+									from: 'stores',
+									localField: 'storeId',
+									foreignField: '_id',
+									as: 'store',
+								},
+							},
+							{
+								$unwind: {
+									path: '$store',
+									preserveNullAndEmptyArrays: true,
+								},
+							},
+							{
+								$lookup: {
+									from: 'storechains',
+									localField: 'store.chainId',
+									foreignField: '_id',
+									as: 'chain',
+								},
+							},
+							{
+								$unwind: {
+									path: '$chain',
+									preserveNullAndEmptyArrays: true,
+								},
+							},
+							{
+								$group: {
+									_id: '$productId',
+									storeCount: { $sum: 1 },
+									chainIds: {
+										$addToSet: '$store.chainId',
+									},
+									chainNames: {
+										$addToSet: '$chain.name',
+									},
+								},
+							},
+						]);
+
+						availabilityAgg.forEach((agg: any) => {
+							if (agg._id) {
+								// Filter out null values from chainNames
+								const chainNames = (agg.chainNames || [])
+									.filter(
+										(name: any) =>
+											name !== null && name !== undefined
+									)
+									.slice(0, 3); // Limit to 3 chains
+
+								availabilityStatsMap.set(agg._id.toString(), {
+									storeCount: agg.storeCount || 0,
+									chainNames,
+								});
+							}
+						});
+					}
+				} catch (error: any) {
+					console.warn(
+						'Error fetching availability stats:',
+						error?.message || error
+					);
+				}
+			}
+
 			if (allProductIds.length > 0) {
 				try {
 					// Check if Review model is available
@@ -370,6 +475,7 @@ export const productService = {
 				...apiProducts.map((p) => {
 					const id = p._id.toString();
 					const stats = ratingStatsMap.get(id);
+					const availStats = availabilityStatsMap.get(id);
 					return {
 						id,
 						name: p.name,
@@ -380,11 +486,14 @@ export const productService = {
 						tags: p.tags || [],
 						averageRating: stats?.averageRating,
 						reviewCount: stats?.reviewCount,
+						storeCount: availStats?.storeCount,
+						chainNames: availStats?.chainNames,
 					};
 				}),
 				...userProducts.map((p) => {
 					const id = p._id.toString();
 					const stats = ratingStatsMap.get(id);
+					const availStats = availabilityStatsMap.get(id);
 					return {
 						id,
 						name: p.name,
@@ -395,6 +504,8 @@ export const productService = {
 						tags: p.tags || [],
 						averageRating: stats?.averageRating,
 						reviewCount: stats?.reviewCount,
+						storeCount: availStats?.storeCount,
+						chainNames: availStats?.chainNames,
 					};
 				}),
 			].sort((a, b) => a.name.localeCompare(b.name));
@@ -480,6 +591,7 @@ export const productService = {
 		// Get store details for all stores (only if we have availability)
 		let stores: any[] = [];
 		let storeMap = new Map<string, any>();
+		let chainMap = new Map<string, AvailabilityChainInfo>();
 
 		if (storeAvailabilities.length > 0) {
 			const storeIds = storeAvailabilities
@@ -490,6 +602,30 @@ export const productService = {
 			if (storeIds.length > 0) {
 				stores = await Store.find({ _id: { $in: storeIds } }).lean();
 				storeMap = new Map(stores.map((s) => [s._id.toString(), s]));
+
+				// Get unique chain IDs and fetch chain info
+				const chainIds = [
+					...new Set(
+						stores
+							.map((s) => s.chainId?.toString())
+							.filter((id): id is string => !!id)
+					),
+				];
+
+				if (chainIds.length > 0) {
+					const { StoreChain } = await import('../models');
+					const chains = await StoreChain.find({
+						_id: { $in: chainIds },
+					}).lean();
+
+					chains.forEach((c) => {
+						chainMap.set(c._id.toString(), {
+							id: c._id.toString(),
+							name: c.name,
+							slug: c.slug,
+						});
+					});
+				}
 			}
 		}
 
@@ -497,6 +633,10 @@ export const productService = {
 		const availabilityInfo: AvailabilityInfo[] = storeAvailabilities.map(
 			(avail) => {
 				const store = storeMap.get(avail.storeId);
+				const chainInfo = store?.chainId
+					? chainMap.get(store.chainId.toString())
+					: undefined;
+
 				return {
 					storeId: avail.storeId,
 					storeName:
@@ -507,6 +647,15 @@ export const productService = {
 					priceRange: avail.priceRange,
 					lastConfirmedAt: avail.lastUpdated,
 					source: 'api_fetch', // Will be updated based on actual source
+					// Location details
+					address: store?.address,
+					city: store?.city,
+					state: store?.state,
+					zipCode: store?.zipCode,
+					// Chain info
+					chainId: store?.chainId?.toString(),
+					locationIdentifier: store?.locationIdentifier,
+					chain: chainInfo,
 				};
 			}
 		);

@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import { productService } from '../services/productService';
 import { HttpError } from '../middleware/errorHandler';
 import {
@@ -118,6 +119,112 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 	}
 });
 
+/**
+ * GET /api/products/stores-by-city
+ * Get stores grouped by city for the availability report dropdown
+ * NOTE: This route MUST come before /:id to avoid being matched as a product ID
+ */
+router.get(
+	'/stores-by-city',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { city, state } = req.query;
+
+			let query: any = {};
+
+			// Only filter by city/state if both are provided
+			if (city && state) {
+				query.city = { $regex: new RegExp(`^${city}$`, 'i') };
+				query.state = { $regex: new RegExp(`^${state}$`, 'i') };
+				query.type = 'brick_and_mortar';
+			}
+
+			const stores = await Store.find(query)
+				.select(
+					'name city state address type chainId locationIdentifier'
+				)
+				.populate('chainId', 'name')
+				.sort({ state: 1, city: 1, name: 1 })
+				.lean();
+
+			// Group by city/state for physical stores
+			const grouped: Record<
+				string,
+				{ city: string; state: string; stores: any[] }
+			> = {};
+
+			// Separate online stores
+			const onlineStores: any[] = [];
+
+			stores.forEach((store: any) => {
+				const storeData = {
+					id: store._id.toString(),
+					name: store.locationIdentifier
+						? `${(store.chainId as any)?.name || store.name} - ${
+								store.locationIdentifier
+						  }`
+						: store.name,
+					address: store.address,
+					chainName: (store.chainId as any)?.name,
+				};
+
+				if (store.type === 'brick_and_mortar') {
+					// Group physical stores by location
+					if (store.city && store.state) {
+						const key = `${store.city}, ${store.state}`;
+						if (!grouped[key]) {
+							grouped[key] = {
+								city: store.city,
+								state: store.state,
+								stores: [],
+							};
+						}
+						grouped[key].stores.push(storeData);
+					} else {
+						// Stores without city/state go to "Other Physical Stores"
+						const key = 'Other Locations';
+						if (!grouped[key]) {
+							grouped[key] = {
+								city: 'Other Locations',
+								state: '',
+								stores: [],
+							};
+						}
+						grouped[key].stores.push(storeData);
+					}
+				} else {
+					// Online retailers and brand direct stores
+					onlineStores.push(storeData);
+				}
+			});
+
+			// Sort locations - "Other Locations" should come last
+			const sortedLocations = Object.values(grouped).sort((a, b) => {
+				if (a.city === 'Other Locations') return 1;
+				if (b.city === 'Other Locations') return -1;
+				return `${a.state}, ${a.city}`.localeCompare(
+					`${b.state}, ${b.city}`
+				);
+			});
+
+			// Add online stores as a separate "location" if any exist
+			if (onlineStores.length > 0) {
+				sortedLocations.push({
+					city: 'Online Retailers',
+					state: '',
+					stores: onlineStores,
+				});
+			}
+
+			res.json({
+				locations: sortedLocations,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
 // GET /api/products/:id - Get product details with availability (must come last)
 // Use optionalAuthMiddleware to check if user is admin (allows viewing archived products)
 router.get(
@@ -226,55 +333,50 @@ router.post(
 );
 
 /**
- * GET /api/products/stores-by-city
- * Get stores grouped by city for the availability report dropdown
+ * POST /api/products/:id/confirm-availability
+ * Confirm that a product is still available at a store
+ * Requires authentication
  */
-router.get(
-	'/stores-by-city',
-	async (req: Request, res: Response, next: NextFunction) => {
+router.post(
+	'/:id/confirm-availability',
+	authMiddleware,
+	async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
 		try {
-			const { city, state } = req.query;
+			const { id } = req.params;
+			const { storeId } = req.body;
 
-			let query: any = {
-				type: 'brick_and_mortar', // Only physical stores
-			};
-
-			if (city && state) {
-				query.city = { $regex: new RegExp(`^${city}$`, 'i') };
-				query.state = { $regex: new RegExp(`^${state}$`, 'i') };
+			if (!storeId) {
+				throw new HttpError('storeId is required', 400);
 			}
 
-			const stores = await Store.find(query)
-				.select('name city state address')
-				.sort({ state: 1, city: 1, name: 1 })
-				.lean();
+			// Validate IDs
+			if (!mongoose.Types.ObjectId.isValid(id)) {
+				throw new HttpError('Invalid product ID', 400);
+			}
+			if (!mongoose.Types.ObjectId.isValid(storeId)) {
+				throw new HttpError('Invalid store ID', 400);
+			}
 
-			// Group by city/state
-			const grouped: Record<
-				string,
-				{ city: string; state: string; stores: any[] }
-			> = {};
+			// Find existing availability (must use ObjectIds for the query)
+			const existing = await Availability.findOne({
+				productId: new mongoose.Types.ObjectId(id),
+				storeId: new mongoose.Types.ObjectId(storeId),
+			});
 
-			stores.forEach((store) => {
-				const key = `${store.city || 'Unknown'}, ${
-					store.state || '??'
-				}`;
-				if (!grouped[key]) {
-					grouped[key] = {
-						city: store.city || 'Unknown',
-						state: store.state || '??',
-						stores: [],
-					};
-				}
-				grouped[key].stores.push({
-					id: store._id.toString(),
-					name: store.name,
-					address: store.address,
-				});
+			if (!existing) {
+				throw new HttpError('Availability record not found', 404);
+			}
+
+			// Update: set moderationStatus to 'confirmed' which makes available=true
+			// in the getProductAvailability query
+			await Availability.findByIdAndUpdate(existing._id, {
+				lastConfirmedAt: new Date(),
+				moderationStatus: 'confirmed',
 			});
 
 			res.json({
-				locations: Object.values(grouped),
+				message: 'Thanks for confirming! This helps other shoppers.',
+				status: 'known',
 			});
 		} catch (error) {
 			next(error);

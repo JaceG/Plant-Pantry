@@ -80,6 +80,42 @@ export interface AdminStore {
 	phoneNumber?: string;
 	websiteUrl?: string;
 	createdAt: string;
+	// Chain fields
+	chainId?: string;
+	locationIdentifier?: string;
+	chain?: {
+		id: string;
+		name: string;
+		slug: string;
+		logoUrl?: string;
+	};
+}
+
+export interface AdminStoreChain {
+	id: string;
+	name: string;
+	slug: string;
+	logoUrl?: string;
+	websiteUrl?: string;
+	type: 'national' | 'regional' | 'local';
+	isActive: boolean;
+	locationCount: number;
+	createdAt?: string;
+	updatedAt?: string;
+}
+
+export interface StoresGroupedResponse {
+	chains: Array<{
+		chain: {
+			id: string;
+			name: string;
+			slug: string;
+			logoUrl?: string;
+		};
+		stores: AdminStore[];
+		locationCount: number;
+	}>;
+	independentStores: AdminStore[];
 }
 
 export interface PaginatedResponse<T> {
@@ -346,12 +382,109 @@ export const adminApi = {
 			zipCode?: string;
 			country?: string;
 			phoneNumber?: string;
+			chainId?: string | null;
+			locationIdentifier?: string;
 		}
 	): Promise<{ store: AdminStore }> {
 		return httpClient.put<{ store: AdminStore }>(
 			`/admin/stores/${storeId}`,
 			updates
 		);
+	},
+
+	// Store Chains
+	getChains(includeInactive = false): Promise<{ chains: AdminStoreChain[] }> {
+		const url = includeInactive
+			? '/admin/chains?includeInactive=true'
+			: '/admin/chains';
+		return httpClient.get<{ chains: AdminStoreChain[] }>(url);
+	},
+
+	getChain(chainId: string): Promise<{ chain: AdminStoreChain }> {
+		return httpClient.get<{ chain: AdminStoreChain }>(
+			`/admin/chains/${chainId}`
+		);
+	},
+
+	createChain(data: {
+		name: string;
+		slug?: string;
+		logoUrl?: string;
+		websiteUrl?: string;
+		type?: 'national' | 'regional' | 'local';
+	}): Promise<{ message: string; chain: AdminStoreChain }> {
+		return httpClient.post<{ message: string; chain: AdminStoreChain }>(
+			'/admin/chains',
+			data
+		);
+	},
+
+	updateChain(
+		chainId: string,
+		updates: {
+			name?: string;
+			slug?: string;
+			logoUrl?: string;
+			websiteUrl?: string;
+			type?: 'national' | 'regional' | 'local';
+			isActive?: boolean;
+		}
+	): Promise<{ message: string; chain: AdminStoreChain }> {
+		return httpClient.put<{ message: string; chain: AdminStoreChain }>(
+			`/admin/chains/${chainId}`,
+			updates
+		);
+	},
+
+	deleteChain(chainId: string): Promise<{ message: string }> {
+		return httpClient.delete<{ message: string }>(
+			`/admin/chains/${chainId}`
+		);
+	},
+
+	getChainStores(
+		chainId: string,
+		filters?: { city?: string; state?: string }
+	): Promise<{
+		chain: AdminStoreChain;
+		stores: AdminStore[];
+		totalCount: number;
+	}> {
+		let url = `/admin/chains/${chainId}/stores`;
+		const params = new URLSearchParams();
+		if (filters?.city) params.append('city', filters.city);
+		if (filters?.state) params.append('state', filters.state);
+		if (params.toString()) url += `?${params.toString()}`;
+		return httpClient.get<{
+			chain: AdminStoreChain;
+			stores: AdminStore[];
+			totalCount: number;
+		}>(url);
+	},
+
+	assignStoreToChain(
+		storeId: string,
+		chainId: string | null,
+		locationIdentifier?: string
+	): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/stores/${storeId}/assign-chain`,
+			{ chainId, locationIdentifier }
+		);
+	},
+
+	bulkAssignStoresToChain(
+		storeIds: string[],
+		chainId: string | null
+	): Promise<{ message: string; updated: number }> {
+		return httpClient.post<{ message: string; updated: number }>(
+			'/admin/stores/bulk-assign-chain',
+			{ storeIds, chainId }
+		);
+	},
+
+	getStoresGrouped(): Promise<StoresGroupedResponse> {
+		return httpClient.get<StoresGroupedResponse>('/admin/stores/grouped');
 	},
 
 	getArchivedProducts(

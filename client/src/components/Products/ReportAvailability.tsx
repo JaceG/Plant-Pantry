@@ -52,9 +52,10 @@ export function ReportAvailability({
 
 	const getStoresForLocation = () => {
 		if (!selectedLocation) return [];
-		const location = locations.find(
-			(l) => `${l.city}, ${l.state}` === selectedLocation
-		);
+		const location = locations.find((l) => {
+			const locationKey = l.state ? `${l.city}, ${l.state}` : l.city;
+			return locationKey === selectedLocation;
+		});
 		return location?.stores || [];
 	};
 
@@ -166,18 +167,25 @@ export function ReportAvailability({
 											<option value=''>
 												Select a location...
 											</option>
-											{locations.map((loc) => (
-												<option
-													key={`${loc.city}, ${loc.state}`}
-													value={`${loc.city}, ${loc.state}`}>
-													{loc.city}, {loc.state} (
-													{loc.stores.length}{' '}
-													{loc.stores.length === 1
-														? 'store'
-														: 'stores'}
-													)
-												</option>
-											))}
+											{locations.map((loc) => {
+												const locationKey = loc.state
+													? `${loc.city}, ${loc.state}`
+													: loc.city;
+												return (
+													<option
+														key={locationKey}
+														value={locationKey}>
+														{loc.state
+															? `${loc.city}, ${loc.state}`
+															: loc.city}{' '}
+														({loc.stores.length}{' '}
+														{loc.stores.length === 1
+															? 'store'
+															: 'stores'}
+														)
+													</option>
+												);
+											})}
 										</select>
 									)}
 								</div>
@@ -258,5 +266,3 @@ export function ReportAvailability({
 		</div>
 	);
 }
-
-

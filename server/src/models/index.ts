@@ -1,6 +1,7 @@
 export { Product, IProduct } from './Product';
 export { UserProduct, IUserProduct } from './UserProduct';
 export { Store, IStore, StoreType } from './Store';
+export { StoreChain, IStoreChain, ChainType } from './StoreChain';
 export {
 	Availability,
 	IAvailability,

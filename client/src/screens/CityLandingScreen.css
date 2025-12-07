@@ -317,6 +317,122 @@
 	color: var(--color-forest);
 }
 
+/* Chain Groups */
+.stores-list.grouped {
+	gap: var(--spacing-md);
+}
+
+.chain-group {
+	background: var(--color-white);
+	border: 1px solid var(--color-sage-light);
+	border-radius: var(--radius-lg);
+	overflow: hidden;
+}
+
+.chain-header {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-md);
+	padding: var(--spacing-lg);
+	cursor: pointer;
+	transition: background var(--transition-fast);
+}
+
+.chain-header:hover {
+	background: var(--color-mint);
+}
+
+.chain-expand-icon {
+	font-size: 0.75rem;
+	color: var(--color-stone);
+	width: 1rem;
+	flex-shrink: 0;
+}
+
+.chain-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.chain-name {
+	font-family: var(--font-display);
+	font-size: 1.1rem;
+	font-weight: 600;
+	color: var(--color-charcoal);
+	margin: 0;
+}
+
+.chain-meta {
+	font-size: 0.8rem;
+	color: var(--color-stone);
+	margin-top: 2px;
+}
+
+.chain-arrow {
+	font-size: 1.25rem;
+	color: var(--color-sage);
+	transition: transform var(--transition-fast);
+}
+
+.chain-header:hover .chain-arrow {
+	transform: translateX(4px);
+	color: var(--color-forest);
+}
+
+.chain-stores {
+	border-top: 1px solid var(--color-sage-light);
+	padding: var(--spacing-sm);
+	background: var(--color-cream);
+}
+
+.chain-store {
+	background: var(--color-white);
+	margin-bottom: var(--spacing-sm);
+	padding: var(--spacing-md) var(--spacing-lg);
+	border-radius: var(--radius-md);
+}
+
+.chain-store:last-child {
+	margin-bottom: 0;
+}
+
+.chain-store .store-name {
+	font-size: 0.95rem;
+}
+
+.chain-store .store-address {
+	font-size: 0.8rem;
+}
+
+.chain-store .product-badge {
+	font-size: 0.7rem;
+	padding: 3px 8px;
+}
+
+/* Section Divider */
+.stores-section-divider {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-md);
+	padding: var(--spacing-md) 0;
+}
+
+.stores-section-divider::before,
+.stores-section-divider::after {
+	content: '';
+	flex: 1;
+	height: 1px;
+	background: var(--color-sage-light);
+}
+
+.stores-section-divider span {
+	font-size: 0.75rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--color-stone);
+}
+
 /* Panel Footer */
 .panel-footer {
 	margin-top: var(--spacing-xl);

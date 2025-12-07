@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { storesApi } from '../../api/storesApi';
-import { Store, GooglePlacePrediction } from '../../types/store';
+import { storesApi, StoresGroupedResponse } from '../../api/storesApi';
+import { Store, StoreChain, GooglePlacePrediction } from '../../types/store';
 import { StoreAvailabilityInput } from '../../types/product';
 import { AutocompleteInput } from './AutocompleteInput';
 import { StoreMap } from './StoreMap';
+import { ChainLocationPicker } from './ChainLocationPicker';
 import { Button } from '../Common';
 import './StoreAvailabilitySelector.css';
 
@@ -20,12 +21,16 @@ export function StoreAvailabilitySelector({
 	onChange,
 }: StoreAvailabilitySelectorProps) {
 	const [stores, setStores] = useState<Store[]>([]);
+	const [chains, setChains] = useState<StoreChain[]>([]);
+	const [groupedData, setGroupedData] =
+		useState<StoresGroupedResponse | null>(null);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [existingStoreSearch, setExistingStoreSearch] = useState('');
 	const [placePredictions, setPlacePredictions] = useState<
 		GooglePlacePrediction[]
 	>([]);
 	const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+	const [selectedChain, setSelectedChain] = useState<StoreChain | null>(null);
 	const [priceRange, setPriceRange] = useState('');
 	const [loadingStores, setLoadingStores] = useState(false);
 	const [showPlaceSearch, setShowPlaceSearch] = useState(false);
@@ -110,18 +115,29 @@ export function StoreAvailabilitySelector({
 		[physicalStoreOptions]
 	);
 
-	// Load existing stores
+	// Load existing stores and chains
 	useEffect(() => {
 		const loadStores = async () => {
 			setLoadingStores(true);
 			try {
-				const response = await storesApi.getStores();
-				setStores(response.items);
+				// Load stores, chains, and grouped data in parallel
+				const [storesResponse, chainsResponse, groupedResponse] =
+					await Promise.all([
+						storesApi.getStores(undefined, true),
+						storesApi.getChains(),
+						storesApi.getStoresGrouped(),
+					]);
+
+				setStores(storesResponse.items);
+				setChains(chainsResponse.chains);
+				setGroupedData(groupedResponse);
 
 				// Load store details for any stores in value that we don't have yet
 				const missingStoreIds = (value || [])
 					.map((avail) => avail.storeId)
-					.filter((id) => !response.items.some((s) => s.id === id));
+					.filter(
+						(id) => !storesResponse.items.some((s) => s.id === id)
+					);
 
 				if (missingStoreIds.length > 0) {
 					const storePromises = missingStoreIds.map((id) =>
@@ -191,8 +207,24 @@ export function StoreAvailabilitySelector({
 
 	const handleExistingStoreSelect = useCallback((store: Store) => {
 		setSelectedStore(store);
+		setSelectedChain(null);
 		setExistingStoreSearch('');
 		setShowExistingDropdown(false);
+	}, []);
+
+	const handleChainSelect = useCallback((chain: StoreChain) => {
+		setSelectedChain(chain);
+		setSelectedStore(null);
+		setShowExistingDropdown(false);
+	}, []);
+
+	const handleChainLocationSelect = useCallback((store: Store) => {
+		setSelectedStore(store);
+		setSelectedChain(null);
+	}, []);
+
+	const handleBackFromChainPicker = useCallback(() => {
+		setSelectedChain(null);
 	}, []);
 
 	const handlePlaceSelect = useCallback(
@@ -476,12 +508,21 @@ export function StoreAvailabilitySelector({
 					</button>
 				</div>
 
+				{/* Chain Location Picker (when chain is selected) */}
+				{selectedChain && storeMode === 'physical' && (
+					<ChainLocationPicker
+						chain={selectedChain}
+						onSelectLocation={handleChainLocationSelect}
+						onBack={handleBackFromChainPicker}
+					/>
+				)}
+
 				{/* Existing Store Selection */}
-				{selectionMode === 'existing' && (
+				{selectionMode === 'existing' && !selectedChain && (
 					<div className='existing-store-section'>
 						<label>
 							{storeMode === 'physical'
-								? 'Select from your existing physical stores'
+								? 'Select a store chain or independent store'
 								: 'Select from your existing online stores'}
 						</label>
 						<div className='existing-store-search-wrapper'>
@@ -495,9 +536,9 @@ export function StoreAvailabilitySelector({
 								onFocus={() => setShowExistingDropdown(true)}
 								placeholder={`Search ${
 									storeMode === 'physical'
-										? 'physical'
-										: 'online'
-								} stores...`}
+										? 'chains or stores'
+										: 'online stores'
+								}...`}
 								className='form-input existing-store-search-input'
 							/>
 
@@ -507,15 +548,236 @@ export function StoreAvailabilitySelector({
 										<div className='dropdown-message'>
 											Loading stores...
 										</div>
-									) : filteredExistingStores.length === 0 ? (
+									) : storeMode === 'physical' ? (
+										// Physical stores - show chains first, then independent stores
+										<>
+											{/* Store Chains */}
+											{groupedData &&
+												groupedData.chains.length >
+													0 && (
+													<>
+														<div className='dropdown-header'>
+															🏬 Store Chains
+														</div>
+														<div className='dropdown-list'>
+															{groupedData.chains
+																.filter(
+																	(group) => {
+																		if (
+																			!existingStoreSearch.trim()
+																		)
+																			return true;
+																		return group.chain.name
+																			.toLowerCase()
+																			.includes(
+																				existingStoreSearch.toLowerCase()
+																			);
+																	}
+																)
+																.map(
+																	({
+																		chain,
+																		locationCount,
+																	}) => (
+																		<div
+																			key={
+																				chain.id
+																			}
+																			className='existing-store-option chain-option'
+																			onClick={() =>
+																				handleChainSelect(
+																					chains.find(
+																						(
+																							c
+																						) =>
+																							c.id ===
+																							chain.id
+																					)!
+																				)
+																			}>
+																			<div className='store-option-name'>
+																				{
+																					chain.name
+																				}
+																			</div>
+																			<div className='store-option-details'>
+																				<span className='chain-location-count'>
+																					{
+																						locationCount
+																					}{' '}
+																					location
+																					{locationCount !==
+																					1
+																						? 's'
+																						: ''}
+																				</span>
+																				<span className='chain-arrow'>
+																					→
+																				</span>
+																			</div>
+																		</div>
+																	)
+																)}
+														</div>
+													</>
+												)}
+
+											{/* Independent Physical Stores */}
+											{groupedData &&
+												groupedData.independentStores.filter(
+													(s) =>
+														s.type ===
+														'brick_and_mortar'
+												).length > 0 && (
+													<>
+														<div className='dropdown-header'>
+															🏪 Independent
+															Stores
+														</div>
+														<div className='dropdown-list'>
+															{groupedData.independentStores
+																.filter(
+																	(s) =>
+																		s.type ===
+																		'brick_and_mortar'
+																)
+																.filter(
+																	(store) => {
+																		if (
+																			!existingStoreSearch.trim()
+																		)
+																			return true;
+																		const query =
+																			existingStoreSearch.toLowerCase();
+																		return (
+																			store.name
+																				.toLowerCase()
+																				.includes(
+																					query
+																				) ||
+																			store.address
+																				?.toLowerCase()
+																				.includes(
+																					query
+																				) ||
+																			store.city
+																				?.toLowerCase()
+																				.includes(
+																					query
+																				)
+																		);
+																	}
+																)
+																.filter(
+																	(s) =>
+																		!value.some(
+																			(
+																				v
+																			) =>
+																				v.storeId ===
+																				s.id
+																		)
+																)
+																.map(
+																	(store) => (
+																		<div
+																			key={
+																				store.id
+																			}
+																			className='existing-store-option'
+																			onClick={() =>
+																				handleExistingStoreSelect(
+																					store
+																				)
+																			}>
+																			<div className='store-option-name'>
+																				{
+																					store.name
+																				}
+																			</div>
+																			<div className='store-option-details'>
+																				{store.address && (
+																					<span>
+																						{
+																							store.address
+																						}
+																					</span>
+																				)}
+																				{store.city &&
+																					store.state && (
+																						<span>
+																							{
+																								store.city
+																							}
+
+																							,{' '}
+																							{
+																								store.state
+																							}
+																						</span>
+																					)}
+																			</div>
+																		</div>
+																	)
+																)}
+														</div>
+													</>
+												)}
+
+											{/* No results message */}
+											{existingStoreSearch &&
+												groupedData &&
+												groupedData.chains.filter((g) =>
+													g.chain.name
+														.toLowerCase()
+														.includes(
+															existingStoreSearch.toLowerCase()
+														)
+												).length === 0 &&
+												groupedData.independentStores.filter(
+													(s) =>
+														s.type ===
+															'brick_and_mortar' &&
+														(s.name
+															.toLowerCase()
+															.includes(
+																existingStoreSearch.toLowerCase()
+															) ||
+															s.address
+																?.toLowerCase()
+																.includes(
+																	existingStoreSearch.toLowerCase()
+																) ||
+															s.city
+																?.toLowerCase()
+																.includes(
+																	existingStoreSearch.toLowerCase()
+																))
+												).length === 0 && (
+													<div className='dropdown-message'>
+														No matching stores found
+														<button
+															type='button'
+															className='switch-to-new-link'
+															onClick={() => {
+																setSelectionMode(
+																	'new'
+																);
+																setShowExistingDropdown(
+																	false
+																);
+															}}>
+															+ Add a new store
+														</button>
+													</div>
+												)}
+										</>
+									) : // Online stores - original behavior
+									filteredExistingStores.length === 0 ? (
 										<div className='dropdown-message'>
 											{existingStoreSearch
 												? 'No matching stores found'
-												: `No ${
-														storeMode === 'physical'
-															? 'physical'
-															: 'online'
-												  } stores yet. Add one below!`}
+												: 'No online stores yet. Add one below!'}
 											<button
 												type='button'
 												className='switch-to-new-link'
@@ -531,9 +793,7 @@ export function StoreAvailabilitySelector({
 									) : (
 										<>
 											<div className='dropdown-header'>
-												{storeMode === 'physical'
-													? '🏪 Physical Stores'
-													: '🌐 Online Stores'}
+												🌐 Online Stores
 											</div>
 											<div className='dropdown-list'>
 												{filteredExistingStores.map(
@@ -550,46 +810,18 @@ export function StoreAvailabilitySelector({
 																{store.name}
 															</div>
 															<div className='store-option-details'>
-																{store.type ===
-																'brick_and_mortar' ? (
-																	<>
-																		{store.address && (
-																			<span>
-																				{
-																					store.address
-																				}
-																			</span>
-																		)}
-																		{store.city &&
-																			store.state && (
-																				<span>
-																					{
-																						store.city
-																					}
-
-																					,{' '}
-																					{
-																						store.state
-																					}
-																				</span>
-																			)}
-																	</>
-																) : (
-																	<>
-																		<span className='store-type-badge'>
-																			{store.type ===
-																			'online_retailer'
-																				? 'Retailer'
-																				: 'Brand Direct'}
-																		</span>
-																		{store.regionOrScope && (
-																			<span>
-																				{
-																					store.regionOrScope
-																				}
-																			</span>
-																		)}
-																	</>
+																<span className='store-type-badge'>
+																	{store.type ===
+																	'online_retailer'
+																		? 'Retailer'
+																		: 'Brand Direct'}
+																</span>
+																{store.regionOrScope && (
+																	<span>
+																		{
+																			store.regionOrScope
+																		}
+																	</span>
 																)}
 															</div>
 														</div>

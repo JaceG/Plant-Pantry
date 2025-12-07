@@ -10,3 +10,4 @@ export { AutocompleteInput } from './AutocompleteInput';
 export { StoreAvailabilitySelector } from './StoreAvailabilitySelector';
 export { StoreMap } from './StoreMap';
 export { ReportAvailability } from './ReportAvailability';
+export { ChainLocationPicker } from './ChainLocationPicker';

@@ -293,10 +293,42 @@ export const userProductService = {
 
 		const storeMap = new Map(stores.map((s) => [s._id.toString(), s]));
 
+		// Get chain info for stores that have chains
+		const chainIds = [
+			...new Set(
+				stores
+					.map((s) => s.chainId?.toString())
+					.filter((id): id is string => !!id)
+			),
+		];
+
+		let chainMap = new Map<
+			string,
+			{ id: string; name: string; slug: string }
+		>();
+		if (chainIds.length > 0) {
+			const { StoreChain } = await import('../models');
+			const chains = await StoreChain.find({
+				_id: { $in: chainIds },
+			}).lean();
+
+			chains.forEach((c) => {
+				chainMap.set(c._id.toString(), {
+					id: c._id.toString(),
+					name: c.name,
+					slug: c.slug,
+				});
+			});
+		}
+
 		const availabilityInfo: AvailabilityInfo[] = availabilities.map(
 			(avail) => {
 				const storeIdStr = avail.storeId.toString();
 				const store = storeMap.get(storeIdStr);
+				const chainInfo = store?.chainId
+					? chainMap.get(store.chainId.toString())
+					: undefined;
+
 				return {
 					storeId: storeIdStr,
 					storeName: store?.name || 'Unknown Store',
@@ -306,6 +338,15 @@ export const userProductService = {
 					priceRange: avail.priceRange,
 					lastConfirmedAt: avail.lastConfirmedAt,
 					source: avail.source || 'user_contribution',
+					// Location details
+					address: store?.address,
+					city: store?.city,
+					state: store?.state,
+					zipCode: store?.zipCode,
+					// Chain info
+					chainId: store?.chainId?.toString(),
+					locationIdentifier: store?.locationIdentifier,
+					chain: chainInfo,
 				};
 			}
 		);

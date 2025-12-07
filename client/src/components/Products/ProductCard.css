@@ -128,6 +128,54 @@
   color: var(--color-stone);
 }
 
+/* Product availability on cards */
+.product-availability {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  background: linear-gradient(135deg, var(--color-mint) 0%, rgba(139, 177, 139, 0.15) 100%);
+  border-radius: var(--radius-sm);
+}
+
+.availability-label {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  color: var(--color-stone);
+  white-space: nowrap;
+}
+
+.availability-chains {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.availability-chain {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--color-forest);
+  background: var(--color-white);
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-sage-light);
+}
+
+.availability-more {
+  font-family: var(--font-body);
+  font-size: 0.65rem;
+  color: var(--color-stone);
+}
+
+.availability-stores {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: var(--color-forest);
+}
+
 .product-tags {
   display: flex;
   flex-wrap: wrap;

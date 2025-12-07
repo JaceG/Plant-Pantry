@@ -1,4 +1,25 @@
 export type StoreType = 'brick_and_mortar' | 'online_retailer' | 'brand_direct';
+export type ChainType = 'national' | 'regional' | 'local';
+
+export interface StoreChain {
+	id: string;
+	name: string;
+	slug: string;
+	logoUrl?: string;
+	websiteUrl?: string;
+	type: ChainType;
+	isActive: boolean;
+	locationCount: number;
+	createdAt?: string;
+	updatedAt?: string;
+}
+
+export interface ChainInfo {
+	id: string;
+	name: string;
+	slug: string;
+	logoUrl?: string;
+}
 
 export interface Store {
 	id: string;
@@ -15,6 +36,10 @@ export interface Store {
 	longitude?: number;
 	googlePlaceId?: string;
 	phoneNumber?: string;
+	// Chain relationship
+	chainId?: string;
+	locationIdentifier?: string;
+	chain?: ChainInfo;
 }
 
 export interface StoreListResponse {

@@ -1,5 +1,13 @@
 import mongoose from 'mongoose';
-import { Store, IStore } from '../models';
+import { Store, IStore, StoreChain } from '../models';
+import { storeChainService } from './storeChainService';
+
+export interface ChainInfo {
+	id: string;
+	name: string;
+	slug: string;
+	logoUrl?: string;
+}
 
 export interface StoreSummary {
 	id: string;
@@ -16,6 +24,10 @@ export interface StoreSummary {
 	longitude?: number;
 	googlePlaceId?: string;
 	phoneNumber?: string;
+	// Chain fields
+	chainId?: string;
+	locationIdentifier?: string;
+	chain?: ChainInfo;
 }
 
 export interface StoreListResult {
@@ -36,6 +48,9 @@ export interface CreateStoreInput {
 	longitude?: number;
 	googlePlaceId?: string;
 	phoneNumber?: string;
+	// Chain fields
+	chainId?: string;
+	locationIdentifier?: string;
 }
 
 export interface DuplicateCheckResult {
@@ -44,36 +59,84 @@ export interface DuplicateCheckResult {
 	similarStores: StoreSummary[];
 }
 
+// Helper to convert store document to summary
+function toStoreSummary(s: any, chainInfo?: ChainInfo | null): StoreSummary {
+	return {
+		id: s._id.toString(),
+		name: s.name,
+		type: s.type,
+		regionOrScope: s.regionOrScope,
+		websiteUrl: s.websiteUrl,
+		address: s.address,
+		city: s.city,
+		state: s.state,
+		zipCode: s.zipCode,
+		country: s.country,
+		latitude: s.latitude,
+		longitude: s.longitude,
+		googlePlaceId: s.googlePlaceId,
+		phoneNumber: s.phoneNumber,
+		chainId: s.chainId?.toString(),
+		locationIdentifier: s.locationIdentifier,
+		chain: chainInfo || undefined,
+	};
+}
+
 export const storeService = {
-	async getStores(): Promise<StoreListResult> {
+	async getStores(includeChainInfo = false): Promise<StoreListResult> {
 		const stores = await Store.find()
 			.select(
-				'name type regionOrScope websiteUrl address city state zipCode country latitude longitude googlePlaceId phoneNumber'
+				'name type regionOrScope websiteUrl address city state zipCode country latitude longitude googlePlaceId phoneNumber chainId locationIdentifier'
 			)
 			.sort({ name: 1 })
 			.lean();
 
-		const items: StoreSummary[] = stores.map((s) => ({
-			id: s._id.toString(),
-			name: s.name,
-			type: s.type,
-			regionOrScope: s.regionOrScope,
-			websiteUrl: s.websiteUrl,
-			address: s.address,
-			city: s.city,
-			state: s.state,
-			zipCode: s.zipCode,
-			country: s.country,
-			latitude: s.latitude,
-			longitude: s.longitude,
-			googlePlaceId: s.googlePlaceId,
-			phoneNumber: s.phoneNumber,
-		}));
+		let chainMap: Map<string, ChainInfo> | null = null;
+
+		if (includeChainInfo) {
+			// Get unique chain IDs
+			const chainIds = [
+				...new Set(
+					stores
+						.map((s) => s.chainId?.toString())
+						.filter((id): id is string => !!id)
+				),
+			];
+
+			if (chainIds.length > 0) {
+				const chains = await StoreChain.find({
+					_id: { $in: chainIds },
+				}).lean();
+
+				chainMap = new Map(
+					chains.map((c) => [
+						c._id.toString(),
+						{
+							id: c._id.toString(),
+							name: c.name,
+							slug: c.slug,
+							logoUrl: c.logoUrl,
+						},
+					])
+				);
+			}
+		}
+
+		const items: StoreSummary[] = stores.map((s) => {
+			const chainInfo =
+				s.chainId && chainMap
+					? chainMap.get(s.chainId.toString()) || null
+					: null;
+			return toStoreSummary(s, chainInfo);
+		});
 
 		return { items };
 	},
 
-	async getStoreById(id: string): Promise<StoreSummary | null> {
+	async getStoreById(
+		id: string,
+		includeChainInfo = false
+	): Promise<StoreSummary | null> {
 		if (!mongoose.Types.ObjectId.isValid(id)) {
 			return null;
 		}
@@ -83,78 +146,195 @@ export const storeService = {
 			return null;
 		}
 
-		return {
-			id: store._id.toString(),
-			name: store.name,
-			type: store.type,
-			regionOrScope: store.regionOrScope,
-			websiteUrl: store.websiteUrl,
-			address: store.address,
-			city: store.city,
-			state: store.state,
-			zipCode: store.zipCode,
-			country: store.country,
-			latitude: store.latitude,
-			longitude: store.longitude,
-			googlePlaceId: store.googlePlaceId,
-			phoneNumber: store.phoneNumber,
-		};
+		let chainInfo: ChainInfo | null = null;
+		if (includeChainInfo && store.chainId) {
+			const chain = await StoreChain.findById(store.chainId).lean();
+			if (chain) {
+				chainInfo = {
+					id: chain._id.toString(),
+					name: chain.name,
+					slug: chain.slug,
+					logoUrl: chain.logoUrl,
+				};
+			}
+		}
+
+		return toStoreSummary(store, chainInfo);
 	},
 
 	async createStore(input: CreateStoreInput): Promise<StoreSummary> {
-		const store = await Store.create(input);
+		const storeData: any = { ...input };
 
-		return {
-			id: store._id.toString(),
-			name: store.name,
-			type: store.type,
-			regionOrScope: store.regionOrScope,
-			websiteUrl: store.websiteUrl,
-			address: store.address,
-			city: store.city,
-			state: store.state,
-			zipCode: store.zipCode,
-			country: store.country,
-			latitude: store.latitude,
-			longitude: store.longitude,
-			googlePlaceId: store.googlePlaceId,
-			phoneNumber: store.phoneNumber,
-		};
+		// Convert chainId string to ObjectId if provided
+		if (input.chainId) {
+			storeData.chainId = new mongoose.Types.ObjectId(input.chainId);
+		}
+
+		const store = await Store.create(storeData);
+
+		// Update chain location count if assigned to a chain
+		if (input.chainId) {
+			await storeChainService.updateLocationCount(input.chainId);
+		}
+
+		return toStoreSummary(store, null);
 	},
 
-	async searchStores(query: string): Promise<StoreListResult> {
+	async searchStores(
+		query: string,
+		includeChainInfo = false
+	): Promise<StoreListResult> {
 		const stores = await Store.find({
 			$or: [
 				{ name: { $regex: query, $options: 'i' } },
 				{ address: { $regex: query, $options: 'i' } },
 				{ city: { $regex: query, $options: 'i' } },
+				{ locationIdentifier: { $regex: query, $options: 'i' } },
 			],
 		})
 			.select(
-				'name type regionOrScope websiteUrl address city state zipCode country latitude longitude googlePlaceId phoneNumber'
+				'name type regionOrScope websiteUrl address city state zipCode country latitude longitude googlePlaceId phoneNumber chainId locationIdentifier'
 			)
 			.sort({ name: 1 })
 			.limit(20)
 			.lean();
 
-		const items: StoreSummary[] = stores.map((s) => ({
-			id: s._id.toString(),
-			name: s.name,
-			type: s.type,
-			regionOrScope: s.regionOrScope,
-			websiteUrl: s.websiteUrl,
-			address: s.address,
-			city: s.city,
-			state: s.state,
-			zipCode: s.zipCode,
-			country: s.country,
-			latitude: s.latitude,
-			longitude: s.longitude,
-			googlePlaceId: s.googlePlaceId,
-			phoneNumber: s.phoneNumber,
-		}));
+		let chainMap: Map<string, ChainInfo> | null = null;
+
+		if (includeChainInfo) {
+			const chainIds = [
+				...new Set(
+					stores
+						.map((s) => s.chainId?.toString())
+						.filter((id): id is string => !!id)
+				),
+			];
+
+			if (chainIds.length > 0) {
+				const chains = await StoreChain.find({
+					_id: { $in: chainIds },
+				}).lean();
+
+				chainMap = new Map(
+					chains.map((c) => [
+						c._id.toString(),
+						{
+							id: c._id.toString(),
+							name: c.name,
+							slug: c.slug,
+							logoUrl: c.logoUrl,
+						},
+					])
+				);
+			}
+		}
+
+		const items: StoreSummary[] = stores.map((s) => {
+			const chainInfo =
+				s.chainId && chainMap
+					? chainMap.get(s.chainId.toString()) || null
+					: null;
+			return toStoreSummary(s, chainInfo);
+		});
 
 		return { items };
+	},
+
+	/**
+	 * Get stores by chain ID
+	 */
+	async getStoresByChain(
+		chainId: string,
+		filters?: { city?: string; state?: string }
+	): Promise<StoreListResult> {
+		if (!mongoose.Types.ObjectId.isValid(chainId)) {
+			return { items: [] };
+		}
+
+		const query: any = { chainId: new mongoose.Types.ObjectId(chainId) };
+
+		if (filters?.city) {
+			query.city = { $regex: filters.city, $options: 'i' };
+		}
+		if (filters?.state) {
+			query.state = { $regex: filters.state, $options: 'i' };
+		}
+
+		const stores = await Store.find(query)
+			.select(
+				'name type regionOrScope websiteUrl address city state zipCode country latitude longitude googlePlaceId phoneNumber chainId locationIdentifier'
+			)
+			.sort({ state: 1, city: 1, name: 1 })
+			.lean();
+
+		return {
+			items: stores.map((s) => toStoreSummary(s, null)),
+		};
+	},
+
+	/**
+	 * Get stores grouped by chain
+	 */
+	async getStoresGroupedByChain(): Promise<{
+		chains: Array<{
+			chain: ChainInfo;
+			stores: StoreSummary[];
+			locationCount: number;
+		}>;
+		independentStores: StoreSummary[];
+	}> {
+		const [stores, chains] = await Promise.all([
+			Store.find()
+				.select(
+					'name type regionOrScope websiteUrl address city state zipCode country latitude longitude googlePlaceId phoneNumber chainId locationIdentifier'
+				)
+				.sort({ name: 1 })
+				.lean(),
+			StoreChain.find({ isActive: true }).sort({ name: 1 }).lean(),
+		]);
+
+		const chainMap = new Map(
+			chains.map((c) => [
+				c._id.toString(),
+				{
+					id: c._id.toString(),
+					name: c.name,
+					slug: c.slug,
+					logoUrl: c.logoUrl,
+				},
+			])
+		);
+
+		const chainStoresMap = new Map<string, StoreSummary[]>();
+		const independentStores: StoreSummary[] = [];
+
+		for (const store of stores) {
+			const storeSummary = toStoreSummary(store, null);
+
+			if (store.chainId) {
+				const chainIdStr = store.chainId.toString();
+				if (!chainStoresMap.has(chainIdStr)) {
+					chainStoresMap.set(chainIdStr, []);
+				}
+				chainStoresMap.get(chainIdStr)!.push(storeSummary);
+			} else {
+				independentStores.push(storeSummary);
+			}
+		}
+
+		const chainGroups = Array.from(chainMap.entries())
+			.map(([chainId, chainInfo]) => ({
+				chain: chainInfo,
+				stores: chainStoresMap.get(chainId) || [],
+				locationCount: chainStoresMap.get(chainId)?.length || 0,
+			}))
+			.filter((group) => group.locationCount > 0)
+			.sort((a, b) => a.chain.name.localeCompare(b.chain.name));
+
+		return {
+			chains: chainGroups,
+			independentStores,
+		};
 	},
 
 	async checkForDuplicates(
@@ -172,22 +352,7 @@ export const storeService = {
 			}).lean();
 			if (exactMatch) {
 				result.hasDuplicates = true;
-				result.exactMatch = {
-					id: exactMatch._id.toString(),
-					name: exactMatch.name,
-					type: exactMatch.type,
-					regionOrScope: exactMatch.regionOrScope,
-					websiteUrl: exactMatch.websiteUrl,
-					address: exactMatch.address,
-					city: exactMatch.city,
-					state: exactMatch.state,
-					zipCode: exactMatch.zipCode,
-					country: exactMatch.country,
-					latitude: exactMatch.latitude,
-					longitude: exactMatch.longitude,
-					googlePlaceId: exactMatch.googlePlaceId,
-					phoneNumber: exactMatch.phoneNumber,
-				};
+				result.exactMatch = toStoreSummary(exactMatch, null);
 				return result;
 			}
 		}
@@ -234,22 +399,7 @@ export const storeService = {
 					normalizeUrl(match.websiteUrl) === normalizedInputUrl
 				) {
 					result.hasDuplicates = true;
-					result.exactMatch = {
-						id: match._id.toString(),
-						name: match.name,
-						type: match.type,
-						regionOrScope: match.regionOrScope,
-						websiteUrl: match.websiteUrl,
-						address: match.address,
-						city: match.city,
-						state: match.state,
-						zipCode: match.zipCode,
-						country: match.country,
-						latitude: match.latitude,
-						longitude: match.longitude,
-						googlePlaceId: match.googlePlaceId,
-						phoneNumber: match.phoneNumber,
-					};
+					result.exactMatch = toStoreSummary(match, null);
 					return result;
 				}
 			}
@@ -268,22 +418,9 @@ export const storeService = {
 
 		if (similarByName.length > 0) {
 			result.hasDuplicates = true;
-			result.similarStores = similarByName.map((s) => ({
-				id: s._id.toString(),
-				name: s.name,
-				type: s.type,
-				regionOrScope: s.regionOrScope,
-				websiteUrl: s.websiteUrl,
-				address: s.address,
-				city: s.city,
-				state: s.state,
-				zipCode: s.zipCode,
-				country: s.country,
-				latitude: s.latitude,
-				longitude: s.longitude,
-				googlePlaceId: s.googlePlaceId,
-				phoneNumber: s.phoneNumber,
-			}));
+			result.similarStores = similarByName.map((s) =>
+				toStoreSummary(s, null)
+			);
 		}
 
 		return result;
@@ -297,9 +434,21 @@ export const storeService = {
 			return null;
 		}
 
+		// Get old store to check chain changes
+		const oldStore = await Store.findById(id).lean();
+		const oldChainId = oldStore?.chainId?.toString();
+
+		// Prepare update data
+		const updateData: any = { ...updates };
+		if (updates.chainId !== undefined) {
+			updateData.chainId = updates.chainId
+				? new mongoose.Types.ObjectId(updates.chainId)
+				: null;
+		}
+
 		const store = await Store.findByIdAndUpdate(
 			id,
-			{ $set: updates },
+			{ $set: updateData },
 			{ new: true, runValidators: true }
 		).lean();
 
@@ -307,21 +456,44 @@ export const storeService = {
 			return null;
 		}
 
-		return {
-			id: store._id.toString(),
-			name: store.name,
-			type: store.type,
-			regionOrScope: store.regionOrScope,
-			websiteUrl: store.websiteUrl,
-			address: store.address,
-			city: store.city,
-			state: store.state,
-			zipCode: store.zipCode,
-			country: store.country,
-			latitude: store.latitude,
-			longitude: store.longitude,
-			googlePlaceId: store.googlePlaceId,
-			phoneNumber: store.phoneNumber,
-		};
+		// Update chain location counts if chain changed
+		const newChainId = store.chainId?.toString();
+		if (oldChainId !== newChainId) {
+			if (oldChainId) {
+				await storeChainService.updateLocationCount(oldChainId);
+			}
+			if (newChainId) {
+				await storeChainService.updateLocationCount(newChainId);
+			}
+		}
+
+		return toStoreSummary(store, null);
+	},
+
+	/**
+	 * Delete a store
+	 */
+	async deleteStore(
+		id: string
+	): Promise<{ success: boolean; message: string }> {
+		if (!mongoose.Types.ObjectId.isValid(id)) {
+			return { success: false, message: 'Invalid store ID' };
+		}
+
+		const store = await Store.findById(id).lean();
+		if (!store) {
+			return { success: false, message: 'Store not found' };
+		}
+
+		const chainId = store.chainId?.toString();
+
+		await Store.findByIdAndDelete(id);
+
+		// Update chain location count if was part of a chain
+		if (chainId) {
+			await storeChainService.updateLocationCount(chainId);
+		}
+
+		return { success: true, message: 'Store deleted successfully' };
 	},
 };

@@ -3,6 +3,7 @@ import { adminService } from '../services/adminService';
 import { reviewService } from '../services/reviewService';
 import { cityService } from '../services/cityService';
 import { storeService } from '../services/storeService';
+import { storeChainService } from '../services/storeChainService';
 import {
 	authMiddleware,
 	adminMiddleware,
@@ -213,6 +214,8 @@ router.put(
 				'zipCode',
 				'country',
 				'phoneNumber',
+				'chainId',
+				'locationIdentifier',
 			];
 
 			const filteredUpdates: Record<string, any> = {};
@@ -236,6 +239,269 @@ router.put(
 			}
 
 			res.json({ store: updatedStore });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// ============================================
+// STORE CHAIN MANAGEMENT
+// ============================================
+
+/**
+ * GET /api/admin/chains
+ * Get all store chains
+ */
+router.get(
+	'/chains',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const includeInactive = req.query.includeInactive === 'true';
+			const chains = await storeChainService.getChains(includeInactive);
+			res.json({ chains });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * GET /api/admin/chains/:id
+ * Get a specific chain
+ */
+router.get(
+	'/chains/:id',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const chain = await storeChainService.getChainById(id);
+
+			if (!chain) {
+				throw new HttpError('Chain not found', 404);
+			}
+
+			res.json({ chain });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/chains
+ * Create a new store chain
+ */
+router.post(
+	'/chains',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { name, slug, logoUrl, websiteUrl, type } = req.body;
+
+			if (!name || !name.trim()) {
+				throw new HttpError('Chain name is required', 400);
+			}
+
+			const chain = await storeChainService.createChain({
+				name: name.trim(),
+				slug: slug?.trim(),
+				logoUrl: logoUrl?.trim(),
+				websiteUrl: websiteUrl?.trim(),
+				type,
+			});
+
+			res.status(201).json({
+				message: 'Chain created successfully',
+				chain,
+			});
+		} catch (error: any) {
+			if (error.code === 11000) {
+				next(
+					new HttpError(
+						'A chain with this name or slug already exists',
+						409
+					)
+				);
+			} else {
+				next(error);
+			}
+		}
+	}
+);
+
+/**
+ * PUT /api/admin/chains/:id
+ * Update a store chain
+ */
+router.put(
+	'/chains/:id',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { name, slug, logoUrl, websiteUrl, type, isActive } =
+				req.body;
+
+			const updates: any = {};
+			if (name !== undefined) updates.name = name.trim();
+			if (slug !== undefined) updates.slug = slug.trim();
+			if (logoUrl !== undefined) updates.logoUrl = logoUrl.trim();
+			if (websiteUrl !== undefined)
+				updates.websiteUrl = websiteUrl.trim();
+			if (type !== undefined) updates.type = type;
+			if (isActive !== undefined) updates.isActive = isActive;
+
+			if (Object.keys(updates).length === 0) {
+				throw new HttpError('No valid fields to update', 400);
+			}
+
+			const chain = await storeChainService.updateChain(id, updates);
+
+			if (!chain) {
+				throw new HttpError('Chain not found', 404);
+			}
+
+			res.json({ message: 'Chain updated successfully', chain });
+		} catch (error: any) {
+			if (error.code === 11000) {
+				next(
+					new HttpError(
+						'A chain with this name or slug already exists',
+						409
+					)
+				);
+			} else {
+				next(error);
+			}
+		}
+	}
+);
+
+/**
+ * DELETE /api/admin/chains/:id
+ * Delete a store chain (only if no stores assigned)
+ */
+router.delete(
+	'/chains/:id',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const result = await storeChainService.deleteChain(id);
+
+			if (!result.success) {
+				throw new HttpError(result.message, 400);
+			}
+
+			res.json({ message: result.message });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * GET /api/admin/chains/:id/stores
+ * Get all stores in a chain
+ */
+router.get(
+	'/chains/:id/stores',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const city = req.query.city as string | undefined;
+			const state = req.query.state as string | undefined;
+
+			const chain = await storeChainService.getChainById(id);
+			if (!chain) {
+				throw new HttpError('Chain not found', 404);
+			}
+
+			const result = await storeService.getStoresByChain(id, {
+				city,
+				state,
+			});
+
+			res.json({
+				chain,
+				stores: result.items,
+				totalCount: result.items.length,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/stores/:id/assign-chain
+ * Assign a store to a chain
+ */
+router.post(
+	'/stores/:id/assign-chain',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { chainId, locationIdentifier } = req.body;
+
+			const result = await storeChainService.assignStoreToChain(
+				id,
+				chainId || null,
+				locationIdentifier
+			);
+
+			if (!result.success) {
+				throw new HttpError(result.message, 400);
+			}
+
+			res.json({ message: result.message });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/stores/bulk-assign-chain
+ * Bulk assign stores to a chain
+ */
+router.post(
+	'/stores/bulk-assign-chain',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { storeIds, chainId } = req.body;
+
+			if (!Array.isArray(storeIds) || storeIds.length === 0) {
+				throw new HttpError('storeIds array is required', 400);
+			}
+
+			const result = await storeChainService.bulkAssignToChain(
+				storeIds,
+				chainId || null
+			);
+
+			if (!result.success) {
+				throw new HttpError(result.message, 400);
+			}
+
+			res.json({
+				message: result.message,
+				updated: result.updated,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * GET /api/admin/stores/grouped
+ * Get stores grouped by chain
+ */
+router.get(
+	'/stores/grouped',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const result = await storeService.getStoresGroupedByChain();
+			res.json(result);
 		} catch (error) {
 			next(error);
 		}

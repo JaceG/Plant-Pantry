@@ -86,6 +86,17 @@ export const productsApi = {
 		);
 	},
 
+	// Confirm availability (user confirms product is still at store)
+	confirmAvailability(
+		productId: string,
+		storeId: string
+	): Promise<{ message: string; lastConfirmedAt: string }> {
+		return httpClient.post<{ message: string; lastConfirmedAt: string }>(
+			`/products/${productId}/confirm-availability`,
+			{ storeId }
+		);
+	},
+
 	// Get stores grouped by city for availability reporting
 	getStoresByCity(
 		city?: string,
@@ -104,11 +115,12 @@ export const productsApi = {
 // Types for stores by city
 export interface StoreLocation {
 	city: string;
-	state: string;
+	state: string; // Can be empty for "Online Retailers" or "Other Locations"
 	stores: {
 		id: string;
 		name: string;
 		address?: string;
+		chainName?: string;
 	}[];
 }
 

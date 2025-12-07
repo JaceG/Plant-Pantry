@@ -9,6 +9,13 @@ export interface CityPageData {
 	isActive: boolean;
 }
 
+export interface ChainInfo {
+	id: string;
+	name: string;
+	slug: string;
+	logoUrl?: string;
+}
+
 export interface CityStore {
 	id: string;
 	name: string;
@@ -22,6 +29,21 @@ export interface CityStore {
 	websiteUrl?: string;
 	phoneNumber?: string;
 	productCount?: number;
+	// Chain info
+	chainId?: string;
+	locationIdentifier?: string;
+	chain?: ChainInfo;
+}
+
+export interface CityChainGroup {
+	chain: ChainInfo;
+	stores: CityStore[];
+	totalProductCount: number;
+}
+
+export interface CityStoresGrouped {
+	chainGroups: CityChainGroup[];
+	independentStores: CityStore[];
 }
 
 export interface CityProduct {
@@ -78,6 +100,15 @@ export const citiesApi = {
 	getCityStores(slug: string): Promise<{ stores: CityStore[] }> {
 		return httpClient.get<{ stores: CityStore[] }>(
 			`/cities/${slug}/stores`
+		);
+	},
+
+	/**
+	 * Get stores in a city grouped by chain
+	 */
+	getCityStoresGrouped(slug: string): Promise<CityStoresGrouped> {
+		return httpClient.get<CityStoresGrouped>(
+			`/cities/${slug}/stores?grouped=true`
 		);
 	},
 

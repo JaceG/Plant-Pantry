@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { storeService } from '../services';
+import { storeChainService } from '../services/storeChainService';
 import { googlePlacesService } from '../services/googlePlacesService';
 import { HttpError } from '../middleware/errorHandler';
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth';
@@ -9,19 +10,94 @@ const router = Router();
 // GET /api/stores - List all stores
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { q } = req.query;
+		const { q, includeChains } = req.query;
+		const withChainInfo = includeChains === 'true';
 
 		if (q && typeof q === 'string') {
-			const result = await storeService.searchStores(q);
+			const result = await storeService.searchStores(q, withChainInfo);
 			res.json(result);
 		} else {
-			const result = await storeService.getStores();
+			const result = await storeService.getStores(withChainInfo);
 			res.json(result);
 		}
 	} catch (error) {
 		next(error);
 	}
 });
+
+// GET /api/stores/grouped - Get stores grouped by chain
+router.get(
+	'/grouped',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const result = await storeService.getStoresGroupedByChain();
+			res.json(result);
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// GET /api/stores/chains - List all store chains
+router.get(
+	'/chains',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const chains = await storeChainService.getChains();
+			res.json({ chains });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// GET /api/stores/chains/:id - Get a specific chain
+router.get(
+	'/chains/:id',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const chain = await storeChainService.getChainById(id);
+
+			if (!chain) {
+				throw new HttpError('Chain not found', 404);
+			}
+
+			res.json({ chain });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// GET /api/stores/chains/:id/locations - Get stores in a chain
+router.get(
+	'/chains/:id/locations',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { city, state } = req.query;
+
+			const chain = await storeChainService.getChainById(id);
+			if (!chain) {
+				throw new HttpError('Chain not found', 404);
+			}
+
+			const result = await storeService.getStoresByChain(id, {
+				city: city as string | undefined,
+				state: state as string | undefined,
+			});
+
+			res.json({
+				chain,
+				stores: result.items,
+				totalCount: result.items.length,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
 
 // IMPORTANT: Place-specific routes MUST come BEFORE /:id to avoid "places" being matched as an id
 // GET /api/stores/places/autocomplete - Search Google Places

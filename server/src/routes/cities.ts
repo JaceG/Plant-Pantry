@@ -42,6 +42,7 @@ router.get(
 	async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { slug } = req.params;
+			const { grouped } = req.query;
 
 			// Verify city exists
 			const city = await cityService.getCityPage(slug);
@@ -49,8 +50,16 @@ router.get(
 				throw new HttpError('City page not found', 404);
 			}
 
-			const stores = await cityService.getCityStores(slug);
-			res.json({ stores });
+			// Return grouped or flat list based on query param
+			if (grouped === 'true') {
+				const groupedStores = await cityService.getCityStoresGrouped(
+					slug
+				);
+				res.json(groupedStores);
+			} else {
+				const stores = await cityService.getCityStores(slug);
+				res.json({ stores });
+			}
 		} catch (error) {
 			next(error);
 		}
