@@ -123,15 +123,6 @@ export function Header({ defaultListId }: HeaderProps) {
 				<div className='header-bottom'>
 					<nav className='header-nav'>
 						<Link
-							to='/'
-							className={`nav-link ${
-								location.pathname === '/' ? 'active' : ''
-							}`}>
-							<span className='nav-icon'>🛍️</span>
-							<span className='nav-text'>Browse</span>
-						</Link>
-
-						<Link
 							to='/add-product'
 							onClick={handleAddProductClick}
 							className={`nav-link ${
