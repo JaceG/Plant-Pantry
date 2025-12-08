@@ -6,22 +6,33 @@ export interface DashboardStats {
 		apiSourced: number;
 		userContributed: number;
 		pendingApproval: number;
+		trustedPendingReview: number;
 	};
 	stores: {
 		total: number;
 		physical: number;
 		online: number;
 		brandDirect: number;
+		pendingApproval: number;
+		trustedPendingReview: number;
 	};
 	users: {
 		total: number;
 		admins: number;
 		moderators: number;
 		regularUsers: number;
+		trustedContributors: number;
 	};
 	availability: {
 		total: number;
 		userContributed: number;
+		pendingApproval: number;
+		trustedPendingReview: number;
+	};
+	reviews: {
+		total: number;
+		pending: number;
+		approved: number;
 	};
 	recentActivity: {
 		newProductsThisWeek: number;
@@ -66,6 +77,7 @@ export interface AdminUser {
 	createdAt: string;
 	lastLogin?: string;
 	productsContributed: number;
+	trustedContributor?: boolean;
 }
 
 export interface AdminStore {
@@ -800,6 +812,133 @@ export const adminApi = {
 			{ reportIds, status }
 		);
 	},
+
+	// Pending Stores
+	getPendingStores(
+		page: number = 1,
+		pageSize: number = 20
+	): Promise<PaginatedResponse<PendingStore>> {
+		return httpClient.get<PaginatedResponse<PendingStore>>(
+			`/admin/stores/pending?page=${page}&pageSize=${pageSize}`
+		);
+	},
+
+	approveStore(storeId: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/stores/${storeId}/approve`,
+			{}
+		);
+	},
+
+	rejectStore(storeId: string, reason?: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/stores/${storeId}/reject`,
+			{ reason }
+		);
+	},
+
+	// Trusted User Management
+	setUserTrustedStatus(
+		userId: string,
+		trusted: boolean
+	): Promise<{ message: string }> {
+		return httpClient.put<{ message: string }>(
+			`/admin/users/${userId}/trusted`,
+			{ trusted }
+		);
+	},
+
+	// Trusted Review
+	getTrustedProductsPendingReview(
+		page: number = 1,
+		pageSize: number = 20
+	): Promise<PaginatedResponse<PendingProduct>> {
+		return httpClient.get<PaginatedResponse<PendingProduct>>(
+			`/admin/products/trusted-pending?page=${page}&pageSize=${pageSize}`
+		);
+	},
+
+	getTrustedStoresPendingReview(
+		page: number = 1,
+		pageSize: number = 20
+	): Promise<PaginatedResponse<PendingStore>> {
+		return httpClient.get<PaginatedResponse<PendingStore>>(
+			`/admin/stores/trusted-pending?page=${page}&pageSize=${pageSize}`
+		);
+	},
+
+	approveTrustedProduct(productId: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/products/${productId}/approve-trusted`,
+			{}
+		);
+	},
+
+	rejectTrustedProduct(
+		productId: string,
+		reason?: string
+	): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/products/${productId}/reject-trusted`,
+			{ reason }
+		);
+	},
+
+	approveTrustedStore(storeId: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/stores/${storeId}/approve-trusted`,
+			{}
+		);
+	},
+
+	rejectTrustedStore(
+		storeId: string,
+		reason?: string
+	): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/stores/${storeId}/reject-trusted`,
+			{ reason }
+		);
+	},
+
+	// City Content Edits
+	getCityContentEdits(
+		page: number = 1,
+		pageSize: number = 20,
+		status?: 'pending' | 'all'
+	): Promise<PaginatedResponse<CityContentEdit>> {
+		let url = `/admin/city-content-edits?page=${page}&pageSize=${pageSize}`;
+		if (status) url += `&status=${status}`;
+		return httpClient.get<PaginatedResponse<CityContentEdit>>(url);
+	},
+
+	approveCityContentEdit(editId: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/city-content-edits/${editId}/approve`,
+			{}
+		);
+	},
+
+	rejectCityContentEdit(
+		editId: string,
+		note?: string
+	): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/city-content-edits/${editId}/reject`,
+			{ note }
+		);
+	},
+
+	bulkReviewCityContentEdits(
+		editIds: string[],
+		status: 'approved' | 'rejected',
+		note?: string
+	): Promise<{ message: string; modifiedCount: number }> {
+		return httpClient.put<{ message: string; modifiedCount: number }>(
+			'/admin/city-content-edits/bulk-review',
+			{ editIds, status, note }
+		);
+	},
 };
 
 // Pending Reports types
@@ -833,4 +972,35 @@ export interface PendingReportCity {
 export interface PendingReportsResponse {
 	totalPending: number;
 	cities: PendingReportCity[];
+}
+
+export interface PendingStore {
+	id: string;
+	name: string;
+	type: string;
+	address?: string;
+	city?: string;
+	state?: string;
+	zipCode?: string;
+	websiteUrl?: string;
+	phoneNumber?: string;
+	userId?: string;
+	userEmail?: string;
+	createdAt: string;
+}
+
+export interface CityContentEdit {
+	id: string;
+	citySlug: string;
+	cityName: string;
+	field: 'cityName' | 'headline' | 'description';
+	currentValue: string;
+	suggestedValue: string;
+	status: 'pending' | 'approved' | 'rejected';
+	userId: string;
+	userEmail?: string;
+	reviewedBy?: string;
+	reviewedAt?: string;
+	reviewNote?: string;
+	createdAt: string;
 }

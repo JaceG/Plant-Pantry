@@ -127,16 +127,6 @@ export function BrandScreen() {
 		});
 	};
 
-	const _physicalStoreCount = useMemo(() => {
-		if (!storesData) return 0;
-		return (
-			storesData.chainGroups.reduce(
-				(acc: number, g: BrandChainGroup) => acc + g.stores.length,
-				0
-			) + storesData.independentStores.length
-		);
-	}, [storesData]);
-
 	if (!decodedBrandName) {
 		return (
 			<div className='brand-screen'>
