@@ -2,12 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
 	storesApi,
-	ChainPageResponse,
-	StorePageResponse,
 	ChainPageStore,
 	ChainPageProduct,
 } from '../api/storesApi';
-import { Store, StoreChain } from '../types/store';
+import { Store } from '../types/store';
 import { ProductCard, Pagination, StoreMap } from '../components';
 import { ProductSummary } from '../types';
 import './RetailerScreen.css';

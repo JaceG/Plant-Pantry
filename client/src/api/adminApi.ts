@@ -6,31 +6,22 @@ export interface DashboardStats {
 		apiSourced: number;
 		userContributed: number;
 		pendingApproval: number;
-		trustedPendingReview: number;
 	};
 	stores: {
 		total: number;
 		physical: number;
 		online: number;
 		brandDirect: number;
-		pendingApproval: number;
-		trustedPendingReview: number;
 	};
 	users: {
 		total: number;
 		admins: number;
 		moderators: number;
 		regularUsers: number;
-		trustedContributors: number;
 	};
 	availability: {
 		total: number;
 		userContributed: number;
-		pendingApproval: number;
-		trustedPendingReview: number;
-	};
-	reviews: {
-		pendingApproval: number;
 	};
 	recentActivity: {
 		newProductsThisWeek: number;
@@ -72,32 +63,9 @@ export interface AdminUser {
 	email: string;
 	displayName: string;
 	role: string;
-	trustedContributor: boolean;
-	trustedAt?: string;
 	createdAt: string;
 	lastLogin?: string;
 	productsContributed: number;
-}
-
-export interface PendingStore {
-	id: string;
-	name: string;
-	type: string;
-	regionOrScope: string;
-	address?: string;
-	city?: string;
-	state?: string;
-	zipCode?: string;
-	websiteUrl?: string;
-	phoneNumber?: string;
-	googlePlaceId?: string;
-	moderationStatus: string;
-	createdBy?: {
-		id: string;
-		email: string;
-		displayName?: string;
-	};
-	createdAt: string;
 }
 
 export interface AdminStore {
@@ -382,87 +350,6 @@ export const adminApi = {
 		return httpClient.put<{ message: string }>(
 			`/admin/users/${userId}/role`,
 			{ role }
-		);
-	},
-
-	setUserTrustedStatus(
-		userId: string,
-		trusted: boolean
-	): Promise<{ message: string }> {
-		return httpClient.put<{ message: string }>(
-			`/admin/users/${userId}/trusted`,
-			{ trusted }
-		);
-	},
-
-	// Pending Stores
-	getPendingStores(
-		page: number = 1,
-		pageSize: number = 20
-	): Promise<PaginatedResponse<PendingStore>> {
-		return httpClient.get<PaginatedResponse<PendingStore>>(
-			`/admin/stores/pending?page=${page}&pageSize=${pageSize}`
-		);
-	},
-
-	approveStore(storeId: string): Promise<{ message: string }> {
-		return httpClient.post<{ message: string }>(
-			`/admin/stores/${storeId}/approve`,
-			{}
-		);
-	},
-
-	rejectStore(storeId: string): Promise<{ message: string }> {
-		return httpClient.post<{ message: string }>(
-			`/admin/stores/${storeId}/reject`,
-			{}
-		);
-	},
-
-	// Trusted Contributor Review
-	getTrustedProductsPendingReview(
-		page: number = 1,
-		pageSize: number = 20
-	): Promise<PaginatedResponse<PendingProduct>> {
-		return httpClient.get<PaginatedResponse<PendingProduct>>(
-			`/admin/trusted-review/products?page=${page}&pageSize=${pageSize}`
-		);
-	},
-
-	getTrustedStoresPendingReview(
-		page: number = 1,
-		pageSize: number = 20
-	): Promise<PaginatedResponse<PendingStore>> {
-		return httpClient.get<PaginatedResponse<PendingStore>>(
-			`/admin/trusted-review/stores?page=${page}&pageSize=${pageSize}`
-		);
-	},
-
-	approveTrustedProduct(productId: string): Promise<{ message: string }> {
-		return httpClient.post<{ message: string }>(
-			`/admin/trusted-review/products/${productId}/approve`,
-			{}
-		);
-	},
-
-	rejectTrustedProduct(productId: string): Promise<{ message: string }> {
-		return httpClient.post<{ message: string }>(
-			`/admin/trusted-review/products/${productId}/reject`,
-			{}
-		);
-	},
-
-	approveTrustedStore(storeId: string): Promise<{ message: string }> {
-		return httpClient.post<{ message: string }>(
-			`/admin/trusted-review/stores/${storeId}/approve`,
-			{}
-		);
-	},
-
-	rejectTrustedStore(storeId: string): Promise<{ message: string }> {
-		return httpClient.post<{ message: string }>(
-			`/admin/trusted-review/stores/${storeId}/reject`,
-			{}
 		);
 	},
 
@@ -913,55 +800,6 @@ export const adminApi = {
 			{ reportIds, status }
 		);
 	},
-
-	// City Content Edit Review
-	getCityContentEdits(
-		page: number = 1,
-		pageSize: number = 20,
-		status: string = 'pending',
-		citySlug?: string
-	): Promise<PaginatedResponse<CityContentEdit>> {
-		let url = `/admin/city-content-edits?page=${page}&pageSize=${pageSize}&status=${status}`;
-		if (citySlug) url += `&citySlug=${citySlug}`;
-		return httpClient.get<PaginatedResponse<CityContentEdit>>(url);
-	},
-
-	getCityContentEditCounts(): Promise<CityContentEditCountsResponse> {
-		return httpClient.get<CityContentEditCountsResponse>(
-			'/admin/city-content-edits/counts'
-		);
-	},
-
-	approveCityContentEdit(
-		editId: string,
-		reviewNote?: string
-	): Promise<{ message: string; edit: any }> {
-		return httpClient.post<{ message: string; edit: any }>(
-			`/admin/city-content-edits/${editId}/approve`,
-			{ reviewNote }
-		);
-	},
-
-	rejectCityContentEdit(
-		editId: string,
-		reviewNote?: string
-	): Promise<{ message: string; edit: any }> {
-		return httpClient.post<{ message: string; edit: any }>(
-			`/admin/city-content-edits/${editId}/reject`,
-			{ reviewNote }
-		);
-	},
-
-	bulkReviewCityContentEdits(
-		editIds: string[],
-		action: 'approve' | 'reject',
-		reviewNote?: string
-	): Promise<{ message: string; processedCount: number }> {
-		return httpClient.put<{ message: string; processedCount: number }>(
-			'/admin/city-content-edits/bulk-review',
-			{ editIds, action, reviewNote }
-		);
-	},
 };
 
 // Pending Reports types
@@ -995,41 +833,4 @@ export interface PendingReportCity {
 export interface PendingReportsResponse {
 	totalPending: number;
 	cities: PendingReportCity[];
-}
-
-// City Content Edit types
-export interface CityContentEdit {
-	id: string;
-	cityPageId: string;
-	citySlug: string;
-	cityName: string;
-	state: string;
-	field: 'cityName' | 'headline' | 'description';
-	originalValue: string;
-	suggestedValue: string;
-	reason?: string;
-	status: 'pending' | 'approved' | 'rejected';
-	submittedBy: {
-		id: string;
-		email: string;
-		displayName?: string;
-	} | null;
-	reviewedBy?: {
-		id: string;
-		email: string;
-		displayName?: string;
-	};
-	reviewedAt?: string;
-	reviewNote?: string;
-	createdAt: string;
-}
-
-export interface CityContentEditCountsResponse {
-	totalPending: number;
-	byCitySlug: Array<{
-		citySlug: string;
-		cityName: string;
-		state: string;
-		count: number;
-	}>;
 }

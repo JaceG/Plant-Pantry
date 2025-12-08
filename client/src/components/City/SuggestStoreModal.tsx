@@ -81,7 +81,7 @@ export function SuggestStoreModal({
 				// Search for establishments near the city
 				const response = await storesApi.searchPlaces(
 					`${searchQuery} ${cityName} ${state}`,
-					['establishment']
+					{ types: ['establishment'] }
 				);
 				setPlacePredictions(response.predictions);
 			} catch (err) {

@@ -95,7 +95,7 @@ export function BrandScreen() {
 		if (!storesData) return [];
 
 		const allStores: BrandStore[] = [
-			...storesData.chainGroups.flatMap((g) => g.stores),
+			...storesData.chainGroups.flatMap((g: BrandChainGroup) => g.stores),
 			...storesData.independentStores,
 		];
 
@@ -127,11 +127,11 @@ export function BrandScreen() {
 		});
 	};
 
-	const physicalStoreCount = useMemo(() => {
+	const _physicalStoreCount = useMemo(() => {
 		if (!storesData) return 0;
 		return (
 			storesData.chainGroups.reduce(
-				(acc, g) => acc + g.stores.length,
+				(acc: number, g: BrandChainGroup) => acc + g.stores.length,
 				0
 			) + storesData.independentStores.length
 		);
@@ -321,7 +321,7 @@ export function BrandScreen() {
 											Retail Chains
 											<span className='section-count'>
 												{storesData.chainGroups.reduce(
-													(acc, g) =>
+													(acc: number, g: BrandChainGroup) =>
 														acc + g.stores.length,
 													0
 												)}{' '}
@@ -330,7 +330,7 @@ export function BrandScreen() {
 										</h2>
 										<div className='chain-groups'>
 											{storesData.chainGroups.map(
-												({ chain, stores }) => (
+												({ chain, stores }: BrandChainGroup) => (
 													<div
 														key={chain.id}
 														className='chain-group'>
@@ -369,7 +369,7 @@ export function BrandScreen() {
 														) && (
 															<div className='chain-stores'>
 																{stores.map(
-																	(store) => (
+																	(store: BrandStore) => (
 																		<div
 																			key={
 																				store.id
@@ -423,7 +423,7 @@ export function BrandScreen() {
 										</h2>
 										<div className='independent-stores'>
 											{storesData.independentStores.map(
-												(store) => (
+												(store: BrandStore) => (
 													<div
 														key={store.id}
 														className='store-card'>
@@ -465,7 +465,7 @@ export function BrandScreen() {
 										</h2>
 										<div className='online-stores'>
 											{storesData.onlineStores.map(
-												(store) => (
+												(store: BrandStore) => (
 													<div
 														key={store.id}
 														className='store-card online'>

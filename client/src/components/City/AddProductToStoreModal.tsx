@@ -50,7 +50,6 @@ export function AddProductToStoreModal({
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState<string | null>(null);
-	const [showAddNew, setShowAddNew] = useState(false);
 
 	// Debounced search
 	useEffect(() => {
@@ -62,11 +61,12 @@ export function AddProductToStoreModal({
 		const timeoutId = setTimeout(async () => {
 			setSearching(true);
 			try {
-				const res = await productsApi.searchProducts(searchQuery, {
-					limit: 10,
+				const res = await productsApi.getProducts({
+					q: searchQuery,
+					pageSize: 10,
 				});
 				setSearchResults(
-					res.products.map((p) => ({
+					res.items.map((p) => ({
 						id: p.id,
 						name: p.name,
 						brand: p.brand,
@@ -135,7 +135,6 @@ export function AddProductToStoreModal({
 		setNotes('');
 		setError(null);
 		setSuccess(null);
-		setShowAddNew(false);
 	}, []);
 
 	const handleClose = () => {

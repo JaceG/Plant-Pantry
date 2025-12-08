@@ -14,3 +14,8 @@ export type {
 	CityProductsResponse,
 } from './citiesApi';
 export type { FeaturedProduct } from './adminApi';
+export type {
+	BrandStoresResponse,
+	BrandStore,
+	BrandChainGroup,
+} from './productsApi';
