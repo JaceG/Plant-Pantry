@@ -99,4 +99,67 @@ export const storesApi = {
 			`/stores/places/details/${placeId}`
 		);
 	},
+
+	// Get chain page data by slug
+	getChainPage(
+		slug: string,
+		page = 1,
+		pageSize = 24
+	): Promise<ChainPageResponse> {
+		return httpClient.get<ChainPageResponse>(
+			`/stores/chains/slug/${slug}?page=${page}&pageSize=${pageSize}`
+		);
+	},
+
+	// Get individual store page data
+	getStorePage(
+		storeId: string,
+		page = 1,
+		pageSize = 24
+	): Promise<StorePageResponse> {
+		return httpClient.get<StorePageResponse>(
+			`/stores/${storeId}/page?page=${page}&pageSize=${pageSize}`
+		);
+	},
 };
+
+// Types for chain/store pages
+export interface ChainPageStore {
+	id: string;
+	name: string;
+	type: string;
+	address?: string;
+	city?: string;
+	state?: string;
+	zipCode?: string;
+	latitude?: number;
+	longitude?: number;
+	locationIdentifier?: string;
+}
+
+export interface ChainPageProduct {
+	id: string;
+	name: string;
+	brand: string;
+	sizeOrVariant: string;
+	imageUrl?: string;
+	categories: string[];
+	tags: string[];
+}
+
+export interface ChainPageResponse {
+	chain: StoreChain;
+	stores: ChainPageStore[];
+	products: ChainPageProduct[];
+	totalProducts: number;
+	page: number;
+	totalPages: number;
+}
+
+export interface StorePageResponse {
+	store: Store;
+	products: ChainPageProduct[];
+	totalProducts: number;
+	page: number;
+	totalPages: number;
+}

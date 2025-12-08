@@ -16,6 +16,7 @@ import {
 	LandingScreen,
 	ProductDetailScreen,
 	BrandScreen,
+	RetailerScreen,
 	ShoppingListScreen,
 	AddProductScreen,
 	LoginScreen,
@@ -210,6 +211,14 @@ function AppContent() {
 					<Route
 						path='/brands/:brandName'
 						element={<BrandScreen />}
+					/>
+					<Route
+						path='/retailers/chain/:identifier'
+						element={<RetailerScreen />}
+					/>
+					<Route
+						path='/retailers/store/:identifier'
+						element={<RetailerScreen />}
 					/>
 					<Route path='/login' element={<LoginScreen />} />
 					<Route path='/signup' element={<SignupScreen />} />

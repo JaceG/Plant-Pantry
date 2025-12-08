@@ -580,9 +580,15 @@ export function CityLandingScreen() {
 															: ''}
 													</span>
 												</div>
-												<span className='chain-arrow'>
-													→
-												</span>
+												<Link
+													to={`/retailers/chain/${group.chain.slug}`}
+													className='chain-page-link'
+													onClick={(e) =>
+														e.stopPropagation()
+													}
+													title={`View all ${group.chain.name} products`}>
+													View Chain →
+												</Link>
 											</div>
 
 											{expandedChains.has(
@@ -790,6 +796,11 @@ export function CityLandingScreen() {
 															📍 Directions
 														</a>
 													)}
+												<Link
+													to={`/retailers/store/${selectedStore.id}`}
+													className='store-action-link store-page'>
+													🏪 Store Page
+												</Link>
 											</div>
 										</div>
 									</div>

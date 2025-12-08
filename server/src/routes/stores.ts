@@ -1,9 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import { storeService } from '../services';
 import { storeChainService } from '../services/storeChainService';
 import { googlePlacesService } from '../services/googlePlacesService';
 import { HttpError } from '../middleware/errorHandler';
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth';
+import { Availability, Product, UserProduct } from '../models';
 
 const router = Router();
 
@@ -107,6 +109,185 @@ router.get(
 				totalCount: result.items.length,
 			});
 		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// GET /api/stores/chains/slug/:slug - Get chain page data by slug
+router.get(
+	'/chains/slug/:slug',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { slug } = req.params;
+			const { page = '1', pageSize = '24' } = req.query;
+
+			const chain = await storeChainService.getChainBySlug(slug);
+			if (!chain) {
+				throw new HttpError('Chain not found', 404);
+			}
+
+			// Get all stores in this chain
+			const storesResult = await storeService.getStoresByChain(
+				chain.id,
+				{}
+			);
+			const stores = storesResult.items;
+
+			// Get all product IDs available at these stores
+			const storeIds = stores.map((s: any) => s.id);
+
+			const availabilities = await Availability.find({
+				storeId: { $in: storeIds },
+				moderationStatus: 'confirmed',
+			})
+				.select('productId')
+				.lean();
+
+			const productIdSet = new Set(
+				availabilities.map((a: any) => a.productId.toString())
+			);
+			const productIds = Array.from(productIdSet);
+
+			// Paginate products
+			const pageNum = parseInt(page as string, 10);
+			const pageSizeNum = parseInt(pageSize as string, 10);
+			const skip = (pageNum - 1) * pageSizeNum;
+			const paginatedIds = productIds.slice(skip, skip + pageSizeNum);
+
+			// Fetch product details
+			const productObjectIds = paginatedIds.map(
+				(id) => new mongoose.Types.ObjectId(id)
+			);
+
+			const [apiProducts, userProducts] = await Promise.all([
+				Product.find({
+					_id: { $in: productObjectIds },
+					archived: { $ne: true },
+				})
+					.select('name brand sizeOrVariant imageUrl categories tags')
+					.lean(),
+				UserProduct.find({
+					_id: { $in: productObjectIds },
+					status: 'approved',
+					archived: { $ne: true },
+				})
+					.select('name brand sizeOrVariant imageUrl categories tags')
+					.lean(),
+			]);
+
+			const products = [...apiProducts, ...userProducts].map(
+				(p: any) => ({
+					id: p._id.toString(),
+					name: p.name,
+					brand: p.brand,
+					sizeOrVariant: p.sizeOrVariant,
+					imageUrl: p.imageUrl,
+					categories: p.categories || [],
+					tags: p.tags || [],
+				})
+			);
+
+			res.json({
+				chain,
+				stores: stores.map((s: any) => ({
+					id: s.id,
+					name: s.name,
+					type: s.type,
+					address: s.address,
+					city: s.city,
+					state: s.state,
+					zipCode: s.zipCode,
+					latitude: s.latitude,
+					longitude: s.longitude,
+					locationIdentifier: s.locationIdentifier,
+				})),
+				products,
+				totalProducts: productIds.length,
+				page: pageNum,
+				totalPages: Math.ceil(productIds.length / pageSizeNum),
+			});
+		} catch (error) {
+			console.error('Error in GET /api/stores/chains/slug/:slug:', error);
+			next(error);
+		}
+	}
+);
+
+// GET /api/stores/:id/page - Get individual store page data (for online retailers or independent stores)
+router.get(
+	'/:id/page',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { page = '1', pageSize = '24' } = req.query;
+
+			const store = await storeService.getStoreById(id);
+			if (!store) {
+				throw new HttpError('Store not found', 404);
+			}
+
+			// Get all products available at this store
+			const availabilities = await Availability.find({
+				storeId: id,
+				moderationStatus: 'confirmed',
+			})
+				.select('productId')
+				.lean();
+
+			const productIdSet = new Set(
+				availabilities.map((a: any) => a.productId.toString())
+			);
+			const productIds = Array.from(productIdSet);
+
+			// Paginate products
+			const pageNum = parseInt(page as string, 10);
+			const pageSizeNum = parseInt(pageSize as string, 10);
+			const skip = (pageNum - 1) * pageSizeNum;
+			const paginatedIds = productIds.slice(skip, skip + pageSizeNum);
+
+			// Fetch product details
+			const productObjectIds = paginatedIds.map(
+				(id) => new mongoose.Types.ObjectId(id)
+			);
+
+			const [apiProducts, userProducts] = await Promise.all([
+				Product.find({
+					_id: { $in: productObjectIds },
+					archived: { $ne: true },
+				})
+					.select('name brand sizeOrVariant imageUrl categories tags')
+					.lean(),
+				UserProduct.find({
+					_id: { $in: productObjectIds },
+					status: 'approved',
+					archived: { $ne: true },
+				})
+					.select('name brand sizeOrVariant imageUrl categories tags')
+					.lean(),
+			]);
+
+			const products = [...apiProducts, ...userProducts].map(
+				(p: any) => ({
+					id: p._id.toString(),
+					name: p.name,
+					brand: p.brand,
+					sizeOrVariant: p.sizeOrVariant,
+					imageUrl: p.imageUrl,
+					categories: p.categories || [],
+					tags: p.tags || [],
+				})
+			);
+
+			res.json({
+				store,
+				products,
+				totalProducts: productIds.length,
+				page: pageNum,
+				totalPages: Math.ceil(productIds.length / pageSizeNum),
+			});
+		} catch (error) {
+			console.error('Error in GET /api/stores/:id/page:', error);
 			next(error);
 		}
 	}

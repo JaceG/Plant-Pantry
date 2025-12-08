@@ -2,6 +2,7 @@ export { HomeScreen } from './HomeScreen';
 export { LandingScreen } from './LandingScreen';
 export { ProductDetailScreen } from './ProductDetailScreen';
 export { BrandScreen } from './BrandScreen';
+export { RetailerScreen } from './RetailerScreen';
 export { ShoppingListScreen } from './ShoppingListScreen';
 export { AddProductScreen } from './AddProductScreen';
 export { LoginScreen } from './LoginScreen';

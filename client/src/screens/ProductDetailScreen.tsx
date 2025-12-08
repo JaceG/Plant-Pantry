@@ -770,9 +770,7 @@ export function ProductDetailScreen() {
 											({ chain, items }) => (
 												<Link
 													key={chain.id}
-													to={`/brands/${encodeURIComponent(
-														chain.name
-													)}`}
+													to={`/retailers/chain/${chain.slug}`}
 													className='chain-avail-badge'
 													title={`${
 														items.length
@@ -829,9 +827,7 @@ export function ProductDetailScreen() {
 												</span>
 												<div className='chain-group-info'>
 													<Link
-														to={`/brands/${encodeURIComponent(
-															chain.name
-														)}`}
+														to={`/retailers/chain/${chain.slug}`}
 														className='chain-group-name'
 														onClick={(e) =>
 															e.stopPropagation()
@@ -985,9 +981,7 @@ export function ProductDetailScreen() {
 															)}
 														</div>
 														<Link
-															to={`/brands/${encodeURIComponent(
-																avail.storeName
-															)}`}
+															to={`/retailers/store/${avail.storeId}`}
 															className='store-name store-name-link'>
 															{avail.storeName}
 														</Link>
