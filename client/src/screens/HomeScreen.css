@@ -36,21 +36,21 @@
   z-index: 1;
 }
 
-.hero-title {
+.home-screen .hero-title {
   font-family: var(--font-display);
   font-size: clamp(2rem, 5vw, 3.5rem);
   font-weight: 700;
-  color: var(--color-charcoal);
+  color: #1a1a1a;
   margin: 0 0 var(--spacing-md) 0;
   line-height: 1.2;
 }
 
-.hero-title .highlight {
+.home-screen .hero-title .highlight {
   color: var(--color-forest);
   position: relative;
 }
 
-.hero-title .highlight::after {
+.home-screen .hero-title .highlight::after {
   content: '';
   position: absolute;
   bottom: 0;

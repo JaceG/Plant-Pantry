@@ -13,7 +13,6 @@ export { ShoppingList, IShoppingList } from './ShoppingList';
 export { ShoppingListItem, IShoppingListItem } from './ShoppingListItem';
 export { Contribution, IContribution, ContributionType } from './Contribution';
 export { ArchivedFilter, IArchivedFilter, FilterType } from './ArchivedFilter';
-export { PendingFilter, IPendingFilter } from './PendingFilter';
 export { FilterDisplayName, IFilterDisplayName } from './FilterDisplayName';
 export { Review, IReview } from './Review';
 export { CityLandingPage, ICityLandingPage } from './CityLandingPage';

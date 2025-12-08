@@ -6,7 +6,6 @@ import {
 	User,
 	Availability,
 	ArchivedFilter,
-	PendingFilter,
 	FilterDisplayName,
 	FilterType,
 } from '../models';
@@ -43,12 +42,6 @@ export interface DashboardStats {
 	};
 	reviews: {
 		pendingApproval: number;
-	};
-	filters: {
-		pendingCategories: number;
-		pendingTags: number;
-		trustedPendingCategories: number;
-		trustedPendingTags: number;
 	};
 	recentActivity: {
 		newProductsThisWeek: number;
@@ -115,11 +108,6 @@ export const adminService = {
 			trustedProductsPendingReview,
 			trustedStoresPendingReview,
 			trustedAvailabilityPendingReview,
-			// Pending filter counts
-			pendingCategoriesCount,
-			pendingTagsCount,
-			trustedPendingCategoriesCount,
-			trustedPendingTagsCount,
 		] = await Promise.all([
 			Product.countDocuments(),
 			UserProduct.countDocuments({ status: 'approved' }),
@@ -170,23 +158,6 @@ export const adminService = {
 				needsReview: true,
 				trustedContribution: true,
 			}),
-			// Pending filter counts
-			PendingFilter.countDocuments({
-				type: 'category',
-				trustedContribution: { $ne: true },
-			}),
-			PendingFilter.countDocuments({
-				type: 'tag',
-				trustedContribution: { $ne: true },
-			}),
-			PendingFilter.countDocuments({
-				type: 'category',
-				trustedContribution: true,
-			}),
-			PendingFilter.countDocuments({
-				type: 'tag',
-				trustedContribution: true,
-			}),
 		]);
 
 		return {
@@ -223,12 +194,6 @@ export const adminService = {
 			},
 			reviews: {
 				pendingApproval: pendingReviewsCount,
-			},
-			filters: {
-				pendingCategories: pendingCategoriesCount,
-				pendingTags: pendingTagsCount,
-				trustedPendingCategories: trustedPendingCategoriesCount,
-				trustedPendingTags: trustedPendingTagsCount,
 			},
 			recentActivity: {
 				newProductsThisWeek,
@@ -759,166 +724,6 @@ export const adminService = {
 			{ new: true }
 		);
 		return !!result;
-	},
-
-	// ============================================
-	// PENDING FILTERS (Categories & Tags)
-	// ============================================
-
-	/**
-	 * Get pending filters (categories or tags)
-	 */
-	async getPendingFilters(
-		type: FilterType,
-		trusted: boolean = false,
-		page: number = 1,
-		pageSize: number = 50
-	): Promise<{
-		items: Array<{
-			id: string;
-			value: string;
-			submittedBy: {
-				id: string;
-				email: string;
-				displayName?: string;
-			} | null;
-			productId?: string;
-			trustedContribution: boolean;
-			createdAt: Date;
-		}>;
-		total: number;
-		page: number;
-		pageSize: number;
-	}> {
-		const skip = (page - 1) * pageSize;
-		const query: any = { type };
-
-		if (trusted) {
-			query.trustedContribution = true;
-		} else {
-			query.trustedContribution = { $ne: true };
-		}
-
-		const [filters, total] = await Promise.all([
-			PendingFilter.find(query)
-				.sort({ createdAt: -1 })
-				.skip(skip)
-				.limit(pageSize)
-				.populate('submittedBy', 'email displayName')
-				.lean(),
-			PendingFilter.countDocuments(query),
-		]);
-
-		return {
-			items: filters.map((f: any) => ({
-				id: f._id.toString(),
-				value: f.value,
-				submittedBy: f.submittedBy
-					? {
-							id: f.submittedBy._id?.toString(),
-							email: f.submittedBy.email,
-							displayName: f.submittedBy.displayName,
-					  }
-					: null,
-				productId: f.productId?.toString(),
-				trustedContribution: f.trustedContribution,
-				createdAt: f.createdAt,
-			})),
-			total,
-			page,
-			pageSize,
-		};
-	},
-
-	/**
-	 * Approve a pending filter (removes from pending, filter becomes visible)
-	 */
-	async approvePendingFilter(filterId: string): Promise<boolean> {
-		const result = await PendingFilter.findByIdAndDelete(filterId);
-		return !!result;
-	},
-
-	/**
-	 * Reject a pending filter (removes from pending, adds to archived)
-	 */
-	async rejectPendingFilter(
-		filterId: string,
-		adminId: string
-	): Promise<boolean> {
-		// Find the pending filter
-		const pendingFilter = await PendingFilter.findById(filterId).lean();
-		if (!pendingFilter) {
-			return false;
-		}
-
-		// Add to archived filters
-		try {
-			await ArchivedFilter.create({
-				type: pendingFilter.type,
-				value: pendingFilter.value,
-				archivedBy: new mongoose.Types.ObjectId(adminId),
-			});
-		} catch (error: any) {
-			// Ignore duplicate key errors (already archived)
-			if (error.code !== 11000) {
-				throw error;
-			}
-		}
-
-		// Delete from pending
-		await PendingFilter.findByIdAndDelete(filterId);
-		return true;
-	},
-
-	/**
-	 * Bulk approve pending filters
-	 */
-	async bulkApprovePendingFilters(filterIds: string[]): Promise<number> {
-		const result = await PendingFilter.deleteMany({
-			_id: {
-				$in: filterIds.map((id) => new mongoose.Types.ObjectId(id)),
-			},
-		});
-		return result.deletedCount;
-	},
-
-	/**
-	 * Bulk reject pending filters
-	 */
-	async bulkRejectPendingFilters(
-		filterIds: string[],
-		adminId: string
-	): Promise<number> {
-		// Find all pending filters
-		const pendingFilters = await PendingFilter.find({
-			_id: {
-				$in: filterIds.map((id) => new mongoose.Types.ObjectId(id)),
-			},
-		}).lean();
-
-		// Add to archived filters
-		for (const pf of pendingFilters) {
-			try {
-				await ArchivedFilter.create({
-					type: pf.type,
-					value: pf.value,
-					archivedBy: new mongoose.Types.ObjectId(adminId),
-				});
-			} catch (error: any) {
-				// Ignore duplicate key errors
-				if (error.code !== 11000) {
-					console.error('Error archiving filter:', error);
-				}
-			}
-		}
-
-		// Delete from pending
-		const result = await PendingFilter.deleteMany({
-			_id: {
-				$in: filterIds.map((id) => new mongoose.Types.ObjectId(id)),
-			},
-		});
-		return result.deletedCount;
 	},
 
 	/**

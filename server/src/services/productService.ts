@@ -6,7 +6,6 @@ import {
 	Store,
 	UserProduct,
 	ArchivedFilter,
-	PendingFilter,
 	FilterDisplayName,
 	Review,
 } from '../models';
@@ -959,7 +958,6 @@ export const productService = {
 				apiCategories,
 				userCategories,
 				archivedFilters,
-				pendingFilters,
 				displayNames,
 			] = await Promise.all([
 				Product.distinct('categories', { archived: { $ne: true } }),
@@ -968,9 +966,6 @@ export const productService = {
 					archived: { $ne: true },
 				}),
 				ArchivedFilter.distinct('value', { type: 'category' }).catch(
-					() => []
-				),
-				PendingFilter.distinct('value', { type: 'category' }).catch(
 					() => []
 				),
 				FilterDisplayName.find({ type: 'category' })
@@ -991,14 +986,11 @@ export const productService = {
 				(cat) => !nonEnglishPrefixes.test(cat)
 			);
 
-			// Remove archived and pending filters (check both with and without "en:" prefix)
-			const excludedSet = new Set([
-				...archivedFilters,
-				...pendingFilters,
-			]);
+			// Remove archived filters (check both with and without "en:" prefix)
+			const archivedSet = new Set(archivedFilters);
 			allCategories = allCategories.filter((cat) => {
 				const cleaned = cat.replace(/^en:/, '');
-				return !excludedSet.has(cat) && !excludedSet.has(cleaned);
+				return !archivedSet.has(cat) && !archivedSet.has(cleaned);
 			});
 
 			// Simple cleanup: trim "en:" prefix and replace dashes with spaces
@@ -1158,22 +1150,16 @@ export const productService = {
 
 	async getTags(): Promise<string[]> {
 		// Get tags from both Product and approved, non-archived UserProduct collections
-		const [
-			apiTags,
-			userTags,
-			archivedFilters,
-			pendingFilters,
-			displayNames,
-		] = await Promise.all([
-			Product.distinct('tags', { archived: { $ne: true } }),
-			UserProduct.distinct('tags', {
-				status: 'approved',
-				archived: { $ne: true },
-			}),
-			ArchivedFilter.distinct('value', { type: 'tag' }),
-			PendingFilter.distinct('value', { type: 'tag' }),
-			FilterDisplayName.find({ type: 'tag' }).lean(),
-		]);
+		const [apiTags, userTags, archivedFilters, displayNames] =
+			await Promise.all([
+				Product.distinct('tags', { archived: { $ne: true } }),
+				UserProduct.distinct('tags', {
+					status: 'approved',
+					archived: { $ne: true },
+				}),
+				ArchivedFilter.distinct('value', { type: 'tag' }),
+				FilterDisplayName.find({ type: 'tag' }).lean(),
+			]);
 
 		// Language prefixes to filter out (non-English)
 		const nonEnglishPrefixes = /^(de|el|es|fr|nl|pt|zh):/i;
@@ -1184,11 +1170,11 @@ export const productService = {
 		// Filter out non-English language prefixes
 		allTags = allTags.filter((tag) => !nonEnglishPrefixes.test(tag));
 
-		// Remove archived and pending filters (check both with and without "en:" prefix)
-		const excludedSet = new Set([...archivedFilters, ...pendingFilters]);
+		// Remove archived filters (check both with and without "en:" prefix)
+		const archivedSet = new Set(archivedFilters);
 		allTags = allTags.filter((tag) => {
 			const cleaned = tag.replace(/^en:/, '');
-			return !excludedSet.has(tag) && !excludedSet.has(cleaned);
+			return !archivedSet.has(tag) && !archivedSet.has(cleaned);
 		});
 
 		// Simple cleanup: trim "en:" prefix and replace dashes with spaces
