@@ -1,6 +1,24 @@
 .admin-trusted-review {
   max-width: 1200px;
   margin: 0 auto;
+  height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-trusted-review .page-header {
+  flex-shrink: 0;
+}
+
+.admin-trusted-review .review-tabs {
+  flex-shrink: 0;
+}
+
+.admin-trusted-review .review-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .page-header {

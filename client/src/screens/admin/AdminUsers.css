@@ -1,6 +1,20 @@
 .admin-users {
   max-width: 1400px;
   margin: 0 auto;
+  height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-users .page-header {
+  flex-shrink: 0;
+}
+
+.admin-users .users-table-container {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .page-header {

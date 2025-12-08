@@ -1,5 +1,9 @@
 .admin-store-availability {
 	padding: 0;
+	height: calc(100vh - 4rem);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
 }
 
 .admin-store-availability .page-header {
@@ -45,7 +49,9 @@
 	display: grid;
 	grid-template-columns: 280px 1fr;
 	gap: 1.5rem;
-	min-height: calc(100vh - 200px);
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
 }
 
 /* Store Selection Panel */

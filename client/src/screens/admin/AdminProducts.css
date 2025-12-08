@@ -3,6 +3,24 @@
   margin: 0 auto;
   position: relative;
   z-index: 1;
+  height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-products .page-header {
+  flex-shrink: 0;
+}
+
+.admin-products .admin-tabs {
+  flex-shrink: 0;
+}
+
+.admin-products .products-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 /* Scope all admin product styles to prevent conflicts with main product listing */

@@ -1,6 +1,16 @@
 .admin-filters {
   max-width: 1200px;
   margin: 0 auto;
+  height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-filters .filters-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .filters-list {

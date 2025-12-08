@@ -1,6 +1,14 @@
 .admin-dashboard {
   max-width: 1400px;
   margin: 0 auto;
+  height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.admin-dashboard .dashboard-header {
+  flex-shrink: 0;
 }
 
 .admin-loading,

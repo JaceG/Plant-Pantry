@@ -1,6 +1,30 @@
 .admin-stores {
   max-width: 1400px;
   margin: 0 auto;
+  height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-stores .page-header {
+  flex-shrink: 0;
+}
+
+.admin-stores .filters-bar {
+  flex-shrink: 0;
+}
+
+.admin-stores .stores-table-container {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.admin-stores .grouped-stores-view {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .page-header {
