@@ -830,7 +830,10 @@ export const adminApi = {
 		);
 	},
 
-	rejectStore(storeId: string, reason?: string): Promise<{ message: string }> {
+	rejectStore(
+		storeId: string,
+		reason?: string
+	): Promise<{ message: string }> {
 		return httpClient.post<{ message: string }>(
 			`/admin/stores/${storeId}/reject`,
 			{ reason }
