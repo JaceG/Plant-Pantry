@@ -138,6 +138,71 @@ export function AdminDashboard() {
 					</div>
 				)}
 
+				{/* Pending Filters Alerts */}
+				{stats.filters &&
+					(stats.filters.pendingCategories > 0 ||
+						stats.filters.pendingTags > 0 ||
+						stats.filters.trustedPendingCategories > 0 ||
+						stats.filters.trustedPendingTags > 0) && (
+						<div className='pending-alerts filter-alerts'>
+							<div className='alert-section-title'>
+								<span className='filter-icon'>🏷️</span>
+								New Categories & Tags
+							</div>
+							{(stats.filters.trustedPendingCategories > 0 ||
+								stats.filters.trustedPendingTags > 0) && (
+								<div className='pending-alert trusted'>
+									<span className='alert-icon'>⭐</span>
+									<span className='alert-text'>
+										<strong>
+											{stats.filters
+												.trustedPendingCategories +
+												stats.filters
+													.trustedPendingTags}
+										</strong>{' '}
+										filter
+										{stats.filters
+											.trustedPendingCategories +
+											stats.filters.trustedPendingTags !==
+										1
+											? 's'
+											: ''}{' '}
+										from trusted contributors (live)
+									</span>
+									<Link
+										to='/admin/filters?tab=pending'
+										className='alert-action'>
+										Review →
+									</Link>
+								</div>
+							)}
+							{(stats.filters.pendingCategories > 0 ||
+								stats.filters.pendingTags > 0) && (
+								<div className='pending-alert'>
+									<span className='alert-icon'>🏷️</span>
+									<span className='alert-text'>
+										<strong>
+											{stats.filters.pendingCategories +
+												stats.filters.pendingTags}
+										</strong>{' '}
+										filter
+										{stats.filters.pendingCategories +
+											stats.filters.pendingTags !==
+										1
+											? 's'
+											: ''}{' '}
+										pending approval
+									</span>
+									<Link
+										to='/admin/filters?tab=pending'
+										className='alert-action'>
+										Review →
+									</Link>
+								</div>
+							)}
+						</div>
+					)}
+
 				{/* Pending Approvals Alerts (Regular Users) */}
 				{(stats.products.pendingApproval > 0 ||
 					stats.stores.pendingApproval > 0 ||

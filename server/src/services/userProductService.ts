@@ -1,5 +1,13 @@
 import mongoose from 'mongoose';
-import { UserProduct, Availability, Store, User } from '../models';
+import {
+	UserProduct,
+	Availability,
+	Store,
+	User,
+	Product,
+	PendingFilter,
+	ArchivedFilter,
+} from '../models';
 import {
 	ProductSummary,
 	ProductDetail,
@@ -44,6 +52,96 @@ export interface UpdateUserProductInput {
 }
 
 export const userProductService = {
+	/**
+	 * Track new categories/tags submitted by users
+	 * Adds to PendingFilter if they don't already exist in approved products
+	 */
+	async trackNewFilters(
+		categories: string[],
+		tags: string[],
+		userId: string,
+		productId: mongoose.Types.ObjectId,
+		isTrusted: boolean
+	): Promise<void> {
+		// Get existing approved categories and tags
+		const [
+			existingCategories,
+			existingTags,
+			archivedCategories,
+			archivedTags,
+		] = await Promise.all([
+			// Get categories from approved products
+			Promise.all([
+				Product.distinct('categories', { archived: { $ne: true } }),
+				UserProduct.distinct('categories', {
+					status: 'approved',
+					archived: { $ne: true },
+				}),
+			]).then(([api, user]) => new Set([...api, ...user])),
+			// Get tags from approved products
+			Promise.all([
+				Product.distinct('tags', { archived: { $ne: true } }),
+				UserProduct.distinct('tags', {
+					status: 'approved',
+					archived: { $ne: true },
+				}),
+			]).then(([api, user]) => new Set([...api, ...user])),
+			// Get archived filters
+			ArchivedFilter.distinct('value', { type: 'category' }),
+			ArchivedFilter.distinct('value', { type: 'tag' }),
+		]);
+
+		const archivedCategorySet = new Set(archivedCategories);
+		const archivedTagSet = new Set(archivedTags);
+
+		// Find new categories (not in existing or archived)
+		const newCategories = categories.filter(
+			(cat) =>
+				!existingCategories.has(cat) && !archivedCategorySet.has(cat)
+		);
+
+		// Find new tags (not in existing or archived)
+		const newTags = tags.filter(
+			(tag) => !existingTags.has(tag) && !archivedTagSet.has(tag)
+		);
+
+		// Add new categories to pending
+		for (const category of newCategories) {
+			try {
+				await PendingFilter.create({
+					type: 'category',
+					value: category,
+					submittedBy: new mongoose.Types.ObjectId(userId),
+					productId,
+					trustedContribution: isTrusted,
+				});
+			} catch (error: any) {
+				// Ignore duplicate key errors (already pending)
+				if (error.code !== 11000) {
+					console.error('Error creating pending category:', error);
+				}
+			}
+		}
+
+		// Add new tags to pending
+		for (const tag of newTags) {
+			try {
+				await PendingFilter.create({
+					type: 'tag',
+					value: tag,
+					submittedBy: new mongoose.Types.ObjectId(userId),
+					productId,
+					trustedContribution: isTrusted,
+				});
+			} catch (error: any) {
+				// Ignore duplicate key errors (already pending)
+				if (error.code !== 11000) {
+					console.error('Error creating pending tag:', error);
+				}
+			}
+		}
+	},
+
 	/**
 	 * Check if a user is trusted (their contributions bypass moderation)
 	 */
@@ -153,6 +251,17 @@ export const userProductService = {
 					}
 				});
 			}
+		}
+
+		// Track any new categories/tags submitted by the user
+		if (input.categories?.length || input.tags?.length) {
+			await this.trackNewFilters(
+				input.categories || [],
+				input.tags || ['vegan'],
+				input.userId,
+				product._id,
+				isTrusted
+			);
 		}
 
 		return await this.mapToProductDetail(product);
@@ -273,6 +382,18 @@ export const userProductService = {
 					}
 				});
 			}
+		}
+
+		// Track any new categories/tags submitted by the user
+		const { categories, tags } = input;
+		if (categories?.length || tags?.length) {
+			await this.trackNewFilters(
+				categories || [],
+				tags || [],
+				userId,
+				new mongoose.Types.ObjectId(id),
+				isTrusted
+			);
 		}
 
 		return await this.mapToProductDetail(product);

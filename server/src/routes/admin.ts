@@ -1125,6 +1125,139 @@ router.post(
 );
 
 // ============================================
+// PENDING FILTERS (Categories & Tags)
+// ============================================
+
+/**
+ * GET /api/admin/pending-filters/:type
+ * Get pending filters (categories or tags)
+ */
+router.get(
+	'/pending-filters/:type',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { type } = req.params;
+			const trusted = req.query.trusted === 'true';
+			const page = parseInt(req.query.page as string) || 1;
+			const pageSize = parseInt(req.query.pageSize as string) || 50;
+
+			if (type !== 'category' && type !== 'tag') {
+				throw new HttpError(
+					'Invalid filter type. Must be "category" or "tag"',
+					400
+				);
+			}
+
+			const result = await adminService.getPendingFilters(
+				type,
+				trusted,
+				page,
+				pageSize
+			);
+			res.json(result);
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/pending-filters/:id/approve
+ * Approve a pending filter
+ */
+router.post(
+	'/pending-filters/:id/approve',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const success = await adminService.approvePendingFilter(id);
+
+			if (!success) {
+				throw new HttpError('Pending filter not found', 404);
+			}
+
+			res.json({ message: 'Filter approved and now visible' });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/pending-filters/:id/reject
+ * Reject a pending filter (adds to archived)
+ */
+router.post(
+	'/pending-filters/:id/reject',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const adminId = req.userId!;
+
+			const success = await adminService.rejectPendingFilter(id, adminId);
+
+			if (!success) {
+				throw new HttpError('Pending filter not found', 404);
+			}
+
+			res.json({ message: 'Filter rejected and archived' });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/pending-filters/bulk-approve
+ * Bulk approve pending filters
+ */
+router.post(
+	'/pending-filters/bulk-approve',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { filterIds } = req.body;
+
+			if (!Array.isArray(filterIds) || filterIds.length === 0) {
+				throw new HttpError('filterIds array is required', 400);
+			}
+
+			const count = await adminService.bulkApprovePendingFilters(
+				filterIds
+			);
+			res.json({ message: `${count} filters approved`, count });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/pending-filters/bulk-reject
+ * Bulk reject pending filters
+ */
+router.post(
+	'/pending-filters/bulk-reject',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { filterIds } = req.body;
+			const adminId = req.userId!;
+
+			if (!Array.isArray(filterIds) || filterIds.length === 0) {
+				throw new HttpError('filterIds array is required', 400);
+			}
+
+			const count = await adminService.bulkRejectPendingFilters(
+				filterIds,
+				adminId
+			);
+			res.json({ message: `${count} filters rejected`, count });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// ============================================
 // FEATURED PRODUCTS MANAGEMENT
 // ============================================
 

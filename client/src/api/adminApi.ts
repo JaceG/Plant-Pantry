@@ -32,6 +32,12 @@ export interface DashboardStats {
 	reviews: {
 		pendingApproval: number;
 	};
+	filters: {
+		pendingCategories: number;
+		pendingTags: number;
+		trustedPendingCategories: number;
+		trustedPendingTags: number;
+	};
 	recentActivity: {
 		newProductsThisWeek: number;
 		newUsersThisWeek: number;
@@ -97,6 +103,19 @@ export interface PendingStore {
 		email: string;
 		displayName?: string;
 	};
+	createdAt: string;
+}
+
+export interface PendingFilterItem {
+	id: string;
+	value: string;
+	submittedBy: {
+		id: string;
+		email: string;
+		displayName?: string;
+	} | null;
+	productId?: string;
+	trustedContribution: boolean;
 	createdAt: string;
 }
 
@@ -463,6 +482,50 @@ export const adminApi = {
 		return httpClient.post<{ message: string }>(
 			`/admin/trusted-review/stores/${storeId}/reject`,
 			{}
+		);
+	},
+
+	// Pending Filters (Categories & Tags)
+	getPendingFilters(
+		type: 'category' | 'tag',
+		trusted: boolean = false,
+		page: number = 1,
+		pageSize: number = 50
+	): Promise<PaginatedResponse<PendingFilterItem>> {
+		return httpClient.get<PaginatedResponse<PendingFilterItem>>(
+			`/admin/pending-filters/${type}?trusted=${trusted}&page=${page}&pageSize=${pageSize}`
+		);
+	},
+
+	approvePendingFilter(filterId: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/pending-filters/${filterId}/approve`,
+			{}
+		);
+	},
+
+	rejectPendingFilter(filterId: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/pending-filters/${filterId}/reject`,
+			{}
+		);
+	},
+
+	bulkApprovePendingFilters(
+		filterIds: string[]
+	): Promise<{ message: string; count: number }> {
+		return httpClient.post<{ message: string; count: number }>(
+			`/admin/pending-filters/bulk-approve`,
+			{ filterIds }
+		);
+	},
+
+	bulkRejectPendingFilters(
+		filterIds: string[]
+	): Promise<{ message: string; count: number }> {
+		return httpClient.post<{ message: string; count: number }>(
+			`/admin/pending-filters/bulk-reject`,
+			{ filterIds }
 		);
 	},
 
