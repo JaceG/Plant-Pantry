@@ -321,8 +321,10 @@ export function BrandScreen() {
 											Retail Chains
 											<span className='section-count'>
 												{storesData.chainGroups.reduce(
-													(acc: number, g: BrandChainGroup) =>
-														acc + g.stores.length,
+													(
+														acc: number,
+														g: BrandChainGroup
+													) => acc + g.stores.length,
 													0
 												)}{' '}
 												locations
@@ -330,7 +332,10 @@ export function BrandScreen() {
 										</h2>
 										<div className='chain-groups'>
 											{storesData.chainGroups.map(
-												({ chain, stores }: BrandChainGroup) => (
+												({
+													chain,
+													stores,
+												}: BrandChainGroup) => (
 													<div
 														key={chain.id}
 														className='chain-group'>
@@ -369,7 +374,9 @@ export function BrandScreen() {
 														) && (
 															<div className='chain-stores'>
 																{stores.map(
-																	(store: BrandStore) => (
+																	(
+																		store: BrandStore
+																	) => (
 																		<div
 																			key={
 																				store.id

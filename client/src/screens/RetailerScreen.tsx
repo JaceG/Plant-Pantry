@@ -1,10 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import {
-	storesApi,
-	ChainPageStore,
-	ChainPageProduct,
-} from '../api/storesApi';
+import { storesApi, ChainPageStore, ChainPageProduct } from '../api/storesApi';
 import { Store } from '../types/store';
 import { ProductCard, Pagination, StoreMap } from '../components';
 import { ProductSummary } from '../types';
