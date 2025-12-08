@@ -603,6 +603,15 @@ export function ProductDetailScreen() {
 						<span className='detail-size'>
 							{product.sizeOrVariant}
 						</span>
+						{product._status === 'pending' && (
+							<div className='pending-badge-product'>
+								<span className='badge-icon'>⏳</span>
+								<span>Pending Admin Review</span>
+								<span className='pending-note'>
+									(Only visible to you until approved)
+								</span>
+							</div>
+						)}
 						{product._archived && (
 							<div className='archived-badge-product'>
 								<span className='badge-icon'>📦</span>

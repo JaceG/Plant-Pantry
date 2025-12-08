@@ -785,3 +785,96 @@
   }
 }
 
+/* Pending Stores View */
+.pending-stores-view {
+  margin-top: 1rem;
+}
+
+.view-btn.has-pending {
+  position: relative;
+}
+
+.view-btn.has-pending::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  background: var(--color-terracotta);
+  border-radius: 50%;
+}
+
+.pending-stores-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.pending-store-card {
+  background: var(--color-white);
+  border: 1px solid var(--color-sage-light);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.pending-store-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-mint);
+}
+
+.pending-store-header .store-icon {
+  font-size: 1.5rem;
+}
+
+.pending-store-info h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.125rem;
+  color: var(--color-charcoal);
+}
+
+.pending-store-type {
+  font-size: 0.8125rem;
+  color: var(--color-stone);
+}
+
+.pending-store-details {
+  margin-bottom: 1rem;
+}
+
+.pending-store-details .detail-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.pending-store-details .detail-label {
+  color: var(--color-stone);
+  min-width: 100px;
+}
+
+.pending-store-details .detail-value {
+  color: var(--color-charcoal);
+}
+
+.pending-store-details a {
+  color: var(--color-forest);
+  text-decoration: none;
+}
+
+.pending-store-details a:hover {
+  text-decoration: underline;
+}
+
+.pending-store-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-mint);
+}
+

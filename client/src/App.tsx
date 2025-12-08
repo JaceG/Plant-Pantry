@@ -34,6 +34,7 @@ import {
 	AdminCityPageEditor,
 	AdminStoreAvailability,
 	AdminPendingReports,
+	AdminTrustedReview,
 } from './screens/admin';
 import { listsApi } from './api';
 import './App.css';
@@ -89,6 +90,14 @@ function AppContent() {
 					element={
 						<ProtectedRoute requireAdmin>
 							<AdminPendingReports />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path='/admin/trusted-review'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminTrustedReview />
 						</ProtectedRoute>
 					}
 				/>

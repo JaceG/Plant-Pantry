@@ -25,6 +25,11 @@ export interface IUserProduct extends Document {
 	// Metadata
 	source: 'user_contribution';
 	status: 'pending' | 'approved' | 'rejected'; // For moderation if needed
+	// Review tracking (separate from status for trusted contributors)
+	needsReview: boolean; // True if content needs admin review
+	trustedContribution: boolean; // True if submitted by a trusted contributor
+	reviewedBy?: mongoose.Types.ObjectId; // Admin who reviewed
+	reviewedAt?: Date;
 	sourceProductId?: mongoose.Types.ObjectId; // If this is an edit of an API product, reference the original
 	editedBy?: mongoose.Types.ObjectId; // Who edited it (for admin edits)
 	archived: boolean;
@@ -99,7 +104,25 @@ const userProductSchema = new Schema<IUserProduct>(
 		status: {
 			type: String,
 			enum: ['pending', 'approved', 'rejected'],
-			default: 'approved', // Auto-approve for MVP, can add moderation later
+			default: 'pending', // Require moderation for all user contributions
+		},
+		// Review tracking (separate from status for trusted contributors)
+		needsReview: {
+			type: Boolean,
+			default: true, // All user content needs review
+			index: true,
+		},
+		trustedContribution: {
+			type: Boolean,
+			default: false, // True if submitted by a trusted contributor
+			index: true,
+		},
+		reviewedBy: {
+			type: Schema.Types.ObjectId,
+			ref: 'User',
+		},
+		reviewedAt: {
+			type: Date,
 		},
 		sourceProductId: {
 			type: Schema.Types.ObjectId,

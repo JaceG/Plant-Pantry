@@ -825,6 +825,118 @@ router.get(
 	}
 );
 
+// ============================================
+// PENDING STORES MANAGEMENT
+// ============================================
+
+/**
+ * GET /api/admin/stores/pending
+ * Get pending stores for moderation
+ */
+router.get(
+	'/stores/pending',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const page = parseInt(req.query.page as string) || 1;
+			const pageSize = parseInt(req.query.pageSize as string) || 20;
+
+			const result = await adminService.getPendingStores(page, pageSize);
+			res.json(result);
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/stores/:id/approve
+ * Approve a pending store
+ */
+router.post(
+	'/stores/:id/approve',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const adminId = req.userId!;
+
+			const success = await adminService.approveStore(id, adminId);
+
+			if (!success) {
+				throw new HttpError('Store not found', 404);
+			}
+
+			res.json({ message: 'Store approved successfully' });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/stores/:id/reject
+ * Reject a pending store
+ */
+router.post(
+	'/stores/:id/reject',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const adminId = req.userId!;
+
+			const success = await adminService.rejectStore(id, adminId);
+
+			if (!success) {
+				throw new HttpError('Store not found', 404);
+			}
+
+			res.json({ message: 'Store rejected' });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// ============================================
+// TRUSTED CONTRIBUTORS MANAGEMENT
+// ============================================
+
+/**
+ * PUT /api/admin/users/:id/trusted
+ * Set user trusted contributor status
+ */
+router.put(
+	'/users/:id/trusted',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { trusted } = req.body;
+			const adminId = req.userId!;
+
+			if (typeof trusted !== 'boolean') {
+				throw new HttpError('trusted must be a boolean', 400);
+			}
+
+			const success = await adminService.setUserTrustedStatus(
+				id,
+				trusted,
+				adminId
+			);
+
+			if (!success) {
+				throw new HttpError('User not found', 404);
+			}
+
+			res.json({
+				message: trusted
+					? 'User is now a trusted contributor'
+					: 'User trusted status removed',
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
 /**
  * POST /api/admin/reviews/:id/approve
  * Approve a review
@@ -857,6 +969,155 @@ router.post(
 
 			const review = await reviewService.rejectReview(id, adminId);
 			res.json({ message: 'Review rejected', review });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// ============================================
+// TRUSTED CONTRIBUTOR REVIEW
+// ============================================
+
+/**
+ * GET /api/admin/trusted-review/products
+ * Get trusted contributor products pending review
+ */
+router.get(
+	'/trusted-review/products',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const page = parseInt(req.query.page as string) || 1;
+			const pageSize = parseInt(req.query.pageSize as string) || 20;
+			const result = await adminService.getTrustedProductsPendingReview(
+				page,
+				pageSize
+			);
+			res.json(result);
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * GET /api/admin/trusted-review/stores
+ * Get trusted contributor stores pending review
+ */
+router.get(
+	'/trusted-review/stores',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const page = parseInt(req.query.page as string) || 1;
+			const pageSize = parseInt(req.query.pageSize as string) || 20;
+			const result = await adminService.getTrustedStoresPendingReview(
+				page,
+				pageSize
+			);
+			res.json(result);
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/trusted-review/products/:id/approve
+ * Mark a trusted contributor product as reviewed (approved)
+ */
+router.post(
+	'/trusted-review/products/:id/approve',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const adminId = req.userId!;
+
+			const success = await adminService.markProductReviewed(id, adminId);
+
+			if (!success) {
+				throw new HttpError('Product not found', 404);
+			}
+
+			res.json({ message: 'Product reviewed and approved' });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/trusted-review/products/:id/reject
+ * Reject a trusted contributor product (changes status to rejected)
+ */
+router.post(
+	'/trusted-review/products/:id/reject',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const adminId = req.userId!;
+
+			const success = await adminService.rejectTrustedProduct(
+				id,
+				adminId
+			);
+
+			if (!success) {
+				throw new HttpError('Product not found', 404);
+			}
+
+			res.json({
+				message: 'Product rejected and removed from public view',
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/trusted-review/stores/:id/approve
+ * Mark a trusted contributor store as reviewed (approved)
+ */
+router.post(
+	'/trusted-review/stores/:id/approve',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const adminId = req.userId!;
+
+			const success = await adminService.markStoreReviewed(id, adminId);
+
+			if (!success) {
+				throw new HttpError('Store not found', 404);
+			}
+
+			res.json({ message: 'Store reviewed and approved' });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/trusted-review/stores/:id/reject
+ * Reject a trusted contributor store (changes status to rejected)
+ */
+router.post(
+	'/trusted-review/stores/:id/reject',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const adminId = req.userId!;
+
+			const success = await adminService.rejectTrustedStore(id, adminId);
+
+			if (!success) {
+				throw new HttpError('Store not found', 404);
+			}
+
+			res.json({
+				message: 'Store rejected and removed from public view',
+			});
 		} catch (error) {
 			next(error);
 		}

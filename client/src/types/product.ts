@@ -67,6 +67,7 @@ export interface ProductDetail {
 	_userId?: string;
 	_archived?: boolean;
 	_archivedAt?: string;
+	_status?: 'pending' | 'approved' | 'rejected'; // Moderation status for user products
 }
 
 export interface StoreAvailabilityInput {

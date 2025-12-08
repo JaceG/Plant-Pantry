@@ -9,6 +9,7 @@ import {
 	FilterDisplayName,
 	FilterType,
 } from '../models';
+import { StoreModerationStatus } from '../models/Store';
 
 export interface DashboardStats {
 	products: {
@@ -16,22 +17,31 @@ export interface DashboardStats {
 		apiSourced: number;
 		userContributed: number;
 		pendingApproval: number;
+		trustedPendingReview: number; // Trusted contributor content pending review
 	};
 	stores: {
 		total: number;
 		physical: number;
 		online: number;
 		brandDirect: number;
+		pendingApproval: number;
+		trustedPendingReview: number; // Trusted contributor content pending review
 	};
 	users: {
 		total: number;
 		admins: number;
 		moderators: number;
 		regularUsers: number;
+		trustedContributors: number;
 	};
 	availability: {
 		total: number;
 		userContributed: number;
+		pendingApproval: number;
+		trustedPendingReview: number; // Trusted contributor content pending review
+	};
+	reviews: {
+		pendingApproval: number;
 	};
 	recentActivity: {
 		newProductsThisWeek: number;
@@ -56,6 +66,8 @@ export interface AdminUser {
 	email: string;
 	displayName: string;
 	role: string;
+	trustedContributor: boolean;
+	trustedAt?: Date;
 	createdAt: Date;
 	lastLogin?: Date;
 	productsContributed: number;
@@ -69,6 +81,9 @@ export const adminService = {
 		const oneWeekAgo = new Date();
 		oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
+		// Import Review model for pending reviews count
+		const { Review } = await import('../models');
+
 		// Run all queries in parallel
 		const [
 			apiProductsCount,
@@ -77,29 +92,72 @@ export const adminService = {
 			physicalStoresCount,
 			onlineStoresCount,
 			brandDirectStoresCount,
+			pendingStoresCount,
 			adminsCount,
 			moderatorsCount,
 			totalUsersCount,
+			trustedContributorsCount,
 			totalAvailabilityCount,
 			userContributedAvailabilityCount,
+			pendingAvailabilityCount,
+			pendingReviewsCount,
 			newProductsThisWeek,
 			newUsersThisWeek,
 			newStoresThisWeek,
+			// Trusted contributor pending review counts
+			trustedProductsPendingReview,
+			trustedStoresPendingReview,
+			trustedAvailabilityPendingReview,
 		] = await Promise.all([
 			Product.countDocuments(),
 			UserProduct.countDocuments({ status: 'approved' }),
-			UserProduct.countDocuments({ status: 'pending' }),
-			Store.countDocuments({ type: 'brick_and_mortar' }),
-			Store.countDocuments({ type: 'online_retailer' }),
-			Store.countDocuments({ type: 'brand_direct' }),
+			UserProduct.countDocuments({
+				status: 'pending',
+				trustedContribution: { $ne: true },
+			}), // Regular pending
+			Store.countDocuments({
+				type: 'brick_and_mortar',
+				moderationStatus: { $ne: 'rejected' },
+			}),
+			Store.countDocuments({
+				type: 'online_retailer',
+				moderationStatus: { $ne: 'rejected' },
+			}),
+			Store.countDocuments({
+				type: 'brand_direct',
+				moderationStatus: { $ne: 'rejected' },
+			}),
+			Store.countDocuments({
+				moderationStatus: 'pending',
+				trustedContribution: { $ne: true },
+			}), // Regular pending
 			User.countDocuments({ role: 'admin' }),
 			User.countDocuments({ role: 'moderator' }),
 			User.countDocuments(),
+			User.countDocuments({ trustedContributor: true }),
 			Availability.countDocuments(),
 			Availability.countDocuments({ source: 'user_contribution' }),
+			Availability.countDocuments({
+				moderationStatus: 'pending',
+				trustedContribution: { $ne: true },
+			}), // Regular pending
+			Review.countDocuments({ status: 'pending' }),
 			UserProduct.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
 			User.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
 			Store.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
+			// Trusted contributor pending review counts
+			UserProduct.countDocuments({
+				needsReview: true,
+				trustedContribution: true,
+			}),
+			Store.countDocuments({
+				needsReview: true,
+				trustedContribution: true,
+			}),
+			Availability.countDocuments({
+				needsReview: true,
+				trustedContribution: true,
+			}),
 		]);
 
 		return {
@@ -108,6 +166,7 @@ export const adminService = {
 				apiSourced: apiProductsCount,
 				userContributed: userProductsCount,
 				pendingApproval: pendingProductsCount,
+				trustedPendingReview: trustedProductsPendingReview,
 			},
 			stores: {
 				total:
@@ -117,16 +176,24 @@ export const adminService = {
 				physical: physicalStoresCount,
 				online: onlineStoresCount,
 				brandDirect: brandDirectStoresCount,
+				pendingApproval: pendingStoresCount,
+				trustedPendingReview: trustedStoresPendingReview,
 			},
 			users: {
 				total: totalUsersCount,
 				admins: adminsCount,
 				moderators: moderatorsCount,
 				regularUsers: totalUsersCount - adminsCount - moderatorsCount,
+				trustedContributors: trustedContributorsCount,
 			},
 			availability: {
 				total: totalAvailabilityCount,
 				userContributed: userContributedAvailabilityCount,
+				pendingApproval: pendingAvailabilityCount,
+				trustedPendingReview: trustedAvailabilityPendingReview,
+			},
+			reviews: {
+				pendingApproval: pendingReviewsCount,
 			},
 			recentActivity: {
 				newProductsThisWeek,
@@ -223,7 +290,9 @@ export const adminService = {
 
 		const [users, total] = await Promise.all([
 			User.find()
-				.select('email displayName role createdAt lastLogin')
+				.select(
+					'email displayName role trustedContributor trustedAt createdAt lastLogin'
+				)
 				.sort({ createdAt: -1 })
 				.skip(skip)
 				.limit(pageSize)
@@ -246,6 +315,8 @@ export const adminService = {
 			email: u.email,
 			displayName: u.displayName,
 			role: u.role,
+			trustedContributor: u.trustedContributor || false,
+			trustedAt: u.trustedAt,
 			createdAt: u.createdAt,
 			lastLogin: u.lastLogin,
 			productsContributed: countMap.get(u._id.toString()) || 0,
@@ -321,6 +392,337 @@ export const adminService = {
 			// Also delete related availability entries
 			await Availability.deleteMany({ storeId });
 		}
+		return !!result;
+	},
+
+	/**
+	 * Get pending stores for moderation
+	 */
+	async getPendingStores(
+		page: number = 1,
+		pageSize: number = 20
+	): Promise<{
+		items: any[];
+		total: number;
+		page: number;
+		pageSize: number;
+	}> {
+		const skip = (page - 1) * pageSize;
+
+		const [stores, total] = await Promise.all([
+			Store.find({ moderationStatus: 'pending' })
+				.populate('createdBy', 'email displayName')
+				.sort({ createdAt: -1 })
+				.skip(skip)
+				.limit(pageSize)
+				.lean(),
+			Store.countDocuments({ moderationStatus: 'pending' }),
+		]);
+
+		const items = stores.map((s) => ({
+			id: s._id.toString(),
+			name: s.name,
+			type: s.type,
+			regionOrScope: s.regionOrScope,
+			address: s.address,
+			city: s.city,
+			state: s.state,
+			zipCode: s.zipCode,
+			websiteUrl: s.websiteUrl,
+			phoneNumber: s.phoneNumber,
+			googlePlaceId: s.googlePlaceId,
+			moderationStatus: s.moderationStatus,
+			createdBy: s.createdBy
+				? {
+						id: (s.createdBy as any)._id?.toString(),
+						email: (s.createdBy as any).email,
+						displayName: (s.createdBy as any).displayName,
+				  }
+				: null,
+			createdAt: s.createdAt,
+		}));
+
+		return { items, total, page, pageSize };
+	},
+
+	/**
+	 * Approve a pending store
+	 */
+	async approveStore(storeId: string, adminId: string): Promise<boolean> {
+		const result = await Store.findByIdAndUpdate(
+			storeId,
+			{
+				moderationStatus: 'confirmed',
+				moderatedBy: new mongoose.Types.ObjectId(adminId),
+				moderatedAt: new Date(),
+			},
+			{ new: true }
+		);
+		return !!result;
+	},
+
+	/**
+	 * Reject a pending store
+	 */
+	async rejectStore(storeId: string, adminId: string): Promise<boolean> {
+		const result = await Store.findByIdAndUpdate(
+			storeId,
+			{
+				moderationStatus: 'rejected',
+				moderatedBy: new mongoose.Types.ObjectId(adminId),
+				moderatedAt: new Date(),
+			},
+			{ new: true }
+		);
+		return !!result;
+	},
+
+	/**
+	 * Set user trusted contributor status
+	 */
+	async setUserTrustedStatus(
+		userId: string,
+		trusted: boolean,
+		adminId: string
+	): Promise<boolean> {
+		const updateData: any = {
+			trustedContributor: trusted,
+		};
+
+		if (trusted) {
+			updateData.trustedAt = new Date();
+			updateData.trustedBy = new mongoose.Types.ObjectId(adminId);
+		} else {
+			updateData.$unset = { trustedAt: '', trustedBy: '' };
+		}
+
+		const result = await User.findByIdAndUpdate(
+			userId,
+			trusted
+				? updateData
+				: {
+						trustedContributor: false,
+						$unset: { trustedAt: '', trustedBy: '' },
+				  },
+			{ new: true }
+		);
+		return !!result;
+	},
+
+	/**
+	 * Get trusted contributor products pending review
+	 */
+	async getTrustedProductsPendingReview(
+		page: number = 1,
+		pageSize: number = 20
+	): Promise<{
+		items: PendingProduct[];
+		total: number;
+		page: number;
+		pageSize: number;
+	}> {
+		const skip = (page - 1) * pageSize;
+
+		const [products, total] = await Promise.all([
+			UserProduct.find({ needsReview: true, trustedContribution: true })
+				.sort({ createdAt: -1 })
+				.skip(skip)
+				.limit(pageSize)
+				.populate('userId', 'email displayName')
+				.lean(),
+			UserProduct.countDocuments({
+				needsReview: true,
+				trustedContribution: true,
+			}),
+		]);
+
+		return {
+			items: products.map((p: any) => ({
+				id: p._id.toString(),
+				name: p.name,
+				brand: p.brand,
+				categories: p.categories || [],
+				imageUrl: p.imageUrl,
+				userId: p.userId?._id?.toString() || '',
+				userEmail: p.userId?.email || 'Unknown',
+				createdAt: p.createdAt,
+			})),
+			total,
+			page,
+			pageSize,
+		};
+	},
+
+	/**
+	 * Get trusted contributor stores pending review
+	 */
+	async getTrustedStoresPendingReview(
+		page: number = 1,
+		pageSize: number = 20
+	): Promise<{
+		items: any[];
+		total: number;
+		page: number;
+		pageSize: number;
+	}> {
+		const skip = (page - 1) * pageSize;
+
+		const [stores, total] = await Promise.all([
+			Store.find({ needsReview: true, trustedContribution: true })
+				.sort({ createdAt: -1 })
+				.skip(skip)
+				.limit(pageSize)
+				.populate('createdBy', 'email displayName')
+				.lean(),
+			Store.countDocuments({
+				needsReview: true,
+				trustedContribution: true,
+			}),
+		]);
+
+		return {
+			items: stores.map((s: any) => ({
+				id: s._id.toString(),
+				name: s.name,
+				type: s.type,
+				regionOrScope: s.regionOrScope,
+				address: s.address,
+				city: s.city,
+				state: s.state,
+				zipCode: s.zipCode,
+				websiteUrl: s.websiteUrl,
+				phoneNumber: s.phoneNumber,
+				googlePlaceId: s.googlePlaceId,
+				moderationStatus: s.moderationStatus,
+				createdBy: s.createdBy
+					? {
+							id: (s.createdBy as any)._id?.toString(),
+							email: (s.createdBy as any).email,
+							displayName: (s.createdBy as any).displayName,
+					  }
+					: null,
+				createdAt: s.createdAt,
+			})),
+			total,
+			page,
+			pageSize,
+		};
+	},
+
+	/**
+	 * Mark a product as reviewed (clear needsReview flag)
+	 */
+	async markProductReviewed(
+		productId: string,
+		adminId: string
+	): Promise<boolean> {
+		const result = await UserProduct.findByIdAndUpdate(
+			productId,
+			{
+				needsReview: false,
+				reviewedBy: new mongoose.Types.ObjectId(adminId),
+				reviewedAt: new Date(),
+			},
+			{ new: true }
+		);
+		return !!result;
+	},
+
+	/**
+	 * Mark a store as reviewed (clear needsReview flag)
+	 */
+	async markStoreReviewed(
+		storeId: string,
+		adminId: string
+	): Promise<boolean> {
+		const result = await Store.findByIdAndUpdate(
+			storeId,
+			{
+				needsReview: false,
+				reviewedBy: new mongoose.Types.ObjectId(adminId),
+				reviewedAt: new Date(),
+			},
+			{ new: true }
+		);
+		return !!result;
+	},
+
+	/**
+	 * Mark an availability report as reviewed (clear needsReview flag)
+	 */
+	async markAvailabilityReviewed(
+		availabilityId: string,
+		adminId: string
+	): Promise<boolean> {
+		const result = await Availability.findByIdAndUpdate(
+			availabilityId,
+			{
+				needsReview: false,
+				reviewedBy: new mongoose.Types.ObjectId(adminId),
+				reviewedAt: new Date(),
+			},
+			{ new: true }
+		);
+		return !!result;
+	},
+
+	/**
+	 * Reject trusted contributor content (change status and clear needsReview)
+	 */
+	async rejectTrustedProduct(
+		productId: string,
+		adminId: string
+	): Promise<boolean> {
+		const result = await UserProduct.findByIdAndUpdate(
+			productId,
+			{
+				status: 'rejected',
+				needsReview: false,
+				reviewedBy: new mongoose.Types.ObjectId(adminId),
+				reviewedAt: new Date(),
+			},
+			{ new: true }
+		);
+		return !!result;
+	},
+
+	/**
+	 * Reject trusted contributor store (change status and clear needsReview)
+	 */
+	async rejectTrustedStore(
+		storeId: string,
+		adminId: string
+	): Promise<boolean> {
+		const result = await Store.findByIdAndUpdate(
+			storeId,
+			{
+				moderationStatus: 'rejected',
+				needsReview: false,
+				reviewedBy: new mongoose.Types.ObjectId(adminId),
+				reviewedAt: new Date(),
+			},
+			{ new: true }
+		);
+		return !!result;
+	},
+
+	/**
+	 * Reject trusted contributor availability (change status and clear needsReview)
+	 */
+	async rejectTrustedAvailability(
+		availabilityId: string,
+		adminId: string
+	): Promise<boolean> {
+		const result = await Availability.findByIdAndUpdate(
+			availabilityId,
+			{
+				moderationStatus: 'rejected',
+				needsReview: false,
+				reviewedBy: new mongoose.Types.ObjectId(adminId),
+				reviewedAt: new Date(),
+			},
+			{ new: true }
+		);
 		return !!result;
 	},
 

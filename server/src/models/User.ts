@@ -19,6 +19,10 @@ export interface IUser extends Document {
 	preferredState?: string;
 	latitude?: number;
 	longitude?: number;
+	// Trusted contributor status - their contributions bypass moderation
+	trustedContributor: boolean;
+	trustedAt?: Date; // When they were marked as trusted
+	trustedBy?: mongoose.Types.ObjectId; // Admin who marked them trusted
 	lastLogin?: Date;
 	createdAt: Date;
 	updatedAt: Date;
@@ -85,6 +89,18 @@ const userSchema = new Schema<IUser>(
 		},
 		longitude: {
 			type: Number,
+		},
+		// Trusted contributor status - their contributions bypass moderation
+		trustedContributor: {
+			type: Boolean,
+			default: false,
+		},
+		trustedAt: {
+			type: Date,
+		},
+		trustedBy: {
+			type: Schema.Types.ObjectId,
+			ref: 'User',
 		},
 		lastLogin: {
 			type: Date,

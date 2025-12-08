@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export type StoreType = 'brick_and_mortar' | 'online_retailer' | 'brand_direct';
+export type StoreModerationStatus = 'confirmed' | 'pending' | 'rejected';
 
 export interface IStore extends Document {
 	_id: mongoose.Types.ObjectId;
@@ -21,6 +22,16 @@ export interface IStore extends Document {
 	longitude?: number;
 	googlePlaceId?: string; // Google Places API place_id
 	phoneNumber?: string;
+	// Moderation
+	moderationStatus: StoreModerationStatus;
+	createdBy?: mongoose.Types.ObjectId; // User who created the store
+	moderatedBy?: mongoose.Types.ObjectId; // Admin who moderated
+	moderatedAt?: Date;
+	// Review tracking (separate from moderation status for trusted contributors)
+	needsReview: boolean; // True if content needs admin review
+	trustedContribution: boolean; // True if submitted by a trusted contributor
+	reviewedBy?: mongoose.Types.ObjectId; // Admin who reviewed
+	reviewedAt?: Date;
 	createdAt: Date;
 	updatedAt: Date;
 }
@@ -90,6 +101,43 @@ const storeSchema = new Schema<IStore>(
 		phoneNumber: {
 			type: String,
 			trim: true,
+		},
+		// Moderation
+		moderationStatus: {
+			type: String,
+			enum: ['confirmed', 'pending', 'rejected'],
+			default: 'confirmed', // Default to confirmed for admin-created stores
+			index: true,
+		},
+		createdBy: {
+			type: Schema.Types.ObjectId,
+			ref: 'User',
+			index: true,
+		},
+		moderatedBy: {
+			type: Schema.Types.ObjectId,
+			ref: 'User',
+		},
+		moderatedAt: {
+			type: Date,
+		},
+		// Review tracking (separate from moderation status for trusted contributors)
+		needsReview: {
+			type: Boolean,
+			default: false, // Admin-created stores don't need review
+			index: true,
+		},
+		trustedContribution: {
+			type: Boolean,
+			default: false, // True if submitted by a trusted contributor
+			index: true,
+		},
+		reviewedBy: {
+			type: Schema.Types.ObjectId,
+			ref: 'User',
+		},
+		reviewedAt: {
+			type: Date,
 		},
 	},
 	{

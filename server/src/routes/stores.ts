@@ -8,22 +8,35 @@ import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth';
 const router = Router();
 
 // GET /api/stores - List all stores
-router.get('/', async (req: Request, res: Response, next: NextFunction) => {
-	try {
-		const { q, includeChains } = req.query;
-		const withChainInfo = includeChains === 'true';
+// Uses optional auth to show pending stores to their creators
+router.get(
+	'/',
+	optionalAuthMiddleware,
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { q, includeChains } = req.query;
+			const withChainInfo = includeChains === 'true';
+			const userId = req.userId; // From optional auth
 
-		if (q && typeof q === 'string') {
-			const result = await storeService.searchStores(q, withChainInfo);
-			res.json(result);
-		} else {
-			const result = await storeService.getStores(withChainInfo);
-			res.json(result);
+			if (q && typeof q === 'string') {
+				const result = await storeService.searchStores(
+					q,
+					withChainInfo,
+					userId
+				);
+				res.json(result);
+			} else {
+				const result = await storeService.getStores(
+					withChainInfo,
+					userId
+				);
+				res.json(result);
+			}
+		} catch (error) {
+			next(error);
 		}
-	} catch (error) {
-		next(error);
 	}
-});
+);
 
 // GET /api/stores/grouped - Get stores grouped by chain
 router.get(
@@ -191,6 +204,11 @@ router.post(
 	authMiddleware,
 	async (req: Request, res: Response, next: NextFunction) => {
 		try {
+			const userId = req.userId;
+			if (!userId) {
+				throw new HttpError('User not authenticated', 401);
+			}
+
 			const {
 				name,
 				type,
@@ -226,6 +244,7 @@ router.post(
 				longitude,
 				googlePlaceId,
 				phoneNumber,
+				createdBy: userId, // Track who created the store
 			};
 
 			// Check for duplicates unless explicitly skipped

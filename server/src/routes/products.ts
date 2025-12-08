@@ -7,7 +7,17 @@ import {
 	authMiddleware,
 	AuthenticatedRequest,
 } from '../middleware/auth';
-import { Availability, Store, Product, UserProduct } from '../models';
+import { Availability, Store, Product, UserProduct, User } from '../models';
+
+// Helper to check if user is trusted
+async function isUserTrusted(userId: string): Promise<boolean> {
+	const user = await User.findById(userId)
+		.select('trustedContributor role')
+		.lean();
+	if (!user) return false;
+	if (user.role === 'admin' || user.role === 'moderator') return true;
+	return user.trustedContributor === true;
+}
 
 const router = Router();
 
@@ -99,28 +109,39 @@ router.get(
 );
 
 // GET /api/products - List products with optional filters
-router.get('/', async (req: Request, res: Response, next: NextFunction) => {
-	try {
-		const { q, category, tag, minRating, page, pageSize, city, state } =
-			req.query;
+// Uses optionalAuthMiddleware to show pending products to their creators
+router.get(
+	'/',
+	optionalAuthMiddleware,
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { q, category, tag, minRating, page, pageSize, city, state } =
+				req.query;
+			const userId = req.userId; // From optional auth
 
-		const result = await productService.getProducts({
-			q: q as string | undefined,
-			category: category as string | undefined,
-			tag: tag as string | undefined,
-			minRating: minRating ? parseFloat(minRating as string) : undefined,
-			page: page ? parseInt(page as string, 10) : undefined,
-			pageSize: pageSize ? parseInt(pageSize as string, 10) : undefined,
-			city: city as string | undefined,
-			state: state as string | undefined,
-		});
+			const result = await productService.getProducts({
+				q: q as string | undefined,
+				category: category as string | undefined,
+				tag: tag as string | undefined,
+				minRating: minRating
+					? parseFloat(minRating as string)
+					: undefined,
+				page: page ? parseInt(page as string, 10) : undefined,
+				pageSize: pageSize
+					? parseInt(pageSize as string, 10)
+					: undefined,
+				city: city as string | undefined,
+				state: state as string | undefined,
+				userId, // Pass userId to show pending products to their creator
+			});
 
-		res.json(result);
-	} catch (error) {
-		console.error('Error in GET /api/products:', error);
-		next(error);
+			res.json(result);
+		} catch (error) {
+			console.error('Error in GET /api/products:', error);
+			next(error);
+		}
 	}
-});
+);
 
 /**
  * GET /api/products/stores-by-city
@@ -230,6 +251,7 @@ router.get(
 
 // GET /api/products/:id - Get product details with availability (must come last)
 // Use optionalAuthMiddleware to check if user is admin (allows viewing archived products)
+// and to show pending products to their creators
 router.get(
 	'/:id',
 	optionalAuthMiddleware,
@@ -240,10 +262,12 @@ router.get(
 
 			// Allow admins to view archived products
 			const isAdmin = req.user?.role === 'admin';
+			const userId = req.userId; // From optional auth
 
 			const product = await productService.getProductById(id, {
 				refreshAvailability: refresh === 'true',
 				allowArchived: isAdmin, // Admins can view archived products
+				userId, // Pass userId to show pending products to their creator
 			});
 
 			if (!product) {
@@ -312,21 +336,30 @@ router.post(
 				});
 			}
 
+			// Check if user is trusted (bypass moderation)
+			const userId = req.user?.userId;
+			const isTrusted = userId ? await isUserTrusted(userId) : false;
+
 			// Create new availability report
 			await Availability.create({
 				productId: id,
 				storeId,
 				source: 'user_contribution',
-				reportedBy: req.user?.userId,
-				moderationStatus: 'pending', // Pending approval
+				reportedBy: userId,
+				moderationStatus: isTrusted ? 'confirmed' : 'pending', // Trusted users' content goes live immediately
 				priceRange: priceRange || undefined,
 				notes: notes || undefined,
 				lastConfirmedAt: new Date(),
+				needsReview: true, // All user content needs review (even trusted)
+				trustedContribution: isTrusted, // Track if from trusted contributor
 			});
 
+			const message = isTrusted
+				? 'Availability reported and live. Thank you! It will be reviewed shortly.'
+				: 'Availability reported. Thank you! It will be reviewed shortly.';
+
 			res.status(201).json({
-				message:
-					'Availability reported. Thank you! It will be reviewed shortly.',
+				message,
 				isUpdate: false,
 			});
 		} catch (error) {

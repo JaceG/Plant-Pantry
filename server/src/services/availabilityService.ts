@@ -32,12 +32,21 @@ export const availabilityService = {
 	 *
 	 * For API-sourced products: Always fetch fresh from APIs (no caching)
 	 * For user-contributed products: Return saved availability from database
+	 *
+	 * @param productId - The product ID
+	 * @param options.forceRefresh - Force refresh from API
+	 * @param options.isUserProduct - Whether this is a user-contributed product
+	 * @param options.userId - Current user ID (to show their pending availability)
 	 */
 	async getProductAvailability(
 		productId: string,
-		options: { forceRefresh?: boolean; isUserProduct?: boolean } = {}
+		options: {
+			forceRefresh?: boolean;
+			isUserProduct?: boolean;
+			userId?: string;
+		} = {}
 	): Promise<StoreAvailability[]> {
-		const { forceRefresh = false, isUserProduct = false } = options;
+		const { forceRefresh = false, isUserProduct = false, userId } = options;
 
 		// Validate productId is a valid ObjectId
 		if (!mongoose.Types.ObjectId.isValid(productId)) {
@@ -47,10 +56,29 @@ export const availabilityService = {
 
 		// For user-contributed products, return saved availability from database
 		// Include all sources (admin, user_contribution, etc.) since admins can add availability too
+		// Also include pending availability reported by the current user
 		if (isUserProduct) {
-			const userAvailability = await Availability.find({
+			// Build query: confirmed availability OR pending availability created by current user
+			const query: any = {
 				productId: new mongoose.Types.ObjectId(productId),
-			}).lean();
+				$or: [
+					{ moderationStatus: 'confirmed' },
+					{ moderationStatus: { $exists: false } }, // Legacy entries
+					// Include pending entries if user ID provided and they reported it
+					...(userId
+						? [
+								{
+									moderationStatus: 'pending',
+									reportedBy: new mongoose.Types.ObjectId(
+										userId
+									),
+								},
+						  ]
+						: []),
+				],
+			};
+
+			const userAvailability = await Availability.find(query).lean();
 
 			if (userAvailability.length === 0) {
 				return [];

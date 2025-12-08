@@ -10,6 +10,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 	const navItems = [
 		{ path: '/admin', label: 'Dashboard', icon: '📊', exact: true },
 		{ path: '/admin/pending', label: 'Pending Reports', icon: '📋' },
+		{ path: '/admin/trusted-review', label: 'Trusted Review', icon: '⭐' },
 		{ path: '/admin/products', label: 'Products', icon: '📦' },
 		{ path: '/admin/stores', label: 'Stores', icon: '🏪' },
 		{ path: '/admin/users', label: 'Users', icon: '👥' },

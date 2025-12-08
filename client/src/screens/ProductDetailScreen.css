@@ -203,6 +203,24 @@
   margin-bottom: var(--spacing-md);
 }
 
+.pending-badge-product {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: rgba(209, 107, 85, 0.1);
+  color: var(--color-terracotta);
+  border: 1px solid rgba(209, 107, 85, 0.3);
+  border-radius: 20px;
+  font-size: 0.875rem;
+  margin-bottom: var(--spacing-md);
+}
+
+.pending-badge-product .pending-note {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
 .archived-badge-product {
   display: inline-flex;
   align-items: center;

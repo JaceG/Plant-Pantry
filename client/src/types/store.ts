@@ -21,6 +21,8 @@ export interface ChainInfo {
 	logoUrl?: string;
 }
 
+export type StoreModerationStatus = 'confirmed' | 'pending' | 'rejected';
+
 export interface Store {
 	id: string;
 	name: string;
@@ -40,6 +42,9 @@ export interface Store {
 	chainId?: string;
 	locationIdentifier?: string;
 	chain?: ChainInfo;
+	// Moderation
+	moderationStatus?: StoreModerationStatus;
+	createdBy?: string;
 }
 
 export interface StoreListResponse {

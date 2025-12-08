@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { UserProduct, Availability, Store } from '../models';
+import { UserProduct, Availability, Store, User } from '../models';
 import {
 	ProductSummary,
 	ProductDetail,
@@ -45,9 +45,25 @@ export interface UpdateUserProductInput {
 
 export const userProductService = {
 	/**
+	 * Check if a user is trusted (their contributions bypass moderation)
+	 */
+	async isUserTrusted(userId: string): Promise<boolean> {
+		const user = await User.findById(userId)
+			.select('trustedContributor role')
+			.lean();
+		if (!user) return false;
+		// Admins and moderators are automatically trusted
+		if (user.role === 'admin' || user.role === 'moderator') return true;
+		return user.trustedContributor === true;
+	},
+
+	/**
 	 * Create a new user-contributed product or edit of an API product
 	 */
 	async createProduct(input: CreateUserProductInput): Promise<ProductDetail> {
+		// Check if user is trusted (bypass moderation)
+		const isTrusted = await this.isUserTrusted(input.userId);
+
 		// Check if this is an edit of an existing API product
 		let existingEdit = null;
 		if (input.sourceProductId) {
@@ -72,7 +88,9 @@ export const userProductService = {
 			nutritionSummary: input.nutritionSummary,
 			ingredientSummary: input.ingredientSummary,
 			source: 'user_contribution',
-			status: 'approved',
+			status: isTrusted ? 'approved' : 'pending', // Trusted users' content goes live immediately
+			needsReview: true, // All user content needs review (even trusted)
+			trustedContribution: isTrusted, // Track if from trusted contributor
 		};
 
 		if (input.sourceProductId) {
@@ -110,14 +128,16 @@ export const userProductService = {
 					(avail) => ({
 						productId: product._id,
 						storeId: new mongoose.Types.ObjectId(avail.storeId),
-						status: (avail.status || 'user_reported') as
-							| 'known'
-							| 'user_reported'
-							| 'unknown',
+						moderationStatus: isTrusted
+							? ('confirmed' as const)
+							: ('pending' as const), // Trusted users' content goes live immediately
 						priceRange: avail.priceRange,
 						lastConfirmedAt: new Date(),
 						source: 'user_contribution' as const,
+						reportedBy: new mongoose.Types.ObjectId(input.userId),
 						isStale: false,
+						needsReview: true, // All user content needs review (even trusted)
+						trustedContribution: isTrusted, // Track if from trusted contributor
 					})
 				);
 
@@ -190,6 +210,9 @@ export const userProductService = {
 			return null;
 		}
 
+		// Check if user is trusted (bypass moderation)
+		const isTrusted = await this.isUserTrusted(userId);
+
 		// Build query: admins can edit any product, regular users can only edit their own
 		const query: any = {
 			_id: new mongoose.Types.ObjectId(id),
@@ -225,14 +248,16 @@ export const userProductService = {
 					(avail) => ({
 						productId,
 						storeId: new mongoose.Types.ObjectId(avail.storeId),
-						status: (avail.status || 'user_reported') as
-							| 'known'
-							| 'user_reported'
-							| 'unknown',
+						moderationStatus: isTrusted
+							? ('confirmed' as const)
+							: ('pending' as const), // Trusted users' content goes live immediately
 						priceRange: avail.priceRange,
 						lastConfirmedAt: new Date(),
 						source: 'user_contribution' as const,
+						reportedBy: new mongoose.Types.ObjectId(userId),
 						isStale: false,
+						needsReview: true, // All user content needs review (even trusted)
+						trustedContribution: isTrusted, // Track if from trusted contributor
 					})
 				);
 

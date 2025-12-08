@@ -24,6 +24,11 @@ export interface IAvailability extends Document {
 	moderationStatus: ModerationStatus;
 	moderatedBy?: mongoose.Types.ObjectId; // Admin who moderated
 	moderatedAt?: Date;
+	// Review tracking (separate from moderation status for trusted contributors)
+	needsReview: boolean; // True if content needs admin review
+	trustedContribution: boolean; // True if submitted by a trusted contributor
+	reviewedBy?: mongoose.Types.ObjectId; // Admin who reviewed
+	reviewedAt?: Date;
 
 	// Details
 	priceRange?: string;
@@ -71,7 +76,7 @@ const availabilitySchema = new Schema<IAvailability>(
 		moderationStatus: {
 			type: String,
 			enum: ['confirmed', 'pending', 'rejected'],
-			default: 'confirmed',
+			default: 'pending', // Require moderation for user contributions
 			index: true,
 		},
 		moderatedBy: {
@@ -79,6 +84,24 @@ const availabilitySchema = new Schema<IAvailability>(
 			ref: 'User',
 		},
 		moderatedAt: {
+			type: Date,
+		},
+		// Review tracking (separate from moderation status for trusted contributors)
+		needsReview: {
+			type: Boolean,
+			default: true, // All user content needs review
+			index: true,
+		},
+		trustedContribution: {
+			type: Boolean,
+			default: false, // True if submitted by a trusted contributor
+			index: true,
+		},
+		reviewedBy: {
+			type: Schema.Types.ObjectId,
+			ref: 'User',
+		},
+		reviewedAt: {
 			type: Date,
 		},
 		// Details

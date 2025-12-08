@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
-import { Store, IStore, StoreChain } from '../models';
+import { Store, IStore, StoreChain, User } from '../models';
 import { storeChainService } from './storeChainService';
+import { StoreModerationStatus } from '../models/Store';
 
 export interface ChainInfo {
 	id: string;
@@ -28,6 +29,9 @@ export interface StoreSummary {
 	chainId?: string;
 	locationIdentifier?: string;
 	chain?: ChainInfo;
+	// Moderation fields
+	moderationStatus?: StoreModerationStatus;
+	createdBy?: string;
 }
 
 export interface StoreListResult {
@@ -51,6 +55,8 @@ export interface CreateStoreInput {
 	// Chain fields
 	chainId?: string;
 	locationIdentifier?: string;
+	// User who created the store
+	createdBy?: string;
 }
 
 export interface DuplicateCheckResult {
@@ -60,8 +66,12 @@ export interface DuplicateCheckResult {
 }
 
 // Helper to convert store document to summary
-function toStoreSummary(s: any, chainInfo?: ChainInfo | null): StoreSummary {
-	return {
+function toStoreSummary(
+	s: any,
+	chainInfo?: ChainInfo | null,
+	includeModeration = false
+): StoreSummary {
+	const summary: StoreSummary = {
 		id: s._id.toString(),
 		name: s.name,
 		type: s.type,
@@ -80,13 +90,54 @@ function toStoreSummary(s: any, chainInfo?: ChainInfo | null): StoreSummary {
 		locationIdentifier: s.locationIdentifier,
 		chain: chainInfo || undefined,
 	};
+
+	if (includeModeration) {
+		summary.moderationStatus = s.moderationStatus;
+		summary.createdBy = s.createdBy?.toString();
+	}
+
+	return summary;
+}
+
+// Helper to check if user is trusted
+async function isUserTrusted(userId: string): Promise<boolean> {
+	const user = await User.findById(userId)
+		.select('trustedContributor role')
+		.lean();
+	if (!user) return false;
+	if (user.role === 'admin' || user.role === 'moderator') return true;
+	return user.trustedContributor === true;
 }
 
 export const storeService = {
-	async getStores(includeChainInfo = false): Promise<StoreListResult> {
-		const stores = await Store.find()
+	/**
+	 * Get stores - only returns confirmed stores unless userId is provided
+	 * @param includeChainInfo - Include chain details
+	 * @param userId - If provided, also include pending stores created by this user
+	 */
+	async getStores(
+		includeChainInfo = false,
+		userId?: string
+	): Promise<StoreListResult> {
+		// Build query: only confirmed stores OR pending stores created by the current user
+		const query: any = {
+			$or: [
+				{ moderationStatus: 'confirmed' },
+				{ moderationStatus: { $exists: false } }, // Legacy stores without status
+			],
+		};
+
+		// If user is logged in, also include their pending stores
+		if (userId) {
+			query.$or.push({
+				moderationStatus: 'pending',
+				createdBy: new mongoose.Types.ObjectId(userId),
+			});
+		}
+
+		const stores = await Store.find(query)
 			.select(
-				'name type regionOrScope websiteUrl address city state zipCode country latitude longitude googlePlaceId phoneNumber chainId locationIdentifier'
+				'name type regionOrScope websiteUrl address city state zipCode country latitude longitude googlePlaceId phoneNumber chainId locationIdentifier moderationStatus createdBy'
 			)
 			.sort({ name: 1 })
 			.lean();
@@ -127,7 +178,7 @@ export const storeService = {
 				s.chainId && chainMap
 					? chainMap.get(s.chainId.toString()) || null
 					: null;
-			return toStoreSummary(s, chainInfo);
+			return toStoreSummary(s, chainInfo, true);
 		});
 
 		return { items };
@@ -163,6 +214,12 @@ export const storeService = {
 	},
 
 	async createStore(input: CreateStoreInput): Promise<StoreSummary> {
+		// Check if user is trusted (bypass moderation)
+		const isTrusted = input.createdBy
+			? await isUserTrusted(input.createdBy)
+			: true; // Admin-created stores are confirmed
+		const isUserCreated = !!input.createdBy; // Track if this is user-created
+
 		const storeData: any = { ...input };
 
 		// Convert chainId string to ObjectId if provided
@@ -170,30 +227,71 @@ export const storeService = {
 			storeData.chainId = new mongoose.Types.ObjectId(input.chainId);
 		}
 
+		// Convert createdBy to ObjectId if provided
+		if (input.createdBy) {
+			storeData.createdBy = new mongoose.Types.ObjectId(input.createdBy);
+		}
+
+		// Set moderation status based on trusted status
+		storeData.moderationStatus = isTrusted ? 'confirmed' : 'pending';
+
+		// Set review tracking fields (all user-created content needs review)
+		storeData.needsReview = isUserCreated; // Admin-created stores don't need review
+		storeData.trustedContribution = isUserCreated && isTrusted; // Track if from trusted contributor
+
 		const store = await Store.create(storeData);
 
-		// Update chain location count if assigned to a chain
-		if (input.chainId) {
+		// Update chain location count if assigned to a chain (only for confirmed stores)
+		if (input.chainId && storeData.moderationStatus === 'confirmed') {
 			await storeChainService.updateLocationCount(input.chainId);
 		}
 
-		return toStoreSummary(store, null);
+		return toStoreSummary(store, null, true);
 	},
 
 	async searchStores(
 		query: string,
-		includeChainInfo = false
+		includeChainInfo = false,
+		userId?: string
 	): Promise<StoreListResult> {
-		const stores = await Store.find({
-			$or: [
-				{ name: { $regex: query, $options: 'i' } },
-				{ address: { $regex: query, $options: 'i' } },
-				{ city: { $regex: query, $options: 'i' } },
-				{ locationIdentifier: { $regex: query, $options: 'i' } },
+		// Build query: only confirmed stores OR pending stores created by the current user
+		const searchQuery: any = {
+			$and: [
+				{
+					$or: [
+						{ name: { $regex: query, $options: 'i' } },
+						{ address: { $regex: query, $options: 'i' } },
+						{ city: { $regex: query, $options: 'i' } },
+						{
+							locationIdentifier: {
+								$regex: query,
+								$options: 'i',
+							},
+						},
+					],
+				},
+				{
+					$or: [
+						{ moderationStatus: 'confirmed' },
+						{ moderationStatus: { $exists: false } }, // Legacy stores
+						...(userId
+							? [
+									{
+										moderationStatus: 'pending',
+										createdBy: new mongoose.Types.ObjectId(
+											userId
+										),
+									},
+							  ]
+							: []),
+					],
+				},
 			],
-		})
+		};
+
+		const stores = await Store.find(searchQuery)
 			.select(
-				'name type regionOrScope websiteUrl address city state zipCode country latitude longitude googlePlaceId phoneNumber chainId locationIdentifier'
+				'name type regionOrScope websiteUrl address city state zipCode country latitude longitude googlePlaceId phoneNumber chainId locationIdentifier moderationStatus createdBy'
 			)
 			.sort({ name: 1 })
 			.limit(20)
@@ -234,7 +332,7 @@ export const storeService = {
 				s.chainId && chainMap
 					? chainMap.get(s.chainId.toString()) || null
 					: null;
-			return toStoreSummary(s, chainInfo);
+			return toStoreSummary(s, chainInfo, true);
 		});
 
 		return { items };

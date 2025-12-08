@@ -4,6 +4,7 @@ import {
 	AdminStore,
 	AdminStoreChain,
 	StoresGroupedResponse,
+	PendingStore,
 } from '../../api/adminApi';
 import { AdminLayout } from './AdminLayout';
 import { Button } from '../../components/Common/Button';
@@ -16,7 +17,7 @@ type StoreFilter =
 	| 'online_retailer'
 	| 'brand_direct';
 
-type ViewMode = 'list' | 'grouped';
+type ViewMode = 'list' | 'grouped' | 'pending';
 
 type SortField = 'name' | 'regionOrScope' | 'createdAt';
 type SortDirection = 'asc' | 'desc';
@@ -66,6 +67,14 @@ export function AdminStores() {
 
 	// Chains state
 	const [chains, setChains] = useState<AdminStoreChain[]>([]);
+
+	// Pending stores state
+	const [pendingStores, setPendingStores] = useState<PendingStore[]>([]);
+	const [pendingTotal, setPendingTotal] = useState(0);
+	const [pendingPage, setPendingPage] = useState(1);
+	const [moderatingStoreId, setModeratingStoreId] = useState<string | null>(
+		null
+	);
 
 	// Sorting state
 	const [sortField, setSortField] = useState<SortField>('name');
@@ -192,17 +201,86 @@ export function AdminStores() {
 		}
 	}, []);
 
+	// Fetch pending stores
+	const fetchPendingStores = useCallback(async () => {
+		try {
+			setLoading(true);
+			const response = await adminApi.getPendingStores(pendingPage, 20);
+			setPendingStores(response.items);
+			setPendingTotal(response.total);
+		} catch (err) {
+			setError(
+				err instanceof Error
+					? err.message
+					: 'Failed to load pending stores'
+			);
+		} finally {
+			setLoading(false);
+		}
+	}, [pendingPage]);
+
+	// Handle approve store
+	const handleApproveStore = async (storeId: string) => {
+		setModeratingStoreId(storeId);
+		try {
+			await adminApi.approveStore(storeId);
+			setPendingStores(pendingStores.filter((s) => s.id !== storeId));
+			setPendingTotal((prev) => prev - 1);
+			setToast({
+				message: 'Store approved successfully',
+				type: 'success',
+			});
+		} catch (err) {
+			setToast({ message: 'Failed to approve store', type: 'error' });
+		} finally {
+			setModeratingStoreId(null);
+		}
+	};
+
+	// Handle reject store
+	const handleRejectStore = async (storeId: string) => {
+		if (!window.confirm('Are you sure you want to reject this store?'))
+			return;
+
+		setModeratingStoreId(storeId);
+		try {
+			await adminApi.rejectStore(storeId);
+			setPendingStores(pendingStores.filter((s) => s.id !== storeId));
+			setPendingTotal((prev) => prev - 1);
+			setToast({ message: 'Store rejected', type: 'success' });
+		} catch (err) {
+			setToast({ message: 'Failed to reject store', type: 'error' });
+		} finally {
+			setModeratingStoreId(null);
+		}
+	};
+
 	useEffect(() => {
 		fetchChains();
 	}, [fetchChains]);
 
 	useEffect(() => {
-		if (viewMode === 'list') {
+		if (viewMode === 'pending') {
+			fetchPendingStores();
+		} else if (viewMode === 'list') {
 			fetchStores();
 		} else {
 			fetchGroupedStores();
 		}
-	}, [viewMode, fetchStores, fetchGroupedStores]);
+	}, [viewMode, fetchStores, fetchGroupedStores, fetchPendingStores]);
+
+	// Also fetch pending count on initial load to show badge
+	useEffect(() => {
+		const fetchPendingCount = async () => {
+			try {
+				const response = await adminApi.getPendingStores(1, 1);
+				setPendingTotal(response.total);
+			} catch (err) {
+				// Silently fail - not critical
+			}
+		};
+		fetchPendingCount();
+	}, []);
 
 	const handleDelete = async (storeId: string, storeName: string) => {
 		if (
@@ -542,6 +620,13 @@ export function AdminStores() {
 							}`}
 							onClick={() => setViewMode('grouped')}>
 							🏬 Grouped
+						</button>
+						<button
+							className={`view-btn ${
+								viewMode === 'pending' ? 'active' : ''
+							} ${pendingTotal > 0 ? 'has-pending' : ''}`}
+							onClick={() => setViewMode('pending')}>
+							⏳ Pending {pendingTotal > 0 && `(${pendingTotal})`}
 						</button>
 					</div>
 
@@ -1076,6 +1161,195 @@ export function AdminStores() {
 								</div>
 							)}
 						</div>
+					</div>
+				)}
+
+				{/* Pending Stores View */}
+				{viewMode === 'pending' && (
+					<div className='pending-stores-view'>
+						{pendingStores.length === 0 ? (
+							<div className='empty-state'>
+								<span className='empty-icon'>✅</span>
+								<h2>No Pending Stores</h2>
+								<p>All store submissions have been reviewed.</p>
+							</div>
+						) : (
+							<>
+								<div className='pending-stores-list'>
+									{pendingStores.map((store) => (
+										<div
+											key={store.id}
+											className='pending-store-card'>
+											<div className='pending-store-header'>
+												<span className='store-icon'>
+													{store.type ===
+														'brick_and_mortar' &&
+														'🏪'}
+													{store.type ===
+														'online_retailer' &&
+														'🌐'}
+													{store.type ===
+														'brand_direct' && '🏷️'}
+												</span>
+												<div className='pending-store-info'>
+													<h3>{store.name}</h3>
+													<span className='pending-store-type'>
+														{store.type ===
+															'brick_and_mortar' &&
+															'Physical Store'}
+														{store.type ===
+															'online_retailer' &&
+															'Online Retailer'}
+														{store.type ===
+															'brand_direct' &&
+															'Brand Direct'}
+													</span>
+												</div>
+											</div>
+
+											<div className='pending-store-details'>
+												{store.address && (
+													<div className='detail-row'>
+														<span className='detail-label'>
+															Address:
+														</span>
+														<span className='detail-value'>
+															{store.address}
+															{store.city &&
+																`, ${store.city}`}
+															{store.state &&
+																`, ${store.state}`}
+															{store.zipCode &&
+																` ${store.zipCode}`}
+														</span>
+													</div>
+												)}
+												{store.websiteUrl && (
+													<div className='detail-row'>
+														<span className='detail-label'>
+															Website:
+														</span>
+														<a
+															href={
+																store.websiteUrl
+															}
+															target='_blank'
+															rel='noopener noreferrer'>
+															{store.websiteUrl}
+														</a>
+													</div>
+												)}
+												{store.phoneNumber && (
+													<div className='detail-row'>
+														<span className='detail-label'>
+															Phone:
+														</span>
+														<span className='detail-value'>
+															{store.phoneNumber}
+														</span>
+													</div>
+												)}
+												{store.createdBy && (
+													<div className='detail-row'>
+														<span className='detail-label'>
+															Submitted by:
+														</span>
+														<span className='detail-value'>
+															{store.createdBy
+																.displayName ||
+																store.createdBy
+																	.email}
+														</span>
+													</div>
+												)}
+												<div className='detail-row'>
+													<span className='detail-label'>
+														Submitted:
+													</span>
+													<span className='detail-value'>
+														{new Date(
+															store.createdAt
+														).toLocaleDateString()}
+													</span>
+												</div>
+											</div>
+
+											<div className='pending-store-actions'>
+												<Button
+													variant='primary'
+													size='sm'
+													onClick={() =>
+														handleApproveStore(
+															store.id
+														)
+													}
+													isLoading={
+														moderatingStoreId ===
+														store.id
+													}
+													disabled={
+														moderatingStoreId !==
+														null
+													}>
+													✅ Approve
+												</Button>
+												<Button
+													variant='secondary'
+													size='sm'
+													onClick={() =>
+														handleRejectStore(
+															store.id
+														)
+													}
+													isLoading={
+														moderatingStoreId ===
+														store.id
+													}
+													disabled={
+														moderatingStoreId !==
+														null
+													}>
+													❌ Reject
+												</Button>
+											</div>
+										</div>
+									))}
+								</div>
+
+								{/* Pagination for pending stores */}
+								{pendingTotal > 20 && (
+									<div className='pagination'>
+										<Button
+											onClick={() =>
+												setPendingPage((p) =>
+													Math.max(1, p - 1)
+												)
+											}
+											disabled={pendingPage === 1}
+											variant='secondary'
+											size='sm'>
+											← Previous
+										</Button>
+										<span className='page-info'>
+											Page {pendingPage} of{' '}
+											{Math.ceil(pendingTotal / 20)}
+										</span>
+										<Button
+											onClick={() =>
+												setPendingPage((p) => p + 1)
+											}
+											disabled={
+												pendingPage >=
+												Math.ceil(pendingTotal / 20)
+											}
+											variant='secondary'
+											size='sm'>
+											Next →
+										</Button>
+									</div>
+								)}
+							</>
+						)}
 					</div>
 				)}
 			</div>

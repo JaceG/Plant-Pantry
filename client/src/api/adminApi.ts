@@ -6,22 +6,31 @@ export interface DashboardStats {
 		apiSourced: number;
 		userContributed: number;
 		pendingApproval: number;
+		trustedPendingReview: number;
 	};
 	stores: {
 		total: number;
 		physical: number;
 		online: number;
 		brandDirect: number;
+		pendingApproval: number;
+		trustedPendingReview: number;
 	};
 	users: {
 		total: number;
 		admins: number;
 		moderators: number;
 		regularUsers: number;
+		trustedContributors: number;
 	};
 	availability: {
 		total: number;
 		userContributed: number;
+		pendingApproval: number;
+		trustedPendingReview: number;
+	};
+	reviews: {
+		pendingApproval: number;
 	};
 	recentActivity: {
 		newProductsThisWeek: number;
@@ -63,9 +72,32 @@ export interface AdminUser {
 	email: string;
 	displayName: string;
 	role: string;
+	trustedContributor: boolean;
+	trustedAt?: string;
 	createdAt: string;
 	lastLogin?: string;
 	productsContributed: number;
+}
+
+export interface PendingStore {
+	id: string;
+	name: string;
+	type: string;
+	regionOrScope: string;
+	address?: string;
+	city?: string;
+	state?: string;
+	zipCode?: string;
+	websiteUrl?: string;
+	phoneNumber?: string;
+	googlePlaceId?: string;
+	moderationStatus: string;
+	createdBy?: {
+		id: string;
+		email: string;
+		displayName?: string;
+	};
+	createdAt: string;
 }
 
 export interface AdminStore {
@@ -350,6 +382,87 @@ export const adminApi = {
 		return httpClient.put<{ message: string }>(
 			`/admin/users/${userId}/role`,
 			{ role }
+		);
+	},
+
+	setUserTrustedStatus(
+		userId: string,
+		trusted: boolean
+	): Promise<{ message: string }> {
+		return httpClient.put<{ message: string }>(
+			`/admin/users/${userId}/trusted`,
+			{ trusted }
+		);
+	},
+
+	// Pending Stores
+	getPendingStores(
+		page: number = 1,
+		pageSize: number = 20
+	): Promise<PaginatedResponse<PendingStore>> {
+		return httpClient.get<PaginatedResponse<PendingStore>>(
+			`/admin/stores/pending?page=${page}&pageSize=${pageSize}`
+		);
+	},
+
+	approveStore(storeId: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/stores/${storeId}/approve`,
+			{}
+		);
+	},
+
+	rejectStore(storeId: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/stores/${storeId}/reject`,
+			{}
+		);
+	},
+
+	// Trusted Contributor Review
+	getTrustedProductsPendingReview(
+		page: number = 1,
+		pageSize: number = 20
+	): Promise<PaginatedResponse<PendingProduct>> {
+		return httpClient.get<PaginatedResponse<PendingProduct>>(
+			`/admin/trusted-review/products?page=${page}&pageSize=${pageSize}`
+		);
+	},
+
+	getTrustedStoresPendingReview(
+		page: number = 1,
+		pageSize: number = 20
+	): Promise<PaginatedResponse<PendingStore>> {
+		return httpClient.get<PaginatedResponse<PendingStore>>(
+			`/admin/trusted-review/stores?page=${page}&pageSize=${pageSize}`
+		);
+	},
+
+	approveTrustedProduct(productId: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/trusted-review/products/${productId}/approve`,
+			{}
+		);
+	},
+
+	rejectTrustedProduct(productId: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/trusted-review/products/${productId}/reject`,
+			{}
+		);
+	},
+
+	approveTrustedStore(storeId: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/trusted-review/stores/${storeId}/approve`,
+			{}
+		);
+	},
+
+	rejectTrustedStore(storeId: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/trusted-review/stores/${storeId}/reject`,
+			{}
 		);
 	},
 

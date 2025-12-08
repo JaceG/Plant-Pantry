@@ -30,6 +30,8 @@ export interface ProductFilters {
 	// Location-based filtering
 	city?: string;
 	state?: string;
+	// User ID for showing pending items to their creator
+	userId?: string;
 }
 
 export interface ProductSummary {
@@ -101,6 +103,7 @@ export interface ProductDetail {
 	_userId?: string; // For user products
 	_archived?: boolean; // For admin panel
 	_archivedAt?: string; // For admin panel
+	_status?: 'pending' | 'approved' | 'rejected'; // For user products moderation status
 }
 
 export const productService = {
@@ -322,11 +325,25 @@ export const productService = {
 
 			// Query both Product and UserProduct collections
 			// Only include approved, non-archived user products
+			// ALSO include pending products created by the current user
 			// Exclude archived products from public listings
 			const userProductQuery: any = {
 				...query,
-				status: 'approved', // Only show approved user products
 				archived: { $ne: true }, // Exclude archived products
+				$or: [
+					{ status: 'approved' }, // Show approved products to everyone
+					// Show pending products to their creator
+					...(filters.userId
+						? [
+								{
+									status: 'pending',
+									userId: new mongoose.Types.ObjectId(
+										filters.userId
+									),
+								},
+						  ]
+						: []),
+				],
 			};
 
 			// Exclude archived API products
@@ -621,7 +638,11 @@ export const productService = {
 
 	async getProductById(
 		id: string,
-		options: { refreshAvailability?: boolean; allowArchived?: boolean } = {}
+		options: {
+			refreshAvailability?: boolean;
+			allowArchived?: boolean;
+			userId?: string;
+		} = {}
 	): Promise<ProductDetail | null> {
 		if (!mongoose.Types.ObjectId.isValid(id)) {
 			return null;
@@ -637,11 +658,28 @@ export const productService = {
 			: { archived: { $ne: true } };
 
 		// First, check if there's an edited version (UserProduct with sourceProductId matching this ID)
-		const editedProduct = await UserProduct.findOne({
+		// Also check for pending products owned by the current user
+		const editedProductQuery: any = {
 			sourceProductId: productId,
-			status: 'approved',
 			...archivedCondition,
-		}).lean();
+			$or: [
+				{ status: 'approved' },
+				// Show pending to the creator
+				...(options.userId
+					? [
+							{
+								status: 'pending',
+								userId: new mongoose.Types.ObjectId(
+									options.userId
+								),
+							},
+					  ]
+					: []),
+			],
+		};
+		const editedProduct = await UserProduct.findOne(
+			editedProductQuery
+		).lean();
 
 		if (editedProduct) {
 			// Return the edited version instead of the original
@@ -656,10 +694,28 @@ export const productService = {
 
 			// If not found in Product, try UserProduct by ID (user-contributed products)
 			if (!product) {
-				const userProduct = await UserProduct.findOne({
+				// Also check for pending products owned by the current user
+				const userProductQuery: any = {
 					_id: productId,
 					...archivedCondition,
-				}).lean();
+					$or: [
+						{ status: 'approved' },
+						// Show pending to the creator
+						...(options.userId
+							? [
+									{
+										status: 'pending',
+										userId: new mongoose.Types.ObjectId(
+											options.userId
+										),
+									},
+							  ]
+							: []),
+					],
+				};
+				const userProduct = await UserProduct.findOne(
+					userProductQuery
+				).lean();
 				if (userProduct) {
 					product = userProduct;
 					isUserProduct = true;
@@ -672,12 +728,14 @@ export const productService = {
 		// Get availability
 		// For user products: fetch from database (user-contributed)
 		// For API products: always fetch fresh from APIs (no caching)
+		// Pass userId to show pending availability to its creator
 		const storeAvailabilities =
 			await availabilityService.getProductAvailability(
 				product._id.toString(),
 				{
 					forceRefresh: options.refreshAvailability,
 					isUserProduct: isUserProduct,
+					userId: options.userId, // Pass userId to show their pending availability
 				}
 			);
 
@@ -789,6 +847,7 @@ export const productService = {
 					? product.archivedAt.toISOString()
 					: product.archivedAt
 				: undefined,
+			_status: isUserProduct ? (product as any).status : undefined,
 		};
 	},
 
