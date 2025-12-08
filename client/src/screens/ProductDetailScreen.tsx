@@ -566,7 +566,9 @@ export function ProductDetailScreen() {
 				<nav className='breadcrumb'>
 					<Link to='/'>Products</Link>
 					<span className='separator'>/</span>
-					<span>{product.brand}</span>
+					<Link to={`/brands/${encodeURIComponent(product.brand)}`}>
+						{product.brand}
+					</Link>
 					{isAdmin && (
 						<>
 							<span className='separator'>/</span>
@@ -598,7 +600,11 @@ export function ProductDetailScreen() {
 					</div>
 
 					<div className='detail-info-section'>
-						<span className='detail-brand'>{product.brand}</span>
+						<Link
+							to={`/brands/${encodeURIComponent(product.brand)}`}
+							className='detail-brand'>
+							{product.brand}
+						</Link>
 						<h1 className='detail-name'>{product.name}</h1>
 						<span className='detail-size'>
 							{product.sizeOrVariant}
@@ -762,8 +768,11 @@ export function ProductDetailScreen() {
 									<div className='chain-badges'>
 										{groupedAvailability.chainGroups.map(
 											({ chain, items }) => (
-												<span
+												<Link
 													key={chain.id}
+													to={`/brands/${encodeURIComponent(
+														chain.name
+													)}`}
 													className='chain-avail-badge'
 													title={`${
 														items.length
@@ -771,12 +780,14 @@ export function ProductDetailScreen() {
 														items.length !== 1
 															? 's'
 															: ''
-													}`}>
+													} - View all ${
+														chain.name
+													} products`}>
 													✓ {chain.name}
 													<span className='badge-count'>
 														({items.length})
 													</span>
-												</span>
+												</Link>
 											)
 										)}
 									</div>
@@ -817,9 +828,16 @@ export function ProductDetailScreen() {
 														: '▶'}
 												</span>
 												<div className='chain-group-info'>
-													<h3 className='chain-group-name'>
+													<Link
+														to={`/brands/${encodeURIComponent(
+															chain.name
+														)}`}
+														className='chain-group-name'
+														onClick={(e) =>
+															e.stopPropagation()
+														}>
 														{chain.name}
-													</h3>
+													</Link>
 													<span className='chain-group-count'>
 														{items.length} location
 														{items.length !== 1
@@ -966,9 +984,13 @@ export function ProductDetailScreen() {
 																</button>
 															)}
 														</div>
-														<h4 className='store-name'>
+														<Link
+															to={`/brands/${encodeURIComponent(
+																avail.storeName
+															)}`}
+															className='store-name store-name-link'>
 															{avail.storeName}
-														</h4>
+														</Link>
 														<span className='store-region'>
 															{avail.address
 																? `${

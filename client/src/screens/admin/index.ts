@@ -8,6 +8,7 @@ export { AdminReviews } from './AdminReviews';
 export { AdminFeaturedProducts } from './AdminFeaturedProducts';
 export { AdminCityPages } from './AdminCityPages';
 export { AdminCityPageEditor } from './AdminCityPageEditor';
+export { AdminCityContentEdits } from './AdminCityContentEdits';
 export { AdminStoreAvailability } from './AdminStoreAvailability';
 export { AdminPendingReports } from './AdminPendingReports';
 export { AdminTrustedReview } from './AdminTrustedReview';

@@ -624,6 +624,10 @@
 	-webkit-line-clamp: 2;
 	-webkit-box-orient: vertical;
 	overflow: hidden;
+	word-wrap: break-word;
+	word-break: break-word;
+	overflow-wrap: break-word;
+	white-space: normal;
 }
 
 .store-detail-view .product-card .product-brand {
@@ -634,6 +638,16 @@
 	display: block !important;
 	text-transform: none !important;
 	letter-spacing: normal !important;
+}
+
+.store-detail-view .product-card .product-brand-link {
+	cursor: pointer;
+	transition: color var(--transition-fast);
+}
+
+.store-detail-view .product-card .product-brand-link:hover {
+	color: var(--color-forest);
+	text-decoration: underline;
 }
 
 .store-detail-view .product-card .product-price {
@@ -691,6 +705,282 @@
 
 .city-landing-screen .empty-hint a:hover {
 	text-decoration: underline;
+}
+
+/* ================================
+   EDIT MODE STYLES
+   ================================ */
+
+.edit-page-toggle {
+	margin-left: var(--spacing-md);
+	padding: 4px 12px;
+	background: rgba(255, 255, 255, 0.2);
+	border: 1px solid rgba(255, 255, 255, 0.3);
+	border-radius: var(--radius-full);
+	color: white;
+	font-size: 0.75rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.edit-page-toggle:hover {
+	background: rgba(255, 255, 255, 0.3);
+}
+
+.edit-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	margin-left: var(--spacing-sm);
+	background: rgba(255, 255, 255, 0.2);
+	border: 1px solid rgba(255, 255, 255, 0.3);
+	border-radius: var(--radius-full);
+	cursor: pointer;
+	font-size: 0.85rem;
+	opacity: 0.7;
+	transition: all var(--transition-fast);
+	vertical-align: middle;
+}
+
+.edit-btn:hover {
+	opacity: 1;
+	background: rgba(255, 255, 255, 0.3);
+}
+
+.edit-btn-description {
+	position: absolute;
+	top: 0;
+	right: 0;
+}
+
+.city-description {
+	position: relative;
+}
+
+/* Edit Field Container */
+.edit-field-container {
+	background: rgba(255, 255, 255, 0.15);
+	backdrop-filter: blur(8px);
+	border-radius: var(--radius-lg);
+	padding: var(--spacing-lg);
+	margin-bottom: var(--spacing-md);
+	max-width: 800px;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+.edit-description-container {
+	max-width: 1300px;
+	text-align: left;
+}
+
+.edit-input {
+	width: 100%;
+	padding: var(--spacing-md);
+	border: 2px solid rgba(255, 255, 255, 0.3);
+	border-radius: var(--radius-md);
+	background: rgba(255, 255, 255, 0.1);
+	color: white;
+	font-family: var(--font-body);
+	font-size: 1rem;
+	transition: border-color var(--transition-fast);
+	box-sizing: border-box;
+}
+
+.edit-input:focus {
+	outline: none;
+	border-color: rgba(255, 255, 255, 0.6);
+}
+
+.edit-input::placeholder {
+	color: rgba(255, 255, 255, 0.5);
+}
+
+.edit-title-input {
+	font-family: var(--font-display);
+	font-size: 1.5rem;
+	font-weight: 700;
+}
+
+.edit-headline-input {
+	font-size: 1.1rem;
+}
+
+.edit-description-input {
+	min-height: 150px;
+	resize: vertical;
+	line-height: 1.7;
+}
+
+.edit-reason-input {
+	width: 100%;
+	padding: var(--spacing-sm) var(--spacing-md);
+	margin-top: var(--spacing-sm);
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	border-radius: var(--radius-md);
+	background: rgba(255, 255, 255, 0.05);
+	color: rgba(255, 255, 255, 0.8);
+	font-family: var(--font-body);
+	font-size: 0.85rem;
+	box-sizing: border-box;
+}
+
+.edit-reason-input:focus {
+	outline: none;
+	border-color: rgba(255, 255, 255, 0.4);
+}
+
+.edit-reason-input::placeholder {
+	color: rgba(255, 255, 255, 0.4);
+}
+
+.edit-message {
+	margin-top: var(--spacing-sm);
+	padding: var(--spacing-sm) var(--spacing-md);
+	border-radius: var(--radius-md);
+	font-size: 0.85rem;
+}
+
+.edit-message.success {
+	background: rgba(16, 185, 129, 0.2);
+	color: #6ee7b7;
+}
+
+.edit-message.error {
+	background: rgba(239, 68, 68, 0.2);
+	color: #fca5a5;
+}
+
+.edit-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--spacing-sm);
+	margin-top: var(--spacing-md);
+}
+
+.edit-cancel,
+.edit-submit {
+	padding: var(--spacing-sm) var(--spacing-lg);
+	border-radius: var(--radius-md);
+	font-weight: 500;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.edit-cancel {
+	background: transparent;
+	border: 1px solid rgba(255, 255, 255, 0.3);
+	color: white;
+}
+
+.edit-cancel:hover {
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.edit-submit {
+	background: var(--color-forest);
+	border: none;
+	color: white;
+}
+
+.edit-submit:hover:not(:disabled) {
+	background: var(--color-sage-dark);
+}
+
+.edit-submit:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* ================================
+   CONTRIBUTION SECTION
+   ================================ */
+
+.contribution-section {
+	margin-top: var(--spacing-xl);
+	padding-top: var(--spacing-lg);
+	border-top: 1px dashed var(--color-sage-light);
+}
+
+.suggest-store-btn {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	padding: var(--spacing-lg);
+	background: linear-gradient(135deg, var(--color-sage-light), var(--color-cream));
+	border: 2px dashed var(--color-sage);
+	border-radius: var(--radius-lg);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	text-align: left;
+}
+
+.suggest-store-btn:hover {
+	border-color: var(--color-forest);
+	background: linear-gradient(135deg, var(--color-mint), var(--color-sage-light));
+	transform: translateY(-2px);
+	box-shadow: var(--shadow-md);
+}
+
+.suggest-store-btn .btn-icon {
+	font-size: 1.75rem;
+	margin-right: var(--spacing-md);
+}
+
+.suggest-store-btn .btn-text {
+	flex: 1;
+	font-family: var(--font-body);
+	color: var(--color-stone);
+	font-size: 0.9rem;
+	line-height: 1.4;
+}
+
+.suggest-store-btn .btn-text strong {
+	display: block;
+	color: var(--color-forest);
+	font-size: 1rem;
+	margin-top: 2px;
+}
+
+.suggest-store-btn .btn-arrow {
+	font-size: 1.25rem;
+	color: var(--color-sage);
+	transition: transform var(--transition-fast);
+}
+
+.suggest-store-btn:hover .btn-arrow {
+	transform: translateX(4px);
+	color: var(--color-forest);
+}
+
+/* Products Header */
+.products-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: var(--spacing-lg);
+}
+
+.products-header .products-title {
+	margin: 0;
+}
+
+.add-product-btn {
+	padding: var(--spacing-sm) var(--spacing-md);
+	background: var(--color-forest);
+	color: white;
+	border: none;
+	border-radius: var(--radius-md);
+	font-weight: 500;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.add-product-btn:hover {
+	background: var(--color-sage-dark);
 }
 
 /* Responsive */

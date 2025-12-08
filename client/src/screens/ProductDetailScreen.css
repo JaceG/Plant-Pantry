@@ -160,6 +160,13 @@
   letter-spacing: 1px;
   color: var(--color-sage-dark);
   margin-bottom: var(--spacing-xs);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.detail-brand:hover {
+  color: var(--color-forest);
+  text-decoration: underline;
 }
 
 .detail-name {
@@ -390,6 +397,17 @@
   margin: 0 0 var(--spacing-xs) 0;
 }
 
+.store-name-link {
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  display: block;
+}
+
+.store-name-link:hover {
+  color: var(--color-forest);
+  text-decoration: underline;
+}
+
 .store-region {
   display: block;
   font-family: var(--font-body);
@@ -569,6 +587,8 @@
   font-weight: 500;
   color: var(--color-forest);
   transition: all 0.2s ease;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .chain-avail-badge:hover {
@@ -630,6 +650,13 @@
   font-weight: 600;
   color: var(--color-charcoal);
   margin: 0;
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.chain-group-name:hover {
+  color: var(--color-forest);
+  text-decoration: underline;
 }
 
 .chain-group-count {

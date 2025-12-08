@@ -15,6 +15,7 @@ import {
 	HomeScreen,
 	LandingScreen,
 	ProductDetailScreen,
+	BrandScreen,
 	ShoppingListScreen,
 	AddProductScreen,
 	LoginScreen,
@@ -32,6 +33,7 @@ import {
 	AdminFeaturedProducts,
 	AdminCityPages,
 	AdminCityPageEditor,
+	AdminCityContentEdits,
 	AdminStoreAvailability,
 	AdminPendingReports,
 	AdminTrustedReview,
@@ -166,6 +168,14 @@ function AppContent() {
 					}
 				/>
 				<Route
+					path='/admin/city-edits'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminCityContentEdits />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
 					path='/admin/availability'
 					element={
 						<ProtectedRoute requireAdmin>
@@ -196,6 +206,10 @@ function AppContent() {
 					<Route
 						path='/products/:id'
 						element={<ProductDetailScreen />}
+					/>
+					<Route
+						path='/brands/:brandName'
+						element={<BrandScreen />}
 					/>
 					<Route path='/login' element={<LoginScreen />} />
 					<Route path='/signup' element={<SignupScreen />} />

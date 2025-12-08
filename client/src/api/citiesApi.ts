@@ -79,6 +79,56 @@ export interface CityProductsResponse {
 	totalPages: number;
 }
 
+export type CityContentEditField = 'cityName' | 'headline' | 'description';
+
+export interface ContentEditSubmission {
+	field: CityContentEditField;
+	suggestedValue: string;
+	reason?: string;
+}
+
+export interface StoreSuggestion {
+	name: string;
+	type?: string;
+	address?: string;
+	zipCode?: string;
+	websiteUrl?: string;
+	phoneNumber?: string;
+	latitude?: number;
+	longitude?: number;
+	googlePlaceId?: string;
+}
+
+export interface ProductAvailabilityReport {
+	productId: string;
+	priceRange?: string;
+	notes?: string;
+}
+
+export interface UserContributions {
+	contentEdits: Array<{
+		id: string;
+		field: string;
+		originalValue: string;
+		suggestedValue: string;
+		status: string;
+		createdAt: string;
+	}>;
+	stores: Array<{
+		id: string;
+		name: string;
+		moderationStatus: string;
+		createdAt: string;
+	}>;
+	availabilityReports: Array<{
+		id: string;
+		productId: string;
+		storeId: string;
+		moderationStatus: string;
+		createdAt: string;
+	}>;
+}
+
 export const citiesApi = {
 	/**
 	 * Reverse geocode coordinates to city/state using Google Maps API
@@ -150,6 +200,69 @@ export const citiesApi = {
 	): Promise<{ products: StoreProduct[] }> {
 		return httpClient.get<{ products: StoreProduct[] }>(
 			`/cities/${slug}/stores/${storeId}/products`
+		);
+	},
+
+	// ============================================
+	// USER CONTRIBUTION ENDPOINTS
+	// ============================================
+
+	/**
+	 * Submit a suggested edit to city page content
+	 */
+	suggestEdit(
+		slug: string,
+		data: ContentEditSubmission
+	): Promise<{
+		message: string;
+		edit: { id: string; field: string; status: string };
+	}> {
+		return httpClient.post(`/cities/${slug}/suggest-edit`, data);
+	},
+
+	/**
+	 * Suggest a new store in this city
+	 */
+	suggestStore(
+		slug: string,
+		data: StoreSuggestion
+	): Promise<{
+		message: string;
+		store: {
+			id: string;
+			name: string;
+			city: string;
+			state: string;
+			moderationStatus: string;
+		};
+	}> {
+		return httpClient.post(`/cities/${slug}/stores`, data);
+	},
+
+	/**
+	 * Report a product at a store
+	 */
+	reportProductAtStore(
+		slug: string,
+		storeId: string,
+		data: ProductAvailabilityReport
+	): Promise<{
+		message: string;
+		isNew: boolean;
+		availability?: { id: string; moderationStatus: string };
+	}> {
+		return httpClient.post(
+			`/cities/${slug}/stores/${storeId}/products`,
+			data
+		);
+	},
+
+	/**
+	 * Get user's contributions for this city
+	 */
+	getMyContributions(slug: string): Promise<UserContributions> {
+		return httpClient.get<UserContributions>(
+			`/cities/${slug}/my-contributions`
 		);
 	},
 };

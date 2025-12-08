@@ -115,14 +115,24 @@ router.get(
 	optionalAuthMiddleware,
 	async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const { q, category, tag, minRating, page, pageSize, city, state } =
-				req.query;
+			const {
+				q,
+				category,
+				tag,
+				brand,
+				minRating,
+				page,
+				pageSize,
+				city,
+				state,
+			} = req.query;
 			const userId = req.userId; // From optional auth
 
 			const result = await productService.getProducts({
 				q: q as string | undefined,
 				category: category as string | undefined,
 				tag: tag as string | undefined,
+				brand: brand as string | undefined,
 				minRating: minRating
 					? parseFloat(minRating as string)
 					: undefined,

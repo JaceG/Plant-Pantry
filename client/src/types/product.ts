@@ -94,6 +94,7 @@ export interface ProductFilters {
 	q?: string;
 	category?: string;
 	tag?: string;
+	brand?: string;
 	minRating?: number;
 	page?: number;
 	pageSize?: number;

@@ -62,7 +62,9 @@ export function Header({ defaultListId }: HeaderProps) {
 		[navigate]
 	);
 
-	const isHomePage = location.pathname === '/';
+	// Hide header search bar on pages that have their own search bar
+	const isSearchPage =
+		location.pathname === '/' || location.pathname === '/search';
 
 	return (
 		<>
@@ -158,7 +160,7 @@ export function Header({ defaultListId }: HeaderProps) {
 						</Link>
 					</nav>
 
-					{!isHomePage && (
+					{!isSearchPage && (
 						<div className='header-search'>
 							<SearchBar
 								initialValue={

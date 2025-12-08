@@ -16,3 +16,9 @@ export { ArchivedFilter, IArchivedFilter, FilterType } from './ArchivedFilter';
 export { FilterDisplayName, IFilterDisplayName } from './FilterDisplayName';
 export { Review, IReview } from './Review';
 export { CityLandingPage, ICityLandingPage } from './CityLandingPage';
+export {
+	CityContentEdit,
+	ICityContentEdit,
+	CityContentEditField,
+	CityContentEditStatus,
+} from './CityContentEdit';

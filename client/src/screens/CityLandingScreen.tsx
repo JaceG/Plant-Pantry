@@ -1,13 +1,21 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+	useParams,
+	useNavigate,
+	useSearchParams,
+	Link,
+} from 'react-router-dom';
 import { citiesApi } from '../api';
 import {
 	CityPageData,
 	CityStore,
 	CityStoresGrouped,
 	StoreProduct,
+	CityContentEditField,
 } from '../api/citiesApi';
 import { SearchBar } from '../components';
+import { useAuth } from '../context/AuthContext';
+import { AddProductToStoreModal, SuggestStoreModal } from '../components/City';
 import './CityLandingScreen.css';
 
 type View = 'stores' | 'store-detail';
@@ -15,6 +23,11 @@ type View = 'stores' | 'store-detail';
 export function CityLandingScreen() {
 	const { slug } = useParams<{ slug: string }>();
 	const navigate = useNavigate();
+	const [searchParams, setSearchParams] = useSearchParams();
+	const { isAuthenticated } = useAuth();
+
+	// Get store ID from URL if present
+	const storeIdFromUrl = searchParams.get('store');
 
 	const [cityData, setCityData] = useState<CityPageData | null>(null);
 	const [groupedStores, setGroupedStores] =
@@ -27,11 +40,29 @@ export function CityLandingScreen() {
 		new Set()
 	);
 
-	// Slide view state
-	const [view, setView] = useState<View>('stores');
+	// Slide view state - derive from URL
 	const [selectedStore, setSelectedStore] = useState<CityStore | null>(null);
 	const [storeProducts, setStoreProducts] = useState<StoreProduct[]>([]);
 	const [loadingProducts, setLoadingProducts] = useState(false);
+
+	// View is derived from whether a store is selected
+	const view: View = selectedStore ? 'store-detail' : 'stores';
+
+	// Edit mode state
+	const [editMode, setEditMode] = useState(false);
+	const [editingField, setEditingField] =
+		useState<CityContentEditField | null>(null);
+	const [editValue, setEditValue] = useState('');
+	const [editReason, setEditReason] = useState('');
+	const [submittingEdit, setSubmittingEdit] = useState(false);
+	const [editMessage, setEditMessage] = useState<{
+		type: 'success' | 'error';
+		text: string;
+	} | null>(null);
+
+	// Modal state
+	const [showAddProductModal, setShowAddProductModal] = useState(false);
+	const [showSuggestStoreModal, setShowSuggestStoreModal] = useState(false);
 
 	// Computed values
 	const stores = useMemo(() => {
@@ -92,13 +123,43 @@ export function CityLandingScreen() {
 		});
 	};
 
+	// Effect to restore selected store from URL when stores are loaded
+	useEffect(() => {
+		if (storeIdFromUrl && stores.length > 0 && !selectedStore) {
+			const storeFromUrl = stores.find((s) => s.id === storeIdFromUrl);
+			if (storeFromUrl) {
+				setSelectedStore(storeFromUrl);
+				// Fetch products for this store
+				if (slug) {
+					setLoadingProducts(true);
+					citiesApi
+						.getStoreProducts(slug, storeFromUrl.id)
+						.then((res) => setStoreProducts(res.products))
+						.catch((err) =>
+							console.error('Error fetching store products:', err)
+						)
+						.finally(() => setLoadingProducts(false));
+				}
+			}
+		}
+	}, [storeIdFromUrl, stores, slug, selectedStore]);
+
+	// Clear selected store if URL no longer has store param
+	useEffect(() => {
+		if (!storeIdFromUrl && selectedStore) {
+			setSelectedStore(null);
+			setStoreProducts([]);
+		}
+	}, [storeIdFromUrl, selectedStore]);
+
 	const handleSearch = (query: string) => {
 		navigate(`/search?q=${encodeURIComponent(query.trim())}`);
 	};
 
 	const handleSelectStore = async (store: CityStore) => {
+		// Update URL with store parameter - this creates a new history entry
+		setSearchParams({ store: store.id });
 		setSelectedStore(store);
-		setView('store-detail');
 		setStoreProducts([]);
 
 		if (slug) {
@@ -115,7 +176,8 @@ export function CityLandingScreen() {
 	};
 
 	const handleBackToStores = () => {
-		setView('stores');
+		// Remove store parameter from URL - this creates a new history entry
+		setSearchParams({});
 		setSelectedStore(null);
 		setStoreProducts([]);
 	};
@@ -125,6 +187,76 @@ export function CityLandingScreen() {
 		(sum, store) => sum + (store.productCount || 0),
 		0
 	);
+
+	// Edit handlers
+	const handleStartEdit = useCallback(
+		(field: CityContentEditField) => {
+			if (!cityData) return;
+			setEditingField(field);
+			setEditValue(cityData[field]);
+			setEditReason('');
+			setEditMessage(null);
+		},
+		[cityData]
+	);
+
+	const handleCancelEdit = useCallback(() => {
+		setEditingField(null);
+		setEditValue('');
+		setEditReason('');
+		setEditMessage(null);
+	}, []);
+
+	const handleSubmitEdit = useCallback(async () => {
+		if (!slug || !editingField || !editValue.trim()) return;
+
+		setSubmittingEdit(true);
+		setEditMessage(null);
+
+		try {
+			await citiesApi.suggestEdit(slug, {
+				field: editingField,
+				suggestedValue: editValue.trim(),
+				reason: editReason.trim() || undefined,
+			});
+
+			setEditMessage({
+				type: 'success',
+				text: 'Your edit suggestion has been submitted for review!',
+			});
+
+			setTimeout(() => {
+				handleCancelEdit();
+			}, 2000);
+		} catch (err: any) {
+			setEditMessage({
+				type: 'error',
+				text: err.message || 'Failed to submit edit',
+			});
+		} finally {
+			setSubmittingEdit(false);
+		}
+	}, [slug, editingField, editValue, editReason, handleCancelEdit]);
+
+	// Refetch data after contribution
+	const handleContributionSuccess = useCallback(async () => {
+		if (!slug) return;
+		try {
+			const storesRes = await citiesApi.getCityStoresGrouped(slug);
+			setGroupedStores(storesRes);
+
+			// Refresh store products if viewing a store
+			if (selectedStore) {
+				const productsRes = await citiesApi.getStoreProducts(
+					slug,
+					selectedStore.id
+				);
+				setStoreProducts(productsRes.products);
+			}
+		} catch (err) {
+			console.error('Failed to refresh data:', err);
+		}
+	}, [slug, selectedStore]);
 
 	if (loading) {
 		return (
@@ -166,13 +298,189 @@ export function CityLandingScreen() {
 					<div className='city-badge'>
 						<span className='city-badge-icon'>📍</span>
 						Local Guide
+						{isAuthenticated && (
+							<button
+								className='edit-page-toggle'
+								onClick={() => setEditMode(!editMode)}
+								title={
+									editMode
+										? 'Exit edit mode'
+										: 'Suggest edits to this page'
+								}>
+								{editMode ? '✓ Done' : '✏️ Edit'}
+							</button>
+						)}
 					</div>
 
-					<h1 className='city-title'>
-						{cityData.cityName}, {cityData.state}
-					</h1>
-					<p className='city-headline'>{cityData.headline}</p>
-					<p className='city-description'>{cityData.description}</p>
+					{/* City Title - Editable */}
+					{editMode && editingField === 'cityName' ? (
+						<div className='edit-field-container'>
+							<input
+								type='text'
+								className='edit-input edit-title-input'
+								value={editValue}
+								onChange={(e) => setEditValue(e.target.value)}
+								placeholder='City Name'
+							/>
+							<input
+								type='text'
+								className='edit-reason-input'
+								value={editReason}
+								onChange={(e) => setEditReason(e.target.value)}
+								placeholder='Why this change? (optional)'
+							/>
+							{editMessage && (
+								<div
+									className={`edit-message ${editMessage.type}`}>
+									{editMessage.text}
+								</div>
+							)}
+							<div className='edit-actions'>
+								<button
+									className='edit-cancel'
+									onClick={handleCancelEdit}>
+									Cancel
+								</button>
+								<button
+									className='edit-submit'
+									onClick={handleSubmitEdit}
+									disabled={
+										submittingEdit ||
+										editValue === cityData.cityName
+									}>
+									{submittingEdit
+										? 'Submitting...'
+										: 'Submit'}
+								</button>
+							</div>
+						</div>
+					) : (
+						<h1 className='city-title'>
+							{cityData.cityName}, {cityData.state}
+							{editMode && (
+								<button
+									className='edit-btn'
+									onClick={() => handleStartEdit('cityName')}
+									title='Suggest edit'>
+									✏️
+								</button>
+							)}
+						</h1>
+					)}
+
+					{/* Headline - Editable */}
+					{editMode && editingField === 'headline' ? (
+						<div className='edit-field-container'>
+							<input
+								type='text'
+								className='edit-input edit-headline-input'
+								value={editValue}
+								onChange={(e) => setEditValue(e.target.value)}
+								placeholder='Headline'
+							/>
+							<input
+								type='text'
+								className='edit-reason-input'
+								value={editReason}
+								onChange={(e) => setEditReason(e.target.value)}
+								placeholder='Why this change? (optional)'
+							/>
+							{editMessage && (
+								<div
+									className={`edit-message ${editMessage.type}`}>
+									{editMessage.text}
+								</div>
+							)}
+							<div className='edit-actions'>
+								<button
+									className='edit-cancel'
+									onClick={handleCancelEdit}>
+									Cancel
+								</button>
+								<button
+									className='edit-submit'
+									onClick={handleSubmitEdit}
+									disabled={
+										submittingEdit ||
+										editValue === cityData.headline
+									}>
+									{submittingEdit
+										? 'Submitting...'
+										: 'Submit'}
+								</button>
+							</div>
+						</div>
+					) : (
+						<p className='city-headline'>
+							{cityData.headline}
+							{editMode && (
+								<button
+									className='edit-btn'
+									onClick={() => handleStartEdit('headline')}
+									title='Suggest edit'>
+									✏️
+								</button>
+							)}
+						</p>
+					)}
+
+					{/* Description - Editable */}
+					{editMode && editingField === 'description' ? (
+						<div className='edit-field-container edit-description-container'>
+							<textarea
+								className='edit-input edit-description-input'
+								value={editValue}
+								onChange={(e) => setEditValue(e.target.value)}
+								placeholder='Description'
+								rows={6}
+							/>
+							<input
+								type='text'
+								className='edit-reason-input'
+								value={editReason}
+								onChange={(e) => setEditReason(e.target.value)}
+								placeholder='Why this change? (optional)'
+							/>
+							{editMessage && (
+								<div
+									className={`edit-message ${editMessage.type}`}>
+									{editMessage.text}
+								</div>
+							)}
+							<div className='edit-actions'>
+								<button
+									className='edit-cancel'
+									onClick={handleCancelEdit}>
+									Cancel
+								</button>
+								<button
+									className='edit-submit'
+									onClick={handleSubmitEdit}
+									disabled={
+										submittingEdit ||
+										editValue === cityData.description
+									}>
+									{submittingEdit
+										? 'Submitting...'
+										: 'Submit'}
+								</button>
+							</div>
+						</div>
+					) : (
+						<p className='city-description'>
+							{cityData.description}
+							{editMode && (
+								<button
+									className='edit-btn edit-btn-description'
+									onClick={() =>
+										handleStartEdit('description')
+									}
+									title='Suggest edit'>
+									✏️
+								</button>
+							)}
+						</p>
+					)}
 
 					<div className='city-search'>
 						<SearchBar
@@ -402,6 +710,22 @@ export function CityLandingScreen() {
 								</div>
 							)}
 
+							{/* Suggest Store Button */}
+							<div className='contribution-section'>
+								<button
+									className='suggest-store-btn'
+									onClick={() =>
+										setShowSuggestStoreModal(true)
+									}>
+									<span className='btn-icon'>🏪</span>
+									<span className='btn-text'>
+										Know a store with vegan products?
+										<strong>Suggest a Store</strong>
+									</span>
+									<span className='btn-arrow'>→</span>
+								</button>
+							</div>
+
 							<div className='panel-footer'>
 								<Link to='/' className='back-link'>
 									← Explore other cities
@@ -471,10 +795,19 @@ export function CityLandingScreen() {
 									</div>
 
 									<div className='products-section'>
-										<h3 className='products-title'>
-											Available Products (
-											{storeProducts.length})
-										</h3>
+										<div className='products-header'>
+											<h3 className='products-title'>
+												Available Products (
+												{storeProducts.length})
+											</h3>
+											<button
+												className='add-product-btn'
+												onClick={() =>
+													setShowAddProductModal(true)
+												}>
+												+ Add Product
+											</button>
+										</div>
 
 										{loadingProducts ? (
 											<div className='loading-products'>
@@ -511,7 +844,19 @@ export function CityLandingScreen() {
 																		product.name
 																	}
 																</h4>
-																<p className='product-brand'>
+																<p
+																	className='product-brand product-brand-link'
+																	onClick={(
+																		e
+																	) => {
+																		e.preventDefault();
+																		e.stopPropagation();
+																		navigate(
+																			`/brands/${encodeURIComponent(
+																				product.brand
+																			)}`
+																		);
+																	}}>
 																	{
 																		product.brand
 																	}
@@ -560,6 +905,28 @@ export function CityLandingScreen() {
 					</div>
 				</div>
 			</section>
+
+			{/* Modals */}
+			{slug && selectedStore && (
+				<AddProductToStoreModal
+					isOpen={showAddProductModal}
+					onClose={() => setShowAddProductModal(false)}
+					citySlug={slug}
+					store={selectedStore}
+					onSuccess={handleContributionSuccess}
+				/>
+			)}
+
+			{slug && cityData && (
+				<SuggestStoreModal
+					isOpen={showSuggestStoreModal}
+					onClose={() => setShowSuggestStoreModal(false)}
+					citySlug={slug}
+					cityName={cityData.cityName}
+					state={cityData.state}
+					onSuccess={handleContributionSuccess}
+				/>
+			)}
 		</div>
 	);
 }

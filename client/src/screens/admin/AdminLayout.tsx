@@ -18,6 +18,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 		{ path: '/admin/reviews', label: 'Reviews', icon: '⭐' },
 		{ path: '/admin/featured', label: 'Featured', icon: '✨' },
 		{ path: '/admin/cities', label: 'City Pages', icon: '📍' },
+		{ path: '/admin/city-edits', label: 'City Edits', icon: '✏️' },
 	];
 
 	return (

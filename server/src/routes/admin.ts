@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import { adminService } from '../services/adminService';
 import { reviewService } from '../services/reviewService';
 import { cityService } from '../services/cityService';
@@ -1506,10 +1507,339 @@ router.delete(
 );
 
 // ============================================
+// CITY CONTENT EDIT REVIEW
+// ============================================
+
+/**
+ * GET /api/admin/city-content-edits
+ * Get all pending city content edits for review
+ */
+router.get(
+	'/city-content-edits',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const page = parseInt(req.query.page as string) || 1;
+			const pageSize = parseInt(req.query.pageSize as string) || 20;
+			const status = (req.query.status as string) || 'pending';
+			const citySlug = req.query.citySlug as string | undefined;
+
+			const skip = (page - 1) * pageSize;
+
+			const query: Record<string, any> = {};
+			if (status !== 'all') {
+				query.status = status;
+			}
+			if (citySlug) {
+				query.citySlug = citySlug.toLowerCase();
+			}
+
+			const [edits, total] = await Promise.all([
+				CityContentEdit.find(query)
+					.populate('userId', 'email displayName')
+					.populate('reviewedBy', 'email displayName')
+					.sort({ createdAt: -1 })
+					.skip(skip)
+					.limit(pageSize)
+					.lean(),
+				CityContentEdit.countDocuments(query),
+			]);
+
+			// Get city page info for each edit
+			const citySlugs = [...new Set(edits.map((e) => e.citySlug))];
+			const cityPages = await CityLandingPage.find({
+				slug: { $in: citySlugs },
+			}).lean();
+			const cityMap = new Map(
+				cityPages.map((c) => [
+					c.slug,
+					{ cityName: c.cityName, state: c.state },
+				])
+			);
+
+			const items = edits.map((edit) => {
+				const city = cityMap.get(edit.citySlug);
+				return {
+					id: edit._id.toString(),
+					cityPageId: edit.cityPageId.toString(),
+					citySlug: edit.citySlug,
+					cityName: city?.cityName || 'Unknown',
+					state: city?.state || '??',
+					field: edit.field,
+					originalValue: edit.originalValue,
+					suggestedValue: edit.suggestedValue,
+					reason: edit.reason,
+					status: edit.status,
+					submittedBy: edit.userId
+						? {
+								id: (edit.userId as any)._id?.toString(),
+								email: (edit.userId as any).email,
+								displayName: (edit.userId as any).displayName,
+						  }
+						: null,
+					reviewedBy: edit.reviewedBy
+						? {
+								id: (edit.reviewedBy as any)._id?.toString(),
+								email: (edit.reviewedBy as any).email,
+								displayName: (edit.reviewedBy as any)
+									.displayName,
+						  }
+						: null,
+					reviewedAt: edit.reviewedAt,
+					reviewNote: edit.reviewNote,
+					createdAt: edit.createdAt,
+				};
+			});
+
+			res.json({
+				items,
+				total,
+				page,
+				pageSize,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * GET /api/admin/city-content-edits/counts
+ * Get counts of pending edits by city
+ */
+router.get(
+	'/city-content-edits/counts',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const counts = await CityContentEdit.aggregate([
+				{ $match: { status: 'pending' } },
+				{
+					$group: {
+						_id: '$citySlug',
+						count: { $sum: 1 },
+					},
+				},
+			]);
+
+			const totalPending = counts.reduce((sum, c) => sum + c.count, 0);
+
+			// Get city names
+			const citySlugs = counts.map((c) => c._id);
+			const cityPages = await CityLandingPage.find({
+				slug: { $in: citySlugs },
+			}).lean();
+			const cityMap = new Map(
+				cityPages.map((c) => [
+					c.slug,
+					{ cityName: c.cityName, state: c.state },
+				])
+			);
+
+			const byCitySlug = counts.map((c) => {
+				const city = cityMap.get(c._id);
+				return {
+					citySlug: c._id,
+					cityName: city?.cityName || 'Unknown',
+					state: city?.state || '??',
+					count: c.count,
+				};
+			});
+
+			res.json({
+				totalPending,
+				byCitySlug,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/city-content-edits/:id/approve
+ * Approve a city content edit and apply it
+ */
+router.post(
+	'/city-content-edits/:id/approve',
+	async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { reviewNote } = req.body;
+			const adminId = req.user?.userId;
+
+			// Get the edit
+			const edit = await CityContentEdit.findById(id);
+			if (!edit) {
+				throw new HttpError('Content edit not found', 404);
+			}
+
+			if (edit.status !== 'pending') {
+				throw new HttpError('This edit has already been reviewed', 400);
+			}
+
+			// Apply the edit to the city page
+			const updateData: Record<string, string> = {};
+			updateData[edit.field] = edit.suggestedValue;
+
+			const updatedCityPage = await CityLandingPage.findByIdAndUpdate(
+				edit.cityPageId,
+				updateData,
+				{ new: true }
+			);
+
+			if (!updatedCityPage) {
+				throw new HttpError('City page not found', 404);
+			}
+
+			// Update the edit status
+			edit.status = 'approved';
+			edit.reviewedBy = adminId
+				? new mongoose.Types.ObjectId(adminId)
+				: undefined;
+			edit.reviewedAt = new Date();
+			if (reviewNote) {
+				edit.reviewNote = reviewNote;
+			}
+			await edit.save();
+
+			res.json({
+				message: 'Edit approved and applied',
+				edit: {
+					id: edit._id.toString(),
+					field: edit.field,
+					status: edit.status,
+				},
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/city-content-edits/:id/reject
+ * Reject a city content edit
+ */
+router.post(
+	'/city-content-edits/:id/reject',
+	async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { reviewNote } = req.body;
+			const adminId = req.user?.userId;
+
+			// Get the edit
+			const edit = await CityContentEdit.findById(id);
+			if (!edit) {
+				throw new HttpError('Content edit not found', 404);
+			}
+
+			if (edit.status !== 'pending') {
+				throw new HttpError('This edit has already been reviewed', 400);
+			}
+
+			// Update the edit status
+			edit.status = 'rejected';
+			edit.reviewedBy = adminId
+				? new mongoose.Types.ObjectId(adminId)
+				: undefined;
+			edit.reviewedAt = new Date();
+			if (reviewNote) {
+				edit.reviewNote = reviewNote;
+			}
+			await edit.save();
+
+			res.json({
+				message: 'Edit rejected',
+				edit: {
+					id: edit._id.toString(),
+					field: edit.field,
+					status: edit.status,
+				},
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * PUT /api/admin/city-content-edits/bulk-review
+ * Approve or reject multiple edits at once
+ */
+router.put(
+	'/city-content-edits/bulk-review',
+	async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+		try {
+			const { editIds, action, reviewNote } = req.body;
+			const adminId = req.user?.userId;
+
+			if (!Array.isArray(editIds) || editIds.length === 0) {
+				throw new HttpError('editIds array is required', 400);
+			}
+
+			if (!['approve', 'reject'].includes(action)) {
+				throw new HttpError(
+					'action must be "approve" or "reject"',
+					400
+				);
+			}
+
+			const newStatus = action === 'approve' ? 'approved' : 'rejected';
+
+			// Get all pending edits
+			const edits = await CityContentEdit.find({
+				_id: { $in: editIds },
+				status: 'pending',
+			});
+
+			if (edits.length === 0) {
+				return res.json({
+					message: 'No pending edits found to review',
+					processedCount: 0,
+				});
+			}
+
+			// If approving, apply the edits to city pages
+			if (action === 'approve') {
+				for (const edit of edits) {
+					const updateData: Record<string, string> = {};
+					updateData[edit.field] = edit.suggestedValue;
+
+					await CityLandingPage.findByIdAndUpdate(
+						edit.cityPageId,
+						updateData
+					);
+				}
+			}
+
+			// Update all edit statuses
+			await CityContentEdit.updateMany(
+				{ _id: { $in: editIds }, status: 'pending' },
+				{
+					status: newStatus,
+					reviewedBy: adminId
+						? new mongoose.Types.ObjectId(adminId)
+						: undefined,
+					reviewedAt: new Date(),
+					...(reviewNote && { reviewNote }),
+				}
+			);
+
+			res.json({
+				message: `${edits.length} edit(s) ${newStatus}`,
+				processedCount: edits.length,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// ============================================
 // CITY PAGE STORES MANAGEMENT
 // ============================================
 
-import { CityLandingPage } from '../models';
+import { CityLandingPage, CityContentEdit } from '../models';
 
 /**
  * GET /api/admin/city-pages/:slug/stores

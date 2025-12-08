@@ -2,7 +2,17 @@ import { Router, Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import { cityService } from '../services/cityService';
 import { HttpError } from '../middleware/errorHandler';
-import { Availability, Product, UserProduct, Review } from '../models';
+import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth';
+import {
+	Availability,
+	Product,
+	UserProduct,
+	Review,
+	CityLandingPage,
+	CityContentEdit,
+	Store,
+	User,
+} from '../models';
 
 const router = Router();
 
@@ -329,6 +339,354 @@ router.get(
 			});
 
 			res.json({ products });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// ============================================
+// USER CONTRIBUTION ROUTES (requires auth)
+// ============================================
+
+// POST /api/cities/:slug/suggest-edit - Submit a suggested edit to city page content
+router.post(
+	'/:slug/suggest-edit',
+	authMiddleware,
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { slug } = req.params;
+			const { field, suggestedValue, reason } = req.body;
+			const userId = req.userId;
+
+			if (!userId) {
+				throw new HttpError('User not authenticated', 401);
+			}
+
+			// Validate field
+			const validFields = ['cityName', 'headline', 'description'];
+			if (!field || !validFields.includes(field)) {
+				throw new HttpError(
+					'Invalid field. Must be cityName, headline, or description',
+					400
+				);
+			}
+
+			if (!suggestedValue || typeof suggestedValue !== 'string') {
+				throw new HttpError('suggestedValue is required', 400);
+			}
+
+			// Get the city page
+			const cityPage = await CityLandingPage.findOne({
+				slug: slug.toLowerCase(),
+			}).lean();
+
+			if (!cityPage) {
+				throw new HttpError('City page not found', 404);
+			}
+
+			// Get the original value
+			const originalValue = cityPage[
+				field as keyof typeof cityPage
+			] as string;
+
+			// Don't create edit if values are the same
+			if (originalValue === suggestedValue.trim()) {
+				throw new HttpError(
+					'Suggested value is the same as the current value',
+					400
+				);
+			}
+
+			// Create the content edit suggestion
+			const contentEdit = await CityContentEdit.create({
+				cityPageId: cityPage._id,
+				citySlug: cityPage.slug,
+				field,
+				originalValue,
+				suggestedValue: suggestedValue.trim(),
+				reason: reason?.trim(),
+				userId: new mongoose.Types.ObjectId(userId),
+				status: 'pending',
+			});
+
+			res.status(201).json({
+				message: 'Edit suggestion submitted for review',
+				edit: {
+					id: contentEdit._id.toString(),
+					field: contentEdit.field,
+					status: contentEdit.status,
+				},
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// POST /api/cities/:slug/stores - Suggest a new store in this city
+router.post(
+	'/:slug/stores',
+	authMiddleware,
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { slug } = req.params;
+			const userId = req.userId;
+
+			if (!userId) {
+				throw new HttpError('User not authenticated', 401);
+			}
+
+			const {
+				name,
+				type,
+				address,
+				zipCode,
+				websiteUrl,
+				phoneNumber,
+				latitude,
+				longitude,
+				googlePlaceId,
+			} = req.body;
+
+			if (!name) {
+				throw new HttpError('Store name is required', 400);
+			}
+
+			// Get the city page to get city/state
+			const cityPage = await CityLandingPage.findOne({
+				slug: slug.toLowerCase(),
+			}).lean();
+
+			if (!cityPage) {
+				throw new HttpError('City page not found', 404);
+			}
+
+			// Check if user is a trusted contributor
+			const user = await User.findById(userId).lean();
+			const isTrusted = user?.trustedContributor || false;
+
+			// Create the store with pending status (or confirmed if trusted)
+			const store = await Store.create({
+				name,
+				type: type || 'brick_and_mortar',
+				city: cityPage.cityName,
+				state: cityPage.state,
+				address,
+				zipCode,
+				websiteUrl,
+				phoneNumber,
+				latitude,
+				longitude,
+				googlePlaceId,
+				createdBy: new mongoose.Types.ObjectId(userId),
+				moderationStatus: isTrusted ? 'confirmed' : 'pending',
+				trustedContribution: isTrusted,
+				needsReview: isTrusted, // Trusted content auto-approved but flagged for review
+			});
+
+			res.status(201).json({
+				message: isTrusted
+					? 'Store added successfully'
+					: 'Store submitted for review',
+				store: {
+					id: store._id.toString(),
+					name: store.name,
+					city: store.city,
+					state: store.state,
+					moderationStatus: store.moderationStatus,
+				},
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// POST /api/cities/:slug/stores/:storeId/products - Report a product at a store
+router.post(
+	'/:slug/stores/:storeId/products',
+	authMiddleware,
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { slug, storeId } = req.params;
+			const userId = req.userId;
+
+			if (!userId) {
+				throw new HttpError('User not authenticated', 401);
+			}
+
+			const { productId, priceRange, notes } = req.body;
+
+			if (!productId) {
+				throw new HttpError('productId is required', 400);
+			}
+
+			// Verify the city page exists
+			const cityPage = await CityLandingPage.findOne({
+				slug: slug.toLowerCase(),
+			}).lean();
+
+			if (!cityPage) {
+				throw new HttpError('City page not found', 404);
+			}
+
+			// Verify store exists and is in this city
+			const store = await Store.findOne({
+				_id: new mongoose.Types.ObjectId(storeId),
+				city: { $regex: new RegExp(`^${cityPage.cityName}$`, 'i') },
+				state: { $regex: new RegExp(`^${cityPage.state}$`, 'i') },
+			}).lean();
+
+			if (!store) {
+				throw new HttpError('Store not found in this city', 404);
+			}
+
+			// Verify product exists
+			let product = await Product.findById(productId).lean();
+			if (!product) {
+				product = (await UserProduct.findOne({
+					_id: productId,
+					status: 'approved',
+				}).lean()) as any;
+			}
+			if (!product) {
+				throw new HttpError('Product not found', 404);
+			}
+
+			// Check if availability already exists
+			const existingAvailability = await Availability.findOne({
+				productId: new mongoose.Types.ObjectId(productId),
+				storeId: new mongoose.Types.ObjectId(storeId),
+			}).lean();
+
+			if (existingAvailability) {
+				// Update existing availability (confirm it's still there)
+				await Availability.findByIdAndUpdate(existingAvailability._id, {
+					lastConfirmedAt: new Date(),
+					...(priceRange && { priceRange }),
+					...(notes && { notes }),
+				});
+
+				return res.json({
+					message: 'Product availability confirmed',
+					isNew: false,
+				});
+			}
+
+			// Check if user is a trusted contributor
+			const user = await User.findById(userId).lean();
+			const isTrusted = user?.trustedContributor || false;
+
+			// Create new availability report
+			const availability = await Availability.create({
+				productId: new mongoose.Types.ObjectId(productId),
+				storeId: new mongoose.Types.ObjectId(storeId),
+				source: 'user_contribution',
+				moderationStatus: isTrusted ? 'confirmed' : 'pending',
+				priceRange,
+				notes,
+				reportedBy: new mongoose.Types.ObjectId(userId),
+				lastConfirmedAt: new Date(),
+				trustedContribution: isTrusted,
+				needsReview: isTrusted,
+			});
+
+			res.status(201).json({
+				message: isTrusted
+					? 'Product added to store'
+					: 'Product availability submitted for review',
+				isNew: true,
+				availability: {
+					id: availability._id.toString(),
+					moderationStatus: availability.moderationStatus,
+				},
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// GET /api/cities/:slug/my-contributions - Get user's contributions for this city
+router.get(
+	'/:slug/my-contributions',
+	authMiddleware,
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { slug } = req.params;
+			const userId = req.userId;
+
+			if (!userId) {
+				throw new HttpError('User not authenticated', 401);
+			}
+
+			// Get the city page
+			const cityPage = await CityLandingPage.findOne({
+				slug: slug.toLowerCase(),
+			}).lean();
+
+			if (!cityPage) {
+				throw new HttpError('City page not found', 404);
+			}
+
+			// Get user's pending content edits for this city
+			const pendingEdits = await CityContentEdit.find({
+				citySlug: slug.toLowerCase(),
+				userId: new mongoose.Types.ObjectId(userId),
+				status: 'pending',
+			})
+				.sort({ createdAt: -1 })
+				.lean();
+
+			// Get stores the user suggested in this city
+			const userStores = await Store.find({
+				city: { $regex: new RegExp(`^${cityPage.cityName}$`, 'i') },
+				state: { $regex: new RegExp(`^${cityPage.state}$`, 'i') },
+				createdBy: new mongoose.Types.ObjectId(userId),
+			})
+				.sort({ createdAt: -1 })
+				.lean();
+
+			// Get stores in this city for availability lookup
+			const cityStores = await Store.find({
+				city: { $regex: new RegExp(`^${cityPage.cityName}$`, 'i') },
+				state: { $regex: new RegExp(`^${cityPage.state}$`, 'i') },
+			}).lean();
+
+			const cityStoreIds = cityStores.map((s) => s._id);
+
+			// Get user's availability reports for stores in this city
+			const userAvailabilities = await Availability.find({
+				storeId: { $in: cityStoreIds },
+				reportedBy: new mongoose.Types.ObjectId(userId),
+			})
+				.sort({ createdAt: -1 })
+				.lean();
+
+			res.json({
+				contentEdits: pendingEdits.map((e) => ({
+					id: e._id.toString(),
+					field: e.field,
+					originalValue: e.originalValue,
+					suggestedValue: e.suggestedValue,
+					status: e.status,
+					createdAt: e.createdAt,
+				})),
+				stores: userStores.map((s) => ({
+					id: s._id.toString(),
+					name: s.name,
+					moderationStatus: s.moderationStatus,
+					createdAt: s.createdAt,
+				})),
+				availabilityReports: userAvailabilities.map((a) => ({
+					id: a._id.toString(),
+					productId: a.productId.toString(),
+					storeId: a.storeId.toString(),
+					moderationStatus: a.moderationStatus,
+					createdAt: a.createdAt,
+				})),
+			});
 		} catch (error) {
 			next(error);
 		}

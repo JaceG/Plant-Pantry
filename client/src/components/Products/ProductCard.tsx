@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ProductSummary } from '../../types';
 import './ProductCard.css';
 
@@ -8,6 +8,14 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, showNearYou }: ProductCardProps) {
+	const navigate = useNavigate();
+
+	const handleBrandClick = (e: React.MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		navigate(`/brands/${encodeURIComponent(product.brand)}`);
+	};
+
 	return (
 		<Link to={`/products/${product.id}`} className='product-card'>
 			<div className='product-image-container'>
@@ -30,7 +38,18 @@ export function ProductCard({ product, showNearYou }: ProductCardProps) {
 			</div>
 
 			<div className='product-content'>
-				<span className='product-brand'>{product.brand}</span>
+				<span
+					className='product-brand product-brand-link'
+					onClick={handleBrandClick}
+					role='link'
+					tabIndex={0}
+					onKeyDown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') {
+							handleBrandClick(e as unknown as React.MouseEvent);
+						}
+					}}>
+					{product.brand}
+				</span>
 				<h3 className='product-name'>{product.name}</h3>
 				<span className='product-size'>{product.sizeOrVariant}</span>
 

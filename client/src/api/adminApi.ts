@@ -913,6 +913,55 @@ export const adminApi = {
 			{ reportIds, status }
 		);
 	},
+
+	// City Content Edit Review
+	getCityContentEdits(
+		page: number = 1,
+		pageSize: number = 20,
+		status: string = 'pending',
+		citySlug?: string
+	): Promise<PaginatedResponse<CityContentEdit>> {
+		let url = `/admin/city-content-edits?page=${page}&pageSize=${pageSize}&status=${status}`;
+		if (citySlug) url += `&citySlug=${citySlug}`;
+		return httpClient.get<PaginatedResponse<CityContentEdit>>(url);
+	},
+
+	getCityContentEditCounts(): Promise<CityContentEditCountsResponse> {
+		return httpClient.get<CityContentEditCountsResponse>(
+			'/admin/city-content-edits/counts'
+		);
+	},
+
+	approveCityContentEdit(
+		editId: string,
+		reviewNote?: string
+	): Promise<{ message: string; edit: any }> {
+		return httpClient.post<{ message: string; edit: any }>(
+			`/admin/city-content-edits/${editId}/approve`,
+			{ reviewNote }
+		);
+	},
+
+	rejectCityContentEdit(
+		editId: string,
+		reviewNote?: string
+	): Promise<{ message: string; edit: any }> {
+		return httpClient.post<{ message: string; edit: any }>(
+			`/admin/city-content-edits/${editId}/reject`,
+			{ reviewNote }
+		);
+	},
+
+	bulkReviewCityContentEdits(
+		editIds: string[],
+		action: 'approve' | 'reject',
+		reviewNote?: string
+	): Promise<{ message: string; processedCount: number }> {
+		return httpClient.put<{ message: string; processedCount: number }>(
+			'/admin/city-content-edits/bulk-review',
+			{ editIds, action, reviewNote }
+		);
+	},
 };
 
 // Pending Reports types
@@ -946,4 +995,41 @@ export interface PendingReportCity {
 export interface PendingReportsResponse {
 	totalPending: number;
 	cities: PendingReportCity[];
+}
+
+// City Content Edit types
+export interface CityContentEdit {
+	id: string;
+	cityPageId: string;
+	citySlug: string;
+	cityName: string;
+	state: string;
+	field: 'cityName' | 'headline' | 'description';
+	originalValue: string;
+	suggestedValue: string;
+	reason?: string;
+	status: 'pending' | 'approved' | 'rejected';
+	submittedBy: {
+		id: string;
+		email: string;
+		displayName?: string;
+	} | null;
+	reviewedBy?: {
+		id: string;
+		email: string;
+		displayName?: string;
+	};
+	reviewedAt?: string;
+	reviewNote?: string;
+	createdAt: string;
+}
+
+export interface CityContentEditCountsResponse {
+	totalPending: number;
+	byCitySlug: Array<{
+		citySlug: string;
+		cityName: string;
+		state: string;
+		count: number;
+	}>;
 }

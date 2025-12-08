@@ -82,6 +82,16 @@
   color: var(--color-sage-dark);
 }
 
+.product-brand-link {
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.product-brand-link:hover {
+  color: var(--color-forest);
+  text-decoration: underline;
+}
+
 .product-name {
   font-family: var(--font-display);
   font-size: 1.1rem;

@@ -14,6 +14,7 @@ function buildQueryString(filters: ProductFilters): string {
 	if (filters.q) params.set('q', filters.q);
 	if (filters.category) params.set('category', filters.category);
 	if (filters.tag) params.set('tag', filters.tag);
+	if (filters.brand) params.set('brand', filters.brand);
 	if (filters.minRating)
 		params.set('minRating', filters.minRating.toString());
 	if (filters.page) params.set('page', filters.page.toString());

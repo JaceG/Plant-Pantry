@@ -24,6 +24,7 @@ export interface ProductFilters {
 	q?: string;
 	category?: string;
 	tag?: string;
+	brand?: string;
 	minRating?: number;
 	page?: number;
 	pageSize?: number;
@@ -113,6 +114,7 @@ export const productService = {
 				q,
 				category,
 				tag,
+				brand,
 				minRating,
 				page = 1,
 				pageSize = 20,
@@ -258,6 +260,16 @@ export const productService = {
 						),
 					};
 				}
+			}
+
+			// Filter by brand (case-insensitive exact match)
+			if (brand) {
+				query.brand = {
+					$regex: new RegExp(
+						`^${brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+						'i'
+					),
+				};
 			}
 
 			// If minRating is provided, get product IDs that meet the rating requirement
