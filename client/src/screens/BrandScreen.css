@@ -60,6 +60,109 @@
 	margin: 0;
 }
 
+/* Brand Description Section */
+.brand-description-section {
+	background: white;
+	border-bottom: 1px solid var(--color-sage-light);
+}
+
+.brand-description-content {
+	max-width: 1200px;
+	margin: 0 auto;
+	padding: var(--spacing-xl) var(--spacing-lg);
+}
+
+.brand-description-placeholder {
+	text-align: center;
+	max-width: 600px;
+	margin: 0 auto;
+}
+
+.brand-icon {
+	font-size: 3rem;
+	display: block;
+	margin-bottom: var(--spacing-md);
+}
+
+.brand-description-placeholder h2 {
+	font-family: var(--font-display);
+	font-size: 1.5rem;
+	color: var(--color-charcoal);
+	margin: 0 0 var(--spacing-sm) 0;
+}
+
+.brand-description-placeholder p {
+	color: var(--color-stone);
+	line-height: 1.6;
+	margin: 0 0 var(--spacing-sm) 0;
+}
+
+.brand-claim-notice {
+	font-size: 0.875rem;
+	color: var(--color-sage-dark);
+	font-style: italic;
+	padding-top: var(--spacing-md);
+	border-top: 1px solid var(--color-sage-light);
+	margin-top: var(--spacing-md) !important;
+}
+
+/* Tab Navigation */
+.brand-tabs {
+	display: flex;
+	justify-content: center;
+	gap: var(--spacing-md);
+	padding: var(--spacing-md) var(--spacing-lg);
+	background: white;
+	border-bottom: 1px solid var(--color-sage-light);
+	position: sticky;
+	top: 0;
+	z-index: 10;
+}
+
+.brand-tab {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-xs);
+	padding: var(--spacing-sm) var(--spacing-lg);
+	background: transparent;
+	border: 2px solid transparent;
+	border-radius: var(--radius-full);
+	font-family: var(--font-body);
+	font-size: 1rem;
+	font-weight: 500;
+	color: var(--color-stone);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.brand-tab:hover {
+	color: var(--color-forest);
+	background: var(--color-mint);
+}
+
+.brand-tab.active {
+	color: var(--color-forest);
+	background: var(--color-mint);
+	border-color: var(--color-sage);
+}
+
+.tab-icon {
+	font-size: 1.25rem;
+}
+
+.tab-count {
+	background: var(--color-sage-light);
+	padding: 0.125rem 0.5rem;
+	border-radius: var(--radius-full);
+	font-size: 0.75rem;
+	font-weight: 600;
+}
+
+.brand-tab.active .tab-count {
+	background: var(--color-forest);
+	color: white;
+}
+
 /* Brand Content */
 .brand-content {
 	max-width: 1200px;
@@ -72,6 +175,161 @@
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 	gap: var(--spacing-lg);
+}
+
+/* Stores Section */
+.stores-section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-2xl);
+}
+
+.stores-map-section {
+	background: white;
+	border-radius: var(--radius-lg);
+	padding: var(--spacing-lg);
+	box-shadow: var(--shadow-sm);
+}
+
+.stores-map-container {
+	border-radius: var(--radius-md);
+	overflow: hidden;
+	margin-top: var(--spacing-md);
+}
+
+.section-title {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-sm);
+	font-family: var(--font-display);
+	font-size: 1.25rem;
+	color: var(--color-charcoal);
+	margin: 0;
+}
+
+.title-icon {
+	font-size: 1.5rem;
+}
+
+.section-count {
+	margin-left: auto;
+	font-size: 0.875rem;
+	font-weight: 400;
+	color: var(--color-stone);
+}
+
+/* Stores Group */
+.stores-group {
+	background: white;
+	border-radius: var(--radius-lg);
+	padding: var(--spacing-lg);
+	box-shadow: var(--shadow-sm);
+}
+
+/* Chain Groups */
+.chain-groups {
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-md);
+	margin-top: var(--spacing-lg);
+}
+
+.chain-group {
+	border: 1px solid var(--color-sage-light);
+	border-radius: var(--radius-md);
+	overflow: hidden;
+}
+
+.chain-header {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-md);
+	padding: var(--spacing-md);
+	background: var(--color-mint);
+	cursor: pointer;
+	transition: background var(--transition-fast);
+}
+
+.chain-header:hover {
+	background: var(--color-sage-light);
+}
+
+.expand-icon {
+	font-size: 0.75rem;
+	color: var(--color-stone);
+	width: 1rem;
+	text-align: center;
+}
+
+.chain-info {
+	display: flex;
+	align-items: baseline;
+	gap: var(--spacing-sm);
+	flex: 1;
+}
+
+.chain-name {
+	font-family: var(--font-display);
+	font-size: 1rem;
+	font-weight: 600;
+	color: var(--color-charcoal);
+	margin: 0;
+}
+
+.chain-count {
+	font-size: 0.8rem;
+	color: var(--color-stone);
+}
+
+.chain-stores {
+	padding: var(--spacing-sm);
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: var(--spacing-sm);
+}
+
+/* Store Cards */
+.store-card {
+	padding: var(--spacing-md);
+	background: white;
+	border: 1px solid var(--color-sage-light);
+	border-radius: var(--radius-md);
+	transition: all var(--transition-fast);
+}
+
+.store-card:hover {
+	border-color: var(--color-sage);
+	box-shadow: var(--shadow-sm);
+}
+
+.store-card.online {
+	background: var(--color-mint);
+}
+
+.store-info {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+.store-card .store-name {
+	font-weight: 600;
+	color: var(--color-charcoal);
+	font-size: 0.9rem;
+}
+
+.store-card .store-address {
+	font-size: 0.8rem;
+	color: var(--color-stone);
+}
+
+/* Independent & Online Stores */
+.independent-stores,
+.online-stores {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: var(--spacing-md);
+	margin-top: var(--spacing-lg);
 }
 
 /* Loading State */
@@ -142,7 +400,12 @@
 
 .brand-empty p {
 	color: var(--color-stone);
-	margin-bottom: var(--spacing-lg);
+	margin-bottom: var(--spacing-md);
+}
+
+.brand-empty .empty-note {
+	font-size: 0.9rem;
+	color: var(--color-sage-dark);
 }
 
 .back-home-btn {
@@ -174,6 +437,20 @@
 		padding: var(--spacing-xl) var(--spacing-md);
 	}
 
+	.brand-description-content {
+		padding: var(--spacing-lg) var(--spacing-md);
+	}
+
+	.brand-tabs {
+		padding: var(--spacing-sm) var(--spacing-md);
+		gap: var(--spacing-sm);
+	}
+
+	.brand-tab {
+		padding: var(--spacing-xs) var(--spacing-md);
+		font-size: 0.9rem;
+	}
+
 	.brand-content {
 		padding: var(--spacing-xl) var(--spacing-md);
 	}
@@ -181,5 +458,16 @@
 	.brand-screen .products-grid {
 		grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
 		gap: var(--spacing-md);
+	}
+
+	.stores-map-section,
+	.stores-group {
+		padding: var(--spacing-md);
+	}
+
+	.chain-stores,
+	.independent-stores,
+	.online-stores {
+		grid-template-columns: 1fr;
 	}
 }

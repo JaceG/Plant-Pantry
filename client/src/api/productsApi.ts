@@ -114,6 +114,13 @@ export const productsApi = {
 			`/products/stores-by-city${query}`
 		);
 	},
+
+	// Get stores where a brand's products are available
+	getBrandStores(brandName: string): Promise<BrandStoresResponse> {
+		return httpClient.get<BrandStoresResponse>(
+			`/products/brand/${encodeURIComponent(brandName)}/stores`
+		);
+	},
 };
 
 // Types for stores by city
@@ -130,4 +137,35 @@ export interface StoreLocation {
 
 export interface StoresByCityResponse {
 	locations: StoreLocation[];
+}
+
+// Types for brand stores
+export interface BrandStore {
+	id: string;
+	name: string;
+	type: string;
+	address?: string;
+	city?: string;
+	state?: string;
+	zipCode?: string;
+	latitude?: number;
+	longitude?: number;
+	locationIdentifier?: string;
+}
+
+export interface BrandChainGroup {
+	chain: {
+		id: string;
+		name: string;
+		slug: string;
+		logoUrl?: string;
+	};
+	stores: BrandStore[];
+}
+
+export interface BrandStoresResponse {
+	chainGroups: BrandChainGroup[];
+	independentStores: BrandStore[];
+	onlineStores: BrandStore[];
+	totalStores: number;
 }

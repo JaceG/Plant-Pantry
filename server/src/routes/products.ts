@@ -108,6 +108,154 @@ router.get(
 	}
 );
 
+// GET /api/products/brand/:brandName/stores - Get stores where a brand's products are available
+router.get(
+	'/brand/:brandName/stores',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { brandName } = req.params;
+			const decodedBrandName = decodeURIComponent(brandName);
+
+			// Find all products from this brand
+			const [apiProducts, userProducts] = await Promise.all([
+				Product.find({
+					brand: {
+						$regex: new RegExp(
+							`^${decodedBrandName.replace(
+								/[.*+?^${}()|[\]\\]/g,
+								'\\$&'
+							)}$`,
+							'i'
+						),
+					},
+					archived: { $ne: true },
+				})
+					.select('_id')
+					.lean(),
+				UserProduct.find({
+					brand: {
+						$regex: new RegExp(
+							`^${decodedBrandName.replace(
+								/[.*+?^${}()|[\]\\]/g,
+								'\\$&'
+							)}$`,
+							'i'
+						),
+					},
+					status: 'approved',
+					archived: { $ne: true },
+				})
+					.select('_id')
+					.lean(),
+			]);
+
+			const productIds = [
+				...apiProducts.map((p) => p._id),
+				...userProducts.map((p) => p._id),
+			];
+
+			if (productIds.length === 0) {
+				return res.json({
+					chainGroups: [],
+					independentStores: [],
+					onlineStores: [],
+					totalStores: 0,
+				});
+			}
+
+			// Find all availability records for these products
+			const availabilities = await Availability.find({
+				productId: { $in: productIds },
+				moderationStatus: 'confirmed',
+			})
+				.select('storeId')
+				.lean();
+
+			const storeIds = [
+				...new Set(availabilities.map((a) => a.storeId.toString())),
+			];
+
+			if (storeIds.length === 0) {
+				return res.json({
+					chainGroups: [],
+					independentStores: [],
+					onlineStores: [],
+					totalStores: 0,
+				});
+			}
+
+			// Fetch stores with chain info
+			const stores = await Store.find({
+				_id: { $in: storeIds },
+				moderationStatus: { $ne: 'rejected' },
+			})
+				.populate('chainId')
+				.lean();
+
+			// Group stores
+			const chainMap = new Map<string, { chain: any; stores: any[] }>();
+			const independentStores: any[] = [];
+			const onlineStores: any[] = [];
+
+			for (const store of stores) {
+				const storeData = {
+					id: store._id.toString(),
+					name: store.name,
+					type: store.type,
+					address: store.address,
+					city: store.city,
+					state: store.state,
+					zipCode: store.zipCode,
+					latitude: store.latitude,
+					longitude: store.longitude,
+					locationIdentifier: store.locationIdentifier,
+				};
+
+				if (
+					store.type === 'online_retailer' ||
+					store.type === 'brand_direct'
+				) {
+					onlineStores.push(storeData);
+				} else if (store.chainId) {
+					const chain = store.chainId as any;
+					const chainId = chain._id.toString();
+					if (!chainMap.has(chainId)) {
+						chainMap.set(chainId, {
+							chain: {
+								id: chainId,
+								name: chain.name,
+								slug: chain.slug,
+								logoUrl: chain.logoUrl,
+							},
+							stores: [],
+						});
+					}
+					chainMap.get(chainId)!.stores.push(storeData);
+				} else {
+					independentStores.push(storeData);
+				}
+			}
+
+			const chainGroups = Array.from(chainMap.values()).sort(
+				(a, b) => b.stores.length - a.stores.length
+			);
+
+			res.json({
+				chainGroups,
+				independentStores,
+				onlineStores,
+				totalStores: stores.length,
+			});
+		} catch (error) {
+			console.error(
+				'Error in GET /api/products/brand/:brandName/stores:',
+				error
+			);
+			next(error);
+		}
+	}
+);
+
 // GET /api/products - List products with optional filters
 // Uses optionalAuthMiddleware to show pending products to their creators
 router.get(
