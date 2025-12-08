@@ -68,7 +68,7 @@ export function AdminUsers() {
 
 	const handleTrustedToggle = async (
 		userId: string,
-		currentTrusted: boolean
+		currentTrusted: boolean | undefined
 	) => {
 		setTrustedUpdateLoading(userId);
 		try {

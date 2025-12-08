@@ -31,7 +31,7 @@ export interface DashboardStats {
 	};
 	reviews: {
 		total: number;
-		pending: number;
+		pendingApproval: number;
 		approved: number;
 	};
 	recentActivity: {
@@ -915,10 +915,13 @@ export const adminApi = {
 		return httpClient.get<PaginatedResponse<CityContentEdit>>(url);
 	},
 
-	approveCityContentEdit(editId: string): Promise<{ message: string }> {
+	approveCityContentEdit(
+		editId: string,
+		note?: string
+	): Promise<{ message: string }> {
 		return httpClient.post<{ message: string }>(
 			`/admin/city-content-edits/${editId}/approve`,
-			{}
+			{ note }
 		);
 	},
 
@@ -934,12 +937,12 @@ export const adminApi = {
 
 	bulkReviewCityContentEdits(
 		editIds: string[],
-		status: 'approved' | 'rejected',
+		action: 'approve' | 'reject',
 		note?: string
 	): Promise<{ message: string; modifiedCount: number }> {
 		return httpClient.put<{ message: string; modifiedCount: number }>(
 			'/admin/city-content-edits/bulk-review',
-			{ editIds, status, note }
+			{ editIds, action, note }
 		);
 	},
 };
@@ -989,6 +992,11 @@ export interface PendingStore {
 	phoneNumber?: string;
 	userId?: string;
 	userEmail?: string;
+	createdBy?: {
+		id: string;
+		email: string;
+		displayName?: string;
+	};
 	createdAt: string;
 }
 
@@ -996,12 +1004,17 @@ export interface CityContentEdit {
 	id: string;
 	citySlug: string;
 	cityName: string;
+	state: string;
 	field: 'cityName' | 'headline' | 'description';
-	currentValue: string;
+	originalValue: string;
 	suggestedValue: string;
+	reason?: string;
 	status: 'pending' | 'approved' | 'rejected';
-	userId: string;
-	userEmail?: string;
+	submittedBy?: {
+		id: string;
+		email: string;
+		displayName?: string;
+	};
 	reviewedBy?: string;
 	reviewedAt?: string;
 	reviewNote?: string;
