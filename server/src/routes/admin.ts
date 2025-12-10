@@ -11,7 +11,7 @@ import {
 	AuthenticatedRequest,
 } from '../middleware/auth';
 import { HttpError } from '../middleware/errorHandler';
-import { Product, UserProduct } from '../models';
+import { Product, UserProduct, Store, StoreChain } from '../models';
 
 const router = Router();
 

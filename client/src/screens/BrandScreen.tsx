@@ -31,7 +31,7 @@ export function BrandScreen() {
 	const [brandPageData, setBrandPageData] = useState<BrandPageData | null>(
 		null
 	);
-	const [loadingBrandPage, setLoadingBrandPage] = useState(true);
+	const [, setLoadingBrandPage] = useState(true);
 
 	// Stores state
 	const [storesData, setStoresData] = useState<BrandStoresResponse | null>(
