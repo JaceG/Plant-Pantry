@@ -121,6 +121,36 @@ export const storesApi = {
 			`/stores/${storeId}/page?page=${page}&pageSize=${pageSize}`
 		);
 	},
+
+	// ============================================
+	// EDIT SUGGESTIONS
+	// ============================================
+
+	/**
+	 * Submit a suggested edit for a chain
+	 */
+	suggestChainEdit(
+		chainId: string,
+		data: RetailerEditSubmission
+	): Promise<RetailerEditResponse> {
+		return httpClient.post<RetailerEditResponse>(
+			`/stores/chains/${chainId}/suggest-edit`,
+			data
+		);
+	},
+
+	/**
+	 * Submit a suggested edit for a store
+	 */
+	suggestStoreEdit(
+		storeId: string,
+		data: RetailerEditSubmission
+	): Promise<RetailerEditResponse> {
+		return httpClient.post<RetailerEditResponse>(
+			`/stores/${storeId}/suggest-edit`,
+			data
+		);
+	},
 };
 
 // Types for chain/store pages
@@ -162,4 +192,23 @@ export interface StorePageResponse {
 	totalProducts: number;
 	page: number;
 	totalPages: number;
+}
+
+// Edit types
+export type RetailerEditField = 'name' | 'description' | 'websiteUrl';
+
+export interface RetailerEditSubmission {
+	field: RetailerEditField;
+	suggestedValue: string;
+	reason?: string;
+}
+
+export interface RetailerEditResponse {
+	message: string;
+	edit: {
+		id: string;
+		field: string;
+		status: string;
+	};
+	autoApplied: boolean;
 }

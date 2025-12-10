@@ -1,17 +1,25 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { storesApi, ChainPageStore, ChainPageProduct } from '../api/storesApi';
+import {
+	storesApi,
+	ChainPageStore,
+	ChainPageProduct,
+	RetailerEditField,
+} from '../api/storesApi';
 import { Store } from '../types/store';
 import { ProductCard, Pagination, StoreMap } from '../components';
 import { ProductSummary } from '../types';
+import { useAuth } from '../context/AuthContext';
 import './RetailerScreen.css';
 
 type RetailerType = 'chain' | 'store';
 
 interface RetailerData {
 	type: RetailerType;
+	id: string; // Store ID or Chain ID
 	name: string;
 	slug?: string;
+	description?: string;
 	logoUrl?: string;
 	websiteUrl?: string;
 	storeType?: string;
@@ -26,6 +34,7 @@ interface RetailerData {
 export function RetailerScreen() {
 	const { identifier } = useParams<{ identifier: string }>();
 	const location = window.location.pathname;
+	const { isAuthenticated } = useAuth();
 
 	// Determine type from URL path
 	const type: 'chain' | 'store' = location.includes('/retailers/chain/')
@@ -42,6 +51,19 @@ export function RetailerScreen() {
 	const [expandedStates, setExpandedStates] = useState<Set<string>>(
 		new Set()
 	);
+
+	// Edit mode state
+	const [editMode, setEditMode] = useState(false);
+	const [editingField, setEditingField] = useState<RetailerEditField | null>(
+		null
+	);
+	const [editValue, setEditValue] = useState('');
+	const [editReason, setEditReason] = useState('');
+	const [submittingEdit, setSubmittingEdit] = useState(false);
+	const [editMessage, setEditMessage] = useState<{
+		type: 'success' | 'error';
+		text: string;
+	} | null>(null);
 
 	const pageSize = 24;
 
@@ -60,8 +82,10 @@ export function RetailerScreen() {
 				);
 				setRetailerData({
 					type: 'chain',
+					id: res.chain.id,
 					name: res.chain.name,
 					slug: res.chain.slug,
+					description: (res.chain as any).description,
 					logoUrl: res.chain.logoUrl,
 					websiteUrl: res.chain.websiteUrl,
 					locationCount: res.stores.length,
@@ -79,7 +103,9 @@ export function RetailerScreen() {
 				);
 				setRetailerData({
 					type: 'store',
+					id: res.store.id,
 					name: res.store.name,
+					description: (res.store as any).description,
 					storeType: res.store.type,
 					websiteUrl: res.store.websiteUrl,
 					locationCount: 1,
@@ -165,6 +191,84 @@ export function RetailerScreen() {
 		});
 	};
 
+	// Edit handlers
+	const handleStartEdit = useCallback(
+		(field: RetailerEditField) => {
+			if (!retailerData) return;
+			setEditingField(field);
+			setEditValue(
+				(retailerData[field as keyof typeof retailerData] as string) ||
+					''
+			);
+			setEditReason('');
+			setEditMessage(null);
+		},
+		[retailerData]
+	);
+
+	const handleCancelEdit = useCallback(() => {
+		setEditingField(null);
+		setEditValue('');
+		setEditReason('');
+		setEditMessage(null);
+	}, []);
+
+	const handleSubmitEdit = useCallback(async () => {
+		if (!retailerData || !editingField) return;
+
+		setSubmittingEdit(true);
+		setEditMessage(null);
+
+		try {
+			let response;
+			if (retailerData.type === 'chain') {
+				response = await storesApi.suggestChainEdit(retailerData.id, {
+					field: editingField,
+					suggestedValue: editValue.trim(),
+					reason: editReason.trim() || undefined,
+				});
+			} else {
+				response = await storesApi.suggestStoreEdit(retailerData.id, {
+					field: editingField,
+					suggestedValue: editValue.trim(),
+					reason: editReason.trim() || undefined,
+				});
+			}
+
+			const messageText = response.autoApplied
+				? 'Your edit has been applied!'
+				: 'Your edit suggestion has been submitted for review!';
+
+			setEditMessage({
+				type: 'success',
+				text: messageText,
+			});
+
+			// If auto-applied, update local state
+			if (response.autoApplied) {
+				setRetailerData((prev) =>
+					prev
+						? {
+								...prev,
+								[editingField]: editValue.trim(),
+						  }
+						: prev
+				);
+			}
+
+			setTimeout(() => {
+				handleCancelEdit();
+			}, 2000);
+		} catch (err: any) {
+			setEditMessage({
+				type: 'error',
+				text: err.message || 'Failed to submit edit',
+			});
+		} finally {
+			setSubmittingEdit(false);
+		}
+	}, [retailerData, editingField, editValue, editReason, handleCancelEdit]);
+
 	// Convert products to ProductSummary format for ProductCard
 	const productSummaries: ProductSummary[] = useMemo(() => {
 		if (!retailerData) return [];
@@ -243,15 +347,85 @@ export function RetailerScreen() {
 						<span>Retailers</span>
 						<span className='separator'>/</span>
 						<span>{retailerData.name}</span>
+						{isAuthenticated && (
+							<button
+								className='edit-page-toggle'
+								onClick={() => setEditMode(!editMode)}
+								title={
+									editMode
+										? 'Exit edit mode'
+										: 'Suggest edits to this page'
+								}>
+								{editMode ? '✓ Done' : '✏️ Edit'}
+							</button>
+						)}
 					</nav>
 					<div className='retailer-header'>
 						<span className='retailer-icon'>
 							{getStoreTypeIcon(retailerData.storeType)}
 						</span>
 						<div className='retailer-info'>
-							<h1 className='retailer-title'>
-								{retailerData.name}
-							</h1>
+							{/* Retailer Name - Editable */}
+							{editMode && editingField === 'name' ? (
+								<div className='edit-field-container'>
+									<input
+										type='text'
+										className='edit-input edit-title-input'
+										value={editValue}
+										onChange={(e) =>
+											setEditValue(e.target.value)
+										}
+										placeholder='Retailer Name'
+									/>
+									<input
+										type='text'
+										className='edit-reason-input'
+										value={editReason}
+										onChange={(e) =>
+											setEditReason(e.target.value)
+										}
+										placeholder='Why this change? (optional)'
+									/>
+									{editMessage && (
+										<div
+											className={`edit-message ${editMessage.type}`}>
+											{editMessage.text}
+										</div>
+									)}
+									<div className='edit-actions'>
+										<button
+											className='edit-cancel'
+											onClick={handleCancelEdit}>
+											Cancel
+										</button>
+										<button
+											className='edit-submit'
+											onClick={handleSubmitEdit}
+											disabled={
+												submittingEdit ||
+												editValue === retailerData.name
+											}>
+											{submittingEdit
+												? 'Submitting...'
+												: 'Submit'}
+										</button>
+									</div>
+								</div>
+							) : (
+								<h1 className='retailer-title'>
+									{retailerData.name}
+									{editMode && (
+										<button
+											className='edit-btn'
+											onClick={() =>
+												handleStartEdit('name')
+											}
+											title='Suggest edit'>
+											✏️
+										</button>
+									)}
+								</h1>
+							)}
 							<p className='retailer-subtitle'>
 								{retailerData.type === 'chain'
 									? `${retailerData.locationCount} location${
@@ -280,21 +454,154 @@ export function RetailerScreen() {
 				<div className='retailer-description-content'>
 					<div className='retailer-description-placeholder'>
 						<h2>About {retailerData.name}</h2>
-						<p>
-							Find plant-based products at {retailerData.name}.
-							{retailerData.type === 'chain'
-								? ` Browse products available across their ${retailerData.locationCount} locations.`
-								: ' Browse their selection of vegan-friendly products.'}
-						</p>
-						{retailerData.websiteUrl && (
-							<a
-								href={retailerData.websiteUrl}
-								target='_blank'
-								rel='noopener noreferrer'
-								className='retailer-website-link'>
-								Visit Website →
-							</a>
+
+						{/* Description - Editable */}
+						{editMode && editingField === 'description' ? (
+							<div className='edit-field-container edit-description-container'>
+								<textarea
+									className='edit-input edit-description-input'
+									value={editValue}
+									onChange={(e) =>
+										setEditValue(e.target.value)
+									}
+									placeholder='Write a description for this retailer...'
+									rows={4}
+								/>
+								<input
+									type='text'
+									className='edit-reason-input'
+									value={editReason}
+									onChange={(e) =>
+										setEditReason(e.target.value)
+									}
+									placeholder='Why this change? (optional)'
+								/>
+								{editMessage && (
+									<div
+										className={`edit-message ${editMessage.type}`}>
+										{editMessage.text}
+									</div>
+								)}
+								<div className='edit-actions'>
+									<button
+										className='edit-cancel'
+										onClick={handleCancelEdit}>
+										Cancel
+									</button>
+									<button
+										className='edit-submit'
+										onClick={handleSubmitEdit}
+										disabled={
+											submittingEdit ||
+											editValue ===
+												(retailerData.description || '')
+										}>
+										{submittingEdit
+											? 'Submitting...'
+											: 'Submit'}
+									</button>
+								</div>
+							</div>
+						) : (
+							<div className='retailer-description-text'>
+								<p>
+									{retailerData.description ||
+										`Find plant-based products at ${
+											retailerData.name
+										}.${
+											retailerData.type === 'chain'
+												? ` Browse products available across their ${retailerData.locationCount} locations.`
+												: ' Browse their selection of vegan-friendly products.'
+										}`}
+								</p>
+								{editMode && (
+									<button
+										className='edit-btn edit-btn-inline'
+										onClick={() =>
+											handleStartEdit('description')
+										}
+										title='Suggest edit'>
+										✏️
+									</button>
+								)}
+							</div>
 						)}
+
+						{/* Website URL - Editable */}
+						{editMode && editingField === 'websiteUrl' ? (
+							<div className='edit-field-container'>
+								<input
+									type='url'
+									className='edit-input'
+									value={editValue}
+									onChange={(e) =>
+										setEditValue(e.target.value)
+									}
+									placeholder='https://example.com'
+								/>
+								<input
+									type='text'
+									className='edit-reason-input'
+									value={editReason}
+									onChange={(e) =>
+										setEditReason(e.target.value)
+									}
+									placeholder='Why this change? (optional)'
+								/>
+								{editMessage && (
+									<div
+										className={`edit-message ${editMessage.type}`}>
+										{editMessage.text}
+									</div>
+								)}
+								<div className='edit-actions'>
+									<button
+										className='edit-cancel'
+										onClick={handleCancelEdit}>
+										Cancel
+									</button>
+									<button
+										className='edit-submit'
+										onClick={handleSubmitEdit}
+										disabled={
+											submittingEdit ||
+											editValue ===
+												(retailerData.websiteUrl || '')
+										}>
+										{submittingEdit
+											? 'Submitting...'
+											: 'Submit'}
+									</button>
+								</div>
+							</div>
+						) : (
+							<div className='retailer-website-row'>
+								{retailerData.websiteUrl ? (
+									<a
+										href={retailerData.websiteUrl}
+										target='_blank'
+										rel='noopener noreferrer'
+										className='retailer-website-link'>
+										Visit Website →
+									</a>
+								) : editMode ? (
+									<span className='no-website-text'>
+										No website added yet
+									</span>
+								) : null}
+								{editMode && (
+									<button
+										className='edit-btn edit-btn-inline'
+										onClick={() =>
+											handleStartEdit('websiteUrl')
+										}
+										title='Suggest edit'>
+										✏️
+									</button>
+								)}
+							</div>
+						)}
+
 						<p className='retailer-claim-notice'>
 							Are you the store owner? Contact us to claim this
 							page and add your store's information.

@@ -27,7 +27,7 @@ export function ProductDetailScreen() {
 	const navigate = useNavigate();
 	const { product, loading, error, refresh } = useProductDetail(id);
 	const { getOrCreateDefaultList, addItem, addingItem } = useShoppingList();
-	const { isAdmin, isAuthenticated } = useAuth();
+	const { isAdmin, isAuthenticated, user } = useAuth();
 
 	const [toast, setToast] = useState<{
 		message: string;
@@ -569,7 +569,10 @@ export function ProductDetailScreen() {
 					<Link to={`/brands/${encodeURIComponent(product.brand)}`}>
 						{product.brand}
 					</Link>
-					{isAdmin && (
+					{(isAdmin ||
+						(isAuthenticated &&
+							product._source === 'user_contribution' &&
+							product._userId === user?.id)) && (
 						<>
 							<span className='separator'>/</span>
 							<button
@@ -681,14 +684,19 @@ export function ProductDetailScreen() {
 						)}
 
 						<div className='detail-actions'>
+							{(isAdmin ||
+								(isAuthenticated &&
+									product._source === 'user_contribution' &&
+									product._userId === user?.id)) && (
+								<Button
+									onClick={() => setIsEditMode(true)}
+									variant='secondary'
+									size='lg'>
+									✏️ Edit Product
+								</Button>
+							)}
 							{isAdmin && (
 								<>
-									<Button
-										onClick={() => setIsEditMode(true)}
-										variant='secondary'
-										size='lg'>
-										✏️ Edit Product
-									</Button>
 									{product._archived ? (
 										<Button
 											onClick={handleUnarchive}

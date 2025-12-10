@@ -22,3 +22,17 @@ export {
 	CityContentEditField,
 	CityContentEditStatus,
 } from './CityContentEdit';
+export {
+	RetailerContentEdit,
+	IRetailerContentEdit,
+	RetailerEditField,
+	RetailerType,
+	RetailerContentEditStatus,
+} from './RetailerContentEdit';
+export { BrandPage, IBrandPage } from './BrandPage';
+export {
+	BrandContentEdit,
+	IBrandContentEdit,
+	BrandEditField,
+	BrandContentEditStatus,
+} from './BrandContentEdit';

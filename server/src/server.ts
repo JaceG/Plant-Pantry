@@ -18,6 +18,7 @@ import {
 	adminRoutes,
 	reviewRoutes,
 	cityRoutes,
+	brandRoutes,
 } from './routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
@@ -42,7 +43,7 @@ app.use(
 		origin: (origin, callback) => {
 			// Allow requests with no origin (mobile apps, curl, etc.)
 			if (!origin) return callback(null, true);
-			
+
 			if (allowedOrigins.includes(origin)) {
 				callback(null, true);
 			} else {
@@ -68,6 +69,7 @@ app.use('/api/stores', storeRoutes);
 app.use('/api/lists', listRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/cities', cityRoutes);
+app.use('/api/brands', brandRoutes);
 
 // GET /api/config/google-api-key - Get Google API key for frontend (public endpoint)
 app.get('/api/config/google-api-key', (req, res) => {

@@ -431,6 +431,282 @@
 	justify-content: center;
 }
 
+/* ================================
+   EDIT MODE STYLES
+   ================================ */
+
+.brand-screen .edit-page-toggle {
+	margin-left: var(--spacing-md);
+	padding: 4px 12px;
+	background: rgba(255, 255, 255, 0.2);
+	border: 1px solid rgba(255, 255, 255, 0.3);
+	border-radius: var(--radius-full);
+	color: white;
+	font-size: 0.75rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.brand-screen .edit-page-toggle:hover {
+	background: rgba(255, 255, 255, 0.3);
+}
+
+.brand-screen .edit-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	margin-left: var(--spacing-sm);
+	background: rgba(255, 255, 255, 0.2);
+	border: 1px solid rgba(255, 255, 255, 0.3);
+	border-radius: var(--radius-full);
+	cursor: pointer;
+	font-size: 0.85rem;
+	opacity: 0.7;
+	transition: all var(--transition-fast);
+	vertical-align: middle;
+}
+
+.brand-screen .edit-btn:hover {
+	opacity: 1;
+	background: rgba(255, 255, 255, 0.3);
+}
+
+.brand-screen .edit-btn-inline {
+	background: var(--color-sage-light);
+	border: 1px solid var(--color-sage);
+	width: 24px;
+	height: 24px;
+	font-size: 0.75rem;
+	margin-left: var(--spacing-xs);
+}
+
+.brand-screen .edit-btn-inline:hover {
+	background: var(--color-sage);
+}
+
+/* Edit Field Container */
+.brand-screen .edit-field-container {
+	background: rgba(255, 255, 255, 0.15);
+	backdrop-filter: blur(8px);
+	border-radius: var(--radius-lg);
+	padding: var(--spacing-lg);
+	margin-bottom: var(--spacing-md);
+	max-width: 600px;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+.brand-description-section .edit-field-container {
+	background: var(--color-cream);
+	backdrop-filter: none;
+	border: 1px solid var(--color-sage-light);
+	margin: var(--spacing-md) auto;
+}
+
+.brand-screen .edit-description-container {
+	max-width: 100%;
+}
+
+.brand-screen .edit-input {
+	width: 100%;
+	padding: var(--spacing-md);
+	border: 2px solid rgba(255, 255, 255, 0.3);
+	border-radius: var(--radius-md);
+	background: rgba(255, 255, 255, 0.1);
+	color: white;
+	font-family: var(--font-body);
+	font-size: 1rem;
+	transition: border-color var(--transition-fast);
+	box-sizing: border-box;
+}
+
+.brand-description-section .edit-input {
+	background: white;
+	color: var(--color-charcoal);
+	border-color: var(--color-sage-light);
+}
+
+.brand-screen .edit-input:focus {
+	outline: none;
+	border-color: rgba(255, 255, 255, 0.6);
+}
+
+.brand-description-section .edit-input:focus {
+	border-color: var(--color-forest);
+}
+
+.brand-screen .edit-input::placeholder {
+	color: rgba(255, 255, 255, 0.5);
+}
+
+.brand-description-section .edit-input::placeholder {
+	color: var(--color-stone);
+}
+
+.brand-screen .edit-title-input {
+	font-family: var(--font-display);
+	font-size: 1.5rem;
+	font-weight: 700;
+}
+
+.brand-screen .edit-description-input {
+	min-height: 100px;
+	resize: vertical;
+	line-height: 1.6;
+}
+
+.brand-screen .edit-reason-input {
+	width: 100%;
+	padding: var(--spacing-sm) var(--spacing-md);
+	margin-top: var(--spacing-sm);
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	border-radius: var(--radius-md);
+	background: rgba(255, 255, 255, 0.05);
+	color: rgba(255, 255, 255, 0.8);
+	font-family: var(--font-body);
+	font-size: 0.85rem;
+	box-sizing: border-box;
+}
+
+.brand-description-section .edit-reason-input {
+	background: var(--color-mint);
+	color: var(--color-charcoal);
+	border-color: var(--color-sage-light);
+}
+
+.brand-screen .edit-reason-input:focus {
+	outline: none;
+	border-color: rgba(255, 255, 255, 0.4);
+}
+
+.brand-description-section .edit-reason-input:focus {
+	border-color: var(--color-sage);
+}
+
+.brand-screen .edit-reason-input::placeholder {
+	color: rgba(255, 255, 255, 0.4);
+}
+
+.brand-description-section .edit-reason-input::placeholder {
+	color: var(--color-stone);
+}
+
+.brand-screen .edit-message {
+	margin-top: var(--spacing-sm);
+	padding: var(--spacing-sm) var(--spacing-md);
+	border-radius: var(--radius-md);
+	font-size: 0.85rem;
+}
+
+.brand-screen .edit-message.success {
+	background: rgba(16, 185, 129, 0.2);
+	color: #047857;
+}
+
+.brand-hero .edit-message.success {
+	color: #6ee7b7;
+}
+
+.brand-screen .edit-message.error {
+	background: rgba(239, 68, 68, 0.2);
+	color: #dc2626;
+}
+
+.brand-hero .edit-message.error {
+	color: #fca5a5;
+}
+
+.brand-screen .edit-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--spacing-sm);
+	margin-top: var(--spacing-md);
+}
+
+.brand-screen .edit-cancel,
+.brand-screen .edit-submit {
+	padding: var(--spacing-sm) var(--spacing-lg);
+	border-radius: var(--radius-md);
+	font-weight: 500;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.brand-screen .edit-cancel {
+	background: transparent;
+	border: 1px solid rgba(255, 255, 255, 0.3);
+	color: white;
+}
+
+.brand-description-section .edit-cancel {
+	border-color: var(--color-sage);
+	color: var(--color-charcoal);
+}
+
+.brand-screen .edit-cancel:hover {
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.brand-description-section .edit-cancel:hover {
+	background: var(--color-sage-light);
+}
+
+.brand-screen .edit-submit {
+	background: var(--color-forest);
+	border: none;
+	color: white;
+}
+
+.brand-screen .edit-submit:hover:not(:disabled) {
+	background: var(--color-sage-dark);
+}
+
+.brand-screen .edit-submit:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* Description text with edit button */
+.brand-description-text {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--spacing-xs);
+}
+
+.brand-description-text p {
+	flex: 1;
+}
+
+/* Website row */
+.brand-website-row {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--spacing-xs);
+	margin-bottom: var(--spacing-md);
+}
+
+.brand-website-link {
+	color: var(--color-forest);
+	font-weight: 500;
+	text-decoration: none;
+	transition: color var(--transition-fast);
+}
+
+.brand-website-link:hover {
+	color: var(--color-sage-dark);
+	text-decoration: underline;
+}
+
+.no-website-text {
+	color: var(--color-stone);
+	font-style: italic;
+	font-size: 0.9rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
 	.brand-hero {

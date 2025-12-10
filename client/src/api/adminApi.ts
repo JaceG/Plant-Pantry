@@ -945,6 +945,70 @@ export const adminApi = {
 			{ editIds, action, note }
 		);
 	},
+
+	// Retailer Content Edits
+	getRetailerContentEdits(
+		page: number = 1,
+		pageSize: number = 20,
+		status?: 'pending' | 'all',
+		retailerType?: 'store' | 'chain'
+	): Promise<PaginatedResponse<RetailerContentEdit>> {
+		let url = `/admin/retailer-content-edits?page=${page}&pageSize=${pageSize}`;
+		if (status) url += `&status=${status}`;
+		if (retailerType) url += `&retailerType=${retailerType}`;
+		return httpClient.get<PaginatedResponse<RetailerContentEdit>>(url);
+	},
+
+	approveRetailerContentEdit(
+		editId: string,
+		note?: string
+	): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/retailer-content-edits/${editId}/approve`,
+			{ reviewNote: note }
+		);
+	},
+
+	rejectRetailerContentEdit(
+		editId: string,
+		note?: string
+	): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/retailer-content-edits/${editId}/reject`,
+			{ reviewNote: note }
+		);
+	},
+
+	// Brand Content Edits
+	getBrandContentEdits(
+		page: number = 1,
+		pageSize: number = 20,
+		status?: 'pending' | 'all'
+	): Promise<PaginatedResponse<BrandContentEdit>> {
+		let url = `/admin/brand-content-edits?page=${page}&pageSize=${pageSize}`;
+		if (status) url += `&status=${status}`;
+		return httpClient.get<PaginatedResponse<BrandContentEdit>>(url);
+	},
+
+	approveBrandContentEdit(
+		editId: string,
+		note?: string
+	): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/brand-content-edits/${editId}/approve`,
+			{ reviewNote: note }
+		);
+	},
+
+	rejectBrandContentEdit(
+		editId: string,
+		note?: string
+	): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>(
+			`/admin/brand-content-edits/${editId}/reject`,
+			{ reviewNote: note }
+		);
+	},
 };
 
 // Pending Reports types
@@ -1016,6 +1080,64 @@ export interface CityContentEdit {
 		displayName?: string;
 	};
 	reviewedBy?: string;
+	reviewedAt?: string;
+	reviewNote?: string;
+	createdAt: string;
+}
+
+export interface RetailerContentEdit {
+	id: string;
+	retailerType: 'store' | 'chain';
+	storeId?: string;
+	storeName?: string;
+	storeAddress?: string;
+	chainId?: string;
+	chainName?: string;
+	chainSlug?: string;
+	field: 'name' | 'description' | 'websiteUrl';
+	originalValue: string;
+	suggestedValue: string;
+	reason?: string;
+	status: 'pending' | 'approved' | 'rejected';
+	trustedContribution: boolean;
+	autoApplied: boolean;
+	submittedBy?: {
+		id: string;
+		email: string;
+		displayName?: string;
+	};
+	reviewedBy?: {
+		id: string;
+		email: string;
+		displayName?: string;
+	};
+	reviewedAt?: string;
+	reviewNote?: string;
+	createdAt: string;
+}
+
+export interface BrandContentEdit {
+	id: string;
+	brandPageId?: string;
+	brandName: string;
+	brandSlug: string;
+	field: 'displayName' | 'description' | 'websiteUrl';
+	originalValue: string;
+	suggestedValue: string;
+	reason?: string;
+	status: 'pending' | 'approved' | 'rejected';
+	trustedContribution: boolean;
+	autoApplied: boolean;
+	submittedBy?: {
+		id: string;
+		email: string;
+		displayName?: string;
+	};
+	reviewedBy?: {
+		id: string;
+		email: string;
+		displayName?: string;
+	};
 	reviewedAt?: string;
 	reviewNote?: string;
 	createdAt: string;

@@ -5,7 +5,15 @@ import { storeChainService } from '../services/storeChainService';
 import { googlePlacesService } from '../services/googlePlacesService';
 import { HttpError } from '../middleware/errorHandler';
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth';
-import { Availability, Product, UserProduct } from '../models';
+import {
+	Availability,
+	Product,
+	UserProduct,
+	Store,
+	StoreChain,
+	RetailerContentEdit,
+	User,
+} from '../models';
 
 const router = Router();
 
@@ -483,5 +491,239 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 		next(error);
 	}
 });
+
+// ============================================
+// USER CONTRIBUTION ROUTES (requires auth)
+// ============================================
+
+// POST /api/stores/chains/:id/suggest-edit - Submit a suggested edit for a chain
+router.post(
+	'/chains/:id/suggest-edit',
+	authMiddleware,
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { field, suggestedValue, reason } = req.body;
+			const userId = req.userId;
+
+			if (!userId) {
+				throw new HttpError('User not authenticated', 401);
+			}
+
+			// Validate field
+			const validFields = ['name', 'description', 'websiteUrl'];
+			if (!field || !validFields.includes(field)) {
+				throw new HttpError(
+					'Invalid field. Must be name, description, or websiteUrl',
+					400
+				);
+			}
+
+			if (suggestedValue === undefined || suggestedValue === null) {
+				throw new HttpError('suggestedValue is required', 400);
+			}
+
+			// Get the chain
+			const chain = await StoreChain.findById(id).lean();
+			if (!chain) {
+				throw new HttpError('Chain not found', 404);
+			}
+
+			// Get the original value (may be undefined/null)
+			const originalValue =
+				(chain[field as keyof typeof chain] as string) || '';
+
+			// Don't create edit if values are the same
+			const trimmedValue =
+				typeof suggestedValue === 'string'
+					? suggestedValue.trim()
+					: suggestedValue;
+			if (originalValue === trimmedValue) {
+				throw new HttpError(
+					'Suggested value is the same as the current value',
+					400
+				);
+			}
+
+			// Check if user is a trusted contributor
+			const user = await User.findById(userId).lean();
+			const isTrusted = user?.trustedContributor || false;
+
+			// For trusted users, auto-apply the edit but flag for review
+			if (isTrusted) {
+				// Apply the edit directly
+				const updateData: Record<string, string> = {};
+				updateData[field] = trimmedValue;
+				await StoreChain.findByIdAndUpdate(id, updateData);
+
+				// Create the edit record (already approved but flagged for review)
+				const contentEdit = await RetailerContentEdit.create({
+					retailerType: 'chain',
+					chainId: chain._id,
+					chainSlug: chain.slug,
+					field,
+					originalValue,
+					suggestedValue: trimmedValue,
+					reason: reason?.trim(),
+					userId: new mongoose.Types.ObjectId(userId),
+					status: 'approved',
+					trustedContribution: true,
+					autoApplied: true,
+				});
+
+				return res.status(201).json({
+					message: 'Edit applied successfully',
+					edit: {
+						id: contentEdit._id.toString(),
+						field: contentEdit.field,
+						status: contentEdit.status,
+					},
+					autoApplied: true,
+				});
+			}
+
+			// For regular users, create pending edit
+			const contentEdit = await RetailerContentEdit.create({
+				retailerType: 'chain',
+				chainId: chain._id,
+				chainSlug: chain.slug,
+				field,
+				originalValue,
+				suggestedValue: trimmedValue,
+				reason: reason?.trim(),
+				userId: new mongoose.Types.ObjectId(userId),
+				status: 'pending',
+				trustedContribution: false,
+				autoApplied: false,
+			});
+
+			res.status(201).json({
+				message: 'Edit suggestion submitted for review',
+				edit: {
+					id: contentEdit._id.toString(),
+					field: contentEdit.field,
+					status: contentEdit.status,
+				},
+				autoApplied: false,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// POST /api/stores/:id/suggest-edit - Submit a suggested edit for a store
+router.post(
+	'/:id/suggest-edit',
+	authMiddleware,
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { field, suggestedValue, reason } = req.body;
+			const userId = req.userId;
+
+			if (!userId) {
+				throw new HttpError('User not authenticated', 401);
+			}
+
+			// Validate field
+			const validFields = ['name', 'description', 'websiteUrl'];
+			if (!field || !validFields.includes(field)) {
+				throw new HttpError(
+					'Invalid field. Must be name, description, or websiteUrl',
+					400
+				);
+			}
+
+			if (suggestedValue === undefined || suggestedValue === null) {
+				throw new HttpError('suggestedValue is required', 400);
+			}
+
+			// Get the store
+			const store = await Store.findById(id).lean();
+			if (!store) {
+				throw new HttpError('Store not found', 404);
+			}
+
+			// Get the original value (may be undefined/null)
+			const originalValue =
+				(store[field as keyof typeof store] as string) || '';
+
+			// Don't create edit if values are the same
+			const trimmedValue =
+				typeof suggestedValue === 'string'
+					? suggestedValue.trim()
+					: suggestedValue;
+			if (originalValue === trimmedValue) {
+				throw new HttpError(
+					'Suggested value is the same as the current value',
+					400
+				);
+			}
+
+			// Check if user is a trusted contributor
+			const user = await User.findById(userId).lean();
+			const isTrusted = user?.trustedContributor || false;
+
+			// For trusted users, auto-apply the edit but flag for review
+			if (isTrusted) {
+				// Apply the edit directly
+				const updateData: Record<string, string> = {};
+				updateData[field] = trimmedValue;
+				await Store.findByIdAndUpdate(id, updateData);
+
+				// Create the edit record (already approved but flagged for review)
+				const contentEdit = await RetailerContentEdit.create({
+					retailerType: 'store',
+					storeId: store._id,
+					field,
+					originalValue,
+					suggestedValue: trimmedValue,
+					reason: reason?.trim(),
+					userId: new mongoose.Types.ObjectId(userId),
+					status: 'approved',
+					trustedContribution: true,
+					autoApplied: true,
+				});
+
+				return res.status(201).json({
+					message: 'Edit applied successfully',
+					edit: {
+						id: contentEdit._id.toString(),
+						field: contentEdit.field,
+						status: contentEdit.status,
+					},
+					autoApplied: true,
+				});
+			}
+
+			// For regular users, create pending edit
+			const contentEdit = await RetailerContentEdit.create({
+				retailerType: 'store',
+				storeId: store._id,
+				field,
+				originalValue,
+				suggestedValue: trimmedValue,
+				reason: reason?.trim(),
+				userId: new mongoose.Types.ObjectId(userId),
+				status: 'pending',
+				trustedContribution: false,
+				autoApplied: false,
+			});
+
+			res.status(201).json({
+				message: 'Edit suggestion submitted for review',
+				edit: {
+					id: contentEdit._id.toString(),
+					field: contentEdit.field,
+					status: contentEdit.status,
+				},
+				autoApplied: false,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
 
 export default router;

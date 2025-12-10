@@ -6,6 +6,7 @@ export interface IStoreChain extends Document {
 	_id: mongoose.Types.ObjectId;
 	name: string;
 	slug: string;
+	description?: string;
 	logoUrl?: string;
 	websiteUrl?: string;
 	type: ChainType;
@@ -29,6 +30,10 @@ const storeChainSchema = new Schema<IStoreChain>(
 			trim: true,
 			unique: true,
 			lowercase: true,
+		},
+		description: {
+			type: String,
+			trim: true,
 		},
 		logoUrl: {
 			type: String,

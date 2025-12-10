@@ -2915,4 +2915,413 @@ router.put(
 	}
 );
 
+// ============================================
+// RETAILER CONTENT EDIT REVIEW
+// ============================================
+
+import { RetailerContentEdit, BrandContentEdit, BrandPage } from '../models';
+
+/**
+ * GET /api/admin/retailer-content-edits
+ * Get all pending retailer content edits for review
+ */
+router.get(
+	'/retailer-content-edits',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const page = parseInt(req.query.page as string) || 1;
+			const pageSize = parseInt(req.query.pageSize as string) || 20;
+			const status = (req.query.status as string) || 'pending';
+			const retailerType = req.query.retailerType as string | undefined;
+
+			const skip = (page - 1) * pageSize;
+
+			const query: Record<string, any> = {};
+			if (status !== 'all') {
+				query.status = status;
+			}
+			if (retailerType && ['store', 'chain'].includes(retailerType)) {
+				query.retailerType = retailerType;
+			}
+
+			const [edits, total] = await Promise.all([
+				RetailerContentEdit.find(query)
+					.populate('userId', 'email displayName')
+					.populate('reviewedBy', 'email displayName')
+					.populate('storeId', 'name address city state')
+					.populate('chainId', 'name slug')
+					.sort({ createdAt: -1 })
+					.skip(skip)
+					.limit(pageSize)
+					.lean(),
+				RetailerContentEdit.countDocuments(query),
+			]);
+
+			const items = edits.map((edit) => ({
+				id: edit._id.toString(),
+				retailerType: edit.retailerType,
+				storeId: edit.storeId
+					? (edit.storeId as any)._id?.toString()
+					: undefined,
+				storeName: edit.storeId
+					? (edit.storeId as any).name
+					: undefined,
+				storeAddress: edit.storeId
+					? `${(edit.storeId as any).city || ''}, ${
+							(edit.storeId as any).state || ''
+					  }`.trim()
+					: undefined,
+				chainId: edit.chainId
+					? (edit.chainId as any)._id?.toString()
+					: undefined,
+				chainName: edit.chainId
+					? (edit.chainId as any).name
+					: undefined,
+				chainSlug: edit.chainSlug,
+				field: edit.field,
+				originalValue: edit.originalValue,
+				suggestedValue: edit.suggestedValue,
+				reason: edit.reason,
+				status: edit.status,
+				trustedContribution: edit.trustedContribution,
+				autoApplied: edit.autoApplied,
+				submittedBy: edit.userId
+					? {
+							id: (edit.userId as any)._id?.toString(),
+							email: (edit.userId as any).email,
+							displayName: (edit.userId as any).displayName,
+					  }
+					: null,
+				reviewedBy: edit.reviewedBy
+					? {
+							id: (edit.reviewedBy as any)._id?.toString(),
+							email: (edit.reviewedBy as any).email,
+							displayName: (edit.reviewedBy as any).displayName,
+					  }
+					: null,
+				reviewedAt: edit.reviewedAt,
+				reviewNote: edit.reviewNote,
+				createdAt: edit.createdAt,
+			}));
+
+			res.json({
+				items,
+				total,
+				page,
+				pageSize,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/retailer-content-edits/:id/approve
+ * Approve a retailer content edit and apply it
+ */
+router.post(
+	'/retailer-content-edits/:id/approve',
+	async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { reviewNote } = req.body;
+			const adminId = req.user?.userId;
+
+			const edit = await RetailerContentEdit.findById(id);
+			if (!edit) {
+				throw new HttpError('Content edit not found', 404);
+			}
+
+			if (edit.status !== 'pending') {
+				throw new HttpError('This edit has already been reviewed', 400);
+			}
+
+			// Apply the edit
+			const updateData: Record<string, string> = {};
+			updateData[edit.field] = edit.suggestedValue;
+
+			if (edit.retailerType === 'chain' && edit.chainId) {
+				await StoreChain.findByIdAndUpdate(edit.chainId, updateData);
+			} else if (edit.retailerType === 'store' && edit.storeId) {
+				await Store.findByIdAndUpdate(edit.storeId, updateData);
+			}
+
+			// Update the edit status
+			edit.status = 'approved';
+			edit.reviewedBy = adminId
+				? new mongoose.Types.ObjectId(adminId)
+				: undefined;
+			edit.reviewedAt = new Date();
+			if (reviewNote) {
+				edit.reviewNote = reviewNote;
+			}
+			await edit.save();
+
+			res.json({
+				message: 'Edit approved and applied',
+				edit: {
+					id: edit._id.toString(),
+					field: edit.field,
+					status: edit.status,
+				},
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/retailer-content-edits/:id/reject
+ * Reject a retailer content edit
+ */
+router.post(
+	'/retailer-content-edits/:id/reject',
+	async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { reviewNote } = req.body;
+			const adminId = req.user?.userId;
+
+			const edit = await RetailerContentEdit.findById(id);
+			if (!edit) {
+				throw new HttpError('Content edit not found', 404);
+			}
+
+			if (edit.status !== 'pending') {
+				throw new HttpError('This edit has already been reviewed', 400);
+			}
+
+			// If it was auto-applied, we need to revert the change
+			if (edit.autoApplied && edit.trustedContribution) {
+				const revertData: Record<string, string> = {};
+				revertData[edit.field] = edit.originalValue;
+
+				if (edit.retailerType === 'chain' && edit.chainId) {
+					await StoreChain.findByIdAndUpdate(
+						edit.chainId,
+						revertData
+					);
+				} else if (edit.retailerType === 'store' && edit.storeId) {
+					await Store.findByIdAndUpdate(edit.storeId, revertData);
+				}
+			}
+
+			// Update the edit status
+			edit.status = 'rejected';
+			edit.reviewedBy = adminId
+				? new mongoose.Types.ObjectId(adminId)
+				: undefined;
+			edit.reviewedAt = new Date();
+			if (reviewNote) {
+				edit.reviewNote = reviewNote;
+			}
+			await edit.save();
+
+			res.json({
+				message: 'Edit rejected',
+				edit: {
+					id: edit._id.toString(),
+					field: edit.field,
+					status: edit.status,
+				},
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// ============================================
+// BRAND CONTENT EDIT REVIEW
+// ============================================
+
+/**
+ * GET /api/admin/brand-content-edits
+ * Get all pending brand content edits for review
+ */
+router.get(
+	'/brand-content-edits',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const page = parseInt(req.query.page as string) || 1;
+			const pageSize = parseInt(req.query.pageSize as string) || 20;
+			const status = (req.query.status as string) || 'pending';
+
+			const skip = (page - 1) * pageSize;
+
+			const query: Record<string, any> = {};
+			if (status !== 'all') {
+				query.status = status;
+			}
+
+			const [edits, total] = await Promise.all([
+				BrandContentEdit.find(query)
+					.populate('userId', 'email displayName')
+					.populate('reviewedBy', 'email displayName')
+					.sort({ createdAt: -1 })
+					.skip(skip)
+					.limit(pageSize)
+					.lean(),
+				BrandContentEdit.countDocuments(query),
+			]);
+
+			const items = edits.map((edit) => ({
+				id: edit._id.toString(),
+				brandPageId: edit.brandPageId?.toString(),
+				brandName: edit.brandName,
+				brandSlug: edit.brandSlug,
+				field: edit.field,
+				originalValue: edit.originalValue,
+				suggestedValue: edit.suggestedValue,
+				reason: edit.reason,
+				status: edit.status,
+				trustedContribution: edit.trustedContribution,
+				autoApplied: edit.autoApplied,
+				submittedBy: edit.userId
+					? {
+							id: (edit.userId as any)._id?.toString(),
+							email: (edit.userId as any).email,
+							displayName: (edit.userId as any).displayName,
+					  }
+					: null,
+				reviewedBy: edit.reviewedBy
+					? {
+							id: (edit.reviewedBy as any)._id?.toString(),
+							email: (edit.reviewedBy as any).email,
+							displayName: (edit.reviewedBy as any).displayName,
+					  }
+					: null,
+				reviewedAt: edit.reviewedAt,
+				reviewNote: edit.reviewNote,
+				createdAt: edit.createdAt,
+			}));
+
+			res.json({
+				items,
+				total,
+				page,
+				pageSize,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/brand-content-edits/:id/approve
+ * Approve a brand content edit and apply it
+ */
+router.post(
+	'/brand-content-edits/:id/approve',
+	async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { reviewNote } = req.body;
+			const adminId = req.user?.userId;
+
+			const edit = await BrandContentEdit.findById(id);
+			if (!edit) {
+				throw new HttpError('Content edit not found', 404);
+			}
+
+			if (edit.status !== 'pending') {
+				throw new HttpError('This edit has already been reviewed', 400);
+			}
+
+			// Apply the edit
+			const updateData: Record<string, any> = {};
+			updateData[edit.field] = edit.suggestedValue;
+			updateData.updatedBy = adminId
+				? new mongoose.Types.ObjectId(adminId)
+				: undefined;
+
+			if (edit.brandPageId) {
+				await BrandPage.findByIdAndUpdate(edit.brandPageId, updateData);
+			}
+
+			// Update the edit status
+			edit.status = 'approved';
+			edit.reviewedBy = adminId
+				? new mongoose.Types.ObjectId(adminId)
+				: undefined;
+			edit.reviewedAt = new Date();
+			if (reviewNote) {
+				edit.reviewNote = reviewNote;
+			}
+			await edit.save();
+
+			res.json({
+				message: 'Edit approved and applied',
+				edit: {
+					id: edit._id.toString(),
+					field: edit.field,
+					status: edit.status,
+				},
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/brand-content-edits/:id/reject
+ * Reject a brand content edit
+ */
+router.post(
+	'/brand-content-edits/:id/reject',
+	async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { reviewNote } = req.body;
+			const adminId = req.user?.userId;
+
+			const edit = await BrandContentEdit.findById(id);
+			if (!edit) {
+				throw new HttpError('Content edit not found', 404);
+			}
+
+			if (edit.status !== 'pending') {
+				throw new HttpError('This edit has already been reviewed', 400);
+			}
+
+			// If it was auto-applied, we need to revert the change
+			if (
+				edit.autoApplied &&
+				edit.trustedContribution &&
+				edit.brandPageId
+			) {
+				const revertData: Record<string, string> = {};
+				revertData[edit.field] = edit.originalValue;
+				await BrandPage.findByIdAndUpdate(edit.brandPageId, revertData);
+			}
+
+			// Update the edit status
+			edit.status = 'rejected';
+			edit.reviewedBy = adminId
+				? new mongoose.Types.ObjectId(adminId)
+				: undefined;
+			edit.reviewedAt = new Date();
+			if (reviewNote) {
+				edit.reviewNote = reviewNote;
+			}
+			await edit.save();
+
+			res.json({
+				message: 'Edit rejected',
+				edit: {
+					id: edit._id.toString(),
+					field: edit.field,
+					status: edit.status,
+				},
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
 export default router;

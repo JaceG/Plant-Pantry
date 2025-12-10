@@ -8,3 +8,4 @@ export { default as oauthRoutes } from './oauth';
 export { default as adminRoutes } from './admin';
 export { default as reviewRoutes } from './reviews';
 export { default as cityRoutes } from './cities';
+export { default as brandRoutes } from './brands';

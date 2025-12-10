@@ -7,6 +7,7 @@ export { authApi } from './authApi';
 export { oauthApi } from './oauthApi';
 export { adminApi } from './adminApi';
 export { citiesApi } from './citiesApi';
+export { brandsApi } from './brandsApi';
 export type {
 	CityPageData,
 	CityStore,
@@ -19,3 +20,8 @@ export type {
 	BrandStore,
 	BrandChainGroup,
 } from './productsApi';
+export type {
+	BrandPageData,
+	BrandEditField,
+	BrandEditSubmission,
+} from './brandsApi';

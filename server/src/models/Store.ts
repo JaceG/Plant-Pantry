@@ -8,6 +8,7 @@ export interface IStore extends Document {
 	name: string;
 	type: StoreType;
 	regionOrScope: string;
+	description?: string;
 	websiteUrl?: string;
 	// Chain relationship (null for independent stores)
 	chainId?: mongoose.Types.ObjectId;
@@ -51,6 +52,10 @@ const storeSchema = new Schema<IStore>(
 		regionOrScope: {
 			type: String,
 			required: true,
+			trim: true,
+		},
+		description: {
+			type: String,
 			trim: true,
 		},
 		websiteUrl: {

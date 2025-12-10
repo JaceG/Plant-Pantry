@@ -2,18 +2,23 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
 	productsApi,
+	brandsApi,
 	BrandStoresResponse,
 	BrandStore,
 	BrandChainGroup,
+	BrandPageData,
+	BrandEditField,
 } from '../api';
 import { ProductSummary } from '../types';
 import { Store } from '../types/store';
 import { ProductCard, Pagination, StoreMap } from '../components';
+import { useAuth } from '../context/AuthContext';
 import './BrandScreen.css';
 
 export function BrandScreen() {
 	const { brandName } = useParams<{ brandName: string }>();
 	const decodedBrandName = brandName ? decodeURIComponent(brandName) : '';
+	const { isAuthenticated } = useAuth();
 
 	// Products state
 	const [products, setProducts] = useState<ProductSummary[]>([]);
@@ -21,6 +26,12 @@ export function BrandScreen() {
 	const [page, setPage] = useState(1);
 	const [totalCount, setTotalCount] = useState(0);
 	const pageSize = 12;
+
+	// Brand page state
+	const [brandPageData, setBrandPageData] = useState<BrandPageData | null>(
+		null
+	);
+	const [loadingBrandPage, setLoadingBrandPage] = useState(true);
 
 	// Stores state
 	const [storesData, setStoresData] = useState<BrandStoresResponse | null>(
@@ -36,6 +47,19 @@ export function BrandScreen() {
 		'products'
 	);
 	const [error, setError] = useState<string | null>(null);
+
+	// Edit mode state
+	const [editMode, setEditMode] = useState(false);
+	const [editingField, setEditingField] = useState<BrandEditField | null>(
+		null
+	);
+	const [editValue, setEditValue] = useState('');
+	const [editReason, setEditReason] = useState('');
+	const [submittingEdit, setSubmittingEdit] = useState(false);
+	const [editMessage, setEditMessage] = useState<{
+		type: 'success' | 'error';
+		text: string;
+	} | null>(null);
 
 	const fetchProducts = useCallback(async () => {
 		if (!decodedBrandName) return;
@@ -80,6 +104,20 @@ export function BrandScreen() {
 		}
 	}, [decodedBrandName]);
 
+	const fetchBrandPage = useCallback(async () => {
+		if (!decodedBrandName) return;
+
+		setLoadingBrandPage(true);
+		try {
+			const res = await brandsApi.getBrandPage(decodedBrandName);
+			setBrandPageData(res.brandPage);
+		} catch (err) {
+			console.error('Error fetching brand page:', err);
+		} finally {
+			setLoadingBrandPage(false);
+		}
+	}, [decodedBrandName]);
+
 	useEffect(() => {
 		fetchProducts();
 	}, [fetchProducts]);
@@ -87,6 +125,10 @@ export function BrandScreen() {
 	useEffect(() => {
 		fetchStores();
 	}, [fetchStores]);
+
+	useEffect(() => {
+		fetchBrandPage();
+	}, [fetchBrandPage]);
 
 	const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -127,6 +169,81 @@ export function BrandScreen() {
 		});
 	};
 
+	// Edit handlers
+	const handleStartEdit = useCallback(
+		(field: BrandEditField) => {
+			setEditingField(field);
+			let currentValue = '';
+			if (brandPageData) {
+				currentValue =
+					(brandPageData[
+						field as keyof typeof brandPageData
+					] as string) || '';
+			}
+			setEditValue(currentValue);
+			setEditReason('');
+			setEditMessage(null);
+		},
+		[brandPageData]
+	);
+
+	const handleCancelEdit = useCallback(() => {
+		setEditingField(null);
+		setEditValue('');
+		setEditReason('');
+		setEditMessage(null);
+	}, []);
+
+	const handleSubmitEdit = useCallback(async () => {
+		if (!decodedBrandName || !editingField) return;
+
+		setSubmittingEdit(true);
+		setEditMessage(null);
+
+		try {
+			const response = await brandsApi.suggestEdit(decodedBrandName, {
+				field: editingField,
+				suggestedValue: editValue.trim(),
+				reason: editReason.trim() || undefined,
+			});
+
+			const messageText = response.autoApplied
+				? 'Your edit has been applied!'
+				: 'Your edit suggestion has been submitted for review!';
+
+			setEditMessage({
+				type: 'success',
+				text: messageText,
+			});
+
+			// If auto-applied, update local state
+			if (response.autoApplied && brandPageData) {
+				setBrandPageData({
+					...brandPageData,
+					[editingField]: editValue.trim(),
+				});
+			}
+
+			setTimeout(() => {
+				handleCancelEdit();
+			}, 2000);
+		} catch (err: any) {
+			setEditMessage({
+				type: 'error',
+				text: err.message || 'Failed to submit edit',
+			});
+		} finally {
+			setSubmittingEdit(false);
+		}
+	}, [
+		decodedBrandName,
+		editingField,
+		editValue,
+		editReason,
+		brandPageData,
+		handleCancelEdit,
+	]);
+
 	if (!decodedBrandName) {
 		return (
 			<div className='brand-screen'>
@@ -149,9 +266,83 @@ export function BrandScreen() {
 					<nav className='breadcrumb'>
 						<Link to='/'>Products</Link>
 						<span className='separator'>/</span>
-						<span>{decodedBrandName}</span>
+						<span>
+							{brandPageData?.displayName || decodedBrandName}
+						</span>
+						{isAuthenticated && (
+							<button
+								className='edit-page-toggle'
+								onClick={() => setEditMode(!editMode)}
+								title={
+									editMode
+										? 'Exit edit mode'
+										: 'Suggest edits to this page'
+								}>
+								{editMode ? '✓ Done' : '✏️ Edit'}
+							</button>
+						)}
 					</nav>
-					<h1 className='brand-title'>{decodedBrandName}</h1>
+
+					{/* Brand Title - Editable */}
+					{editMode && editingField === 'displayName' ? (
+						<div className='edit-field-container'>
+							<input
+								type='text'
+								className='edit-input edit-title-input'
+								value={editValue}
+								onChange={(e) => setEditValue(e.target.value)}
+								placeholder='Brand Name'
+							/>
+							<input
+								type='text'
+								className='edit-reason-input'
+								value={editReason}
+								onChange={(e) => setEditReason(e.target.value)}
+								placeholder='Why this change? (optional)'
+							/>
+							{editMessage && (
+								<div
+									className={`edit-message ${editMessage.type}`}>
+									{editMessage.text}
+								</div>
+							)}
+							<div className='edit-actions'>
+								<button
+									className='edit-cancel'
+									onClick={handleCancelEdit}>
+									Cancel
+								</button>
+								<button
+									className='edit-submit'
+									onClick={handleSubmitEdit}
+									disabled={
+										submittingEdit ||
+										editValue ===
+											(brandPageData?.displayName ||
+												decodedBrandName)
+									}>
+									{submittingEdit
+										? 'Submitting...'
+										: 'Submit'}
+								</button>
+							</div>
+						</div>
+					) : (
+						<h1 className='brand-title'>
+							{brandPageData?.displayName || decodedBrandName}
+							{editMode && (
+								<button
+									className='edit-btn'
+									onClick={() =>
+										handleStartEdit('displayName')
+									}
+									title='Suggest edit'>
+									✏️
+								</button>
+							)}
+						</h1>
+					)}
+
 					<p className='brand-subtitle'>
 						{loadingProducts
 							? 'Loading...'
@@ -176,12 +367,157 @@ export function BrandScreen() {
 				<div className='brand-description-content'>
 					<div className='brand-description-placeholder'>
 						<span className='brand-icon'>🏪</span>
-						<h2>About {decodedBrandName}</h2>
-						<p>
-							Discover plant-based products from{' '}
-							{decodedBrandName}. Browse their full product lineup
-							and find where to buy near you.
-						</p>
+						<h2>
+							About{' '}
+							{brandPageData?.displayName || decodedBrandName}
+						</h2>
+
+						{/* Description - Editable */}
+						{editMode && editingField === 'description' ? (
+							<div className='edit-field-container edit-description-container'>
+								<textarea
+									className='edit-input edit-description-input'
+									value={editValue}
+									onChange={(e) =>
+										setEditValue(e.target.value)
+									}
+									placeholder='Write a description for this brand...'
+									rows={4}
+								/>
+								<input
+									type='text'
+									className='edit-reason-input'
+									value={editReason}
+									onChange={(e) =>
+										setEditReason(e.target.value)
+									}
+									placeholder='Why this change? (optional)'
+								/>
+								{editMessage && (
+									<div
+										className={`edit-message ${editMessage.type}`}>
+										{editMessage.text}
+									</div>
+								)}
+								<div className='edit-actions'>
+									<button
+										className='edit-cancel'
+										onClick={handleCancelEdit}>
+										Cancel
+									</button>
+									<button
+										className='edit-submit'
+										onClick={handleSubmitEdit}
+										disabled={
+											submittingEdit ||
+											editValue ===
+												(brandPageData?.description ||
+													'')
+										}>
+										{submittingEdit
+											? 'Submitting...'
+											: 'Submit'}
+									</button>
+								</div>
+							</div>
+						) : (
+							<div className='brand-description-text'>
+								<p>
+									{brandPageData?.description ||
+										`Discover plant-based products from ${
+											brandPageData?.displayName ||
+											decodedBrandName
+										}. Browse their full product lineup and find where to buy near you.`}
+								</p>
+								{editMode && (
+									<button
+										className='edit-btn edit-btn-inline'
+										onClick={() =>
+											handleStartEdit('description')
+										}
+										title='Suggest edit'>
+										✏️
+									</button>
+								)}
+							</div>
+						)}
+
+						{/* Website URL - Editable */}
+						{editMode && editingField === 'websiteUrl' ? (
+							<div className='edit-field-container'>
+								<input
+									type='url'
+									className='edit-input'
+									value={editValue}
+									onChange={(e) =>
+										setEditValue(e.target.value)
+									}
+									placeholder='https://example.com'
+								/>
+								<input
+									type='text'
+									className='edit-reason-input'
+									value={editReason}
+									onChange={(e) =>
+										setEditReason(e.target.value)
+									}
+									placeholder='Why this change? (optional)'
+								/>
+								{editMessage && (
+									<div
+										className={`edit-message ${editMessage.type}`}>
+										{editMessage.text}
+									</div>
+								)}
+								<div className='edit-actions'>
+									<button
+										className='edit-cancel'
+										onClick={handleCancelEdit}>
+										Cancel
+									</button>
+									<button
+										className='edit-submit'
+										onClick={handleSubmitEdit}
+										disabled={
+											submittingEdit ||
+											editValue ===
+												(brandPageData?.websiteUrl ||
+													'')
+										}>
+										{submittingEdit
+											? 'Submitting...'
+											: 'Submit'}
+									</button>
+								</div>
+							</div>
+						) : (
+							<div className='brand-website-row'>
+								{brandPageData?.websiteUrl ? (
+									<a
+										href={brandPageData.websiteUrl}
+										target='_blank'
+										rel='noopener noreferrer'
+										className='brand-website-link'>
+										Visit Website →
+									</a>
+								) : editMode ? (
+									<span className='no-website-text'>
+										No website added yet
+									</span>
+								) : null}
+								{editMode && (
+									<button
+										className='edit-btn edit-btn-inline'
+										onClick={() =>
+											handleStartEdit('websiteUrl')
+										}
+										title='Suggest edit'>
+										✏️
+									</button>
+								)}
+							</div>
+						)}
+
 						<p className='brand-claim-notice'>
 							Are you the brand owner? Contact us to claim this
 							page and add your brand story, logo, and more.
