@@ -38,4 +38,20 @@ export const authApi = {
 			newPassword,
 		});
 	},
+
+	forgotPassword(email: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>('/auth/forgot-password', {
+			email,
+		});
+	},
+
+	resetPassword(
+		token: string,
+		password: string
+	): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>('/auth/reset-password', {
+			token,
+			password,
+		});
+	},
 };

@@ -19,6 +19,9 @@ export interface IUser extends Document {
 	preferredState?: string;
 	latitude?: number;
 	longitude?: number;
+	// Password reset
+	passwordResetToken?: string;
+	passwordResetExpires?: Date;
 	// Trusted contributor status - their contributions bypass moderation
 	trustedContributor: boolean;
 	trustedAt?: Date; // When they were marked as trusted
@@ -89,6 +92,13 @@ const userSchema = new Schema<IUser>(
 		},
 		longitude: {
 			type: Number,
+		},
+		// Password reset
+		passwordResetToken: {
+			type: String,
+		},
+		passwordResetExpires: {
+			type: Date,
 		},
 		// Trusted contributor status - their contributions bypass moderation
 		trustedContributor: {

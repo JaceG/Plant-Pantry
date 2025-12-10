@@ -22,6 +22,8 @@ import {
 	LoginScreen,
 	SignupScreen,
 	ProfileScreen,
+	ForgotPasswordScreen,
+	ResetPasswordScreen,
 } from './screens';
 import { CityLandingScreen } from './screens/CityLandingScreen';
 import {
@@ -222,6 +224,14 @@ function AppContent() {
 					/>
 					<Route path='/login' element={<LoginScreen />} />
 					<Route path='/signup' element={<SignupScreen />} />
+					<Route
+						path='/forgot-password'
+						element={<ForgotPasswordScreen />}
+					/>
+					<Route
+						path='/reset-password'
+						element={<ResetPasswordScreen />}
+					/>
 
 					{/* Protected routes (require auth) */}
 					<Route

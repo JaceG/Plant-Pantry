@@ -8,4 +8,6 @@ export { AddProductScreen } from './AddProductScreen';
 export { LoginScreen } from './LoginScreen';
 export { SignupScreen } from './SignupScreen';
 export { ProfileScreen } from './ProfileScreen';
+export { ForgotPasswordScreen } from './ForgotPasswordScreen';
+export { ResetPasswordScreen } from './ResetPasswordScreen';
 export * from './admin';

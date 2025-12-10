@@ -208,6 +208,9 @@ export function LoginScreen() {
 								{fieldErrors.password}
 							</span>
 						)}
+						<div className='forgot-password-link'>
+							<Link to='/forgot-password'>Forgot password?</Link>
+						</div>
 					</div>
 
 					<Button

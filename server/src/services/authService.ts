@@ -1,5 +1,7 @@
+import crypto from 'crypto';
 import { User, IUser, UserRole, AuthProvider } from '../models/User';
 import { generateToken } from '../utils/jwt';
+import { emailService } from './emailService';
 
 export interface SignupInput {
 	email: string;
@@ -332,6 +334,101 @@ export const authService = {
 
 		// Update password
 		user.password = newPassword;
+		await user.save();
+
+		return true;
+	},
+
+	/**
+	 * Request password reset - generates token and sends email
+	 */
+	async requestPasswordReset(email: string): Promise<boolean> {
+		const user = await User.findOne({ email: email.toLowerCase() });
+
+		// Always return success to prevent email enumeration attacks
+		// But only proceed if user exists and has local auth
+		if (!user) {
+			return true;
+		}
+
+		// Don't allow password reset for OAuth users
+		if (user.authProvider !== 'local') {
+			return true;
+		}
+
+		// Generate a secure random token
+		const resetToken = crypto.randomBytes(32).toString('hex');
+
+		// Hash the token before storing (so even if DB is compromised, tokens are safe)
+		const hashedToken = crypto
+			.createHash('sha256')
+			.update(resetToken)
+			.digest('hex');
+
+		// Set token and expiry (1 hour)
+		user.passwordResetToken = hashedToken;
+		user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
+		await user.save();
+
+		// Send the unhashed token via email
+		await emailService.sendPasswordResetEmail(user.email, resetToken);
+
+		return true;
+	},
+
+	/**
+	 * Reset password using token
+	 */
+	async resetPassword(token: string, newPassword: string): Promise<boolean> {
+		// Hash the provided token to compare with stored hash
+		const hashedToken = crypto
+			.createHash('sha256')
+			.update(token)
+			.digest('hex');
+
+		// Find user with matching token that hasn't expired
+		const user = await User.findOne({
+			passwordResetToken: hashedToken,
+			passwordResetExpires: { $gt: new Date() },
+		});
+
+		if (!user) {
+			throw new AuthServiceError(
+				'Invalid or expired reset token',
+				400,
+				'token'
+			);
+		}
+
+		// Validate new password
+		if (newPassword.length < 8) {
+			throw new AuthServiceError(
+				'Password must be at least 8 characters',
+				400,
+				'password'
+			);
+		}
+
+		if (!/[a-zA-Z]/.test(newPassword)) {
+			throw new AuthServiceError(
+				'Password must contain at least one letter',
+				400,
+				'password'
+			);
+		}
+
+		if (!/[0-9]/.test(newPassword)) {
+			throw new AuthServiceError(
+				'Password must contain at least one number',
+				400,
+				'password'
+			);
+		}
+
+		// Update password and clear reset fields
+		user.password = newPassword;
+		user.passwordResetToken = undefined;
+		user.passwordResetExpires = undefined;
 		await user.save();
 
 		return true;

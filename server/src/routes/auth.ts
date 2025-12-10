@@ -194,4 +194,75 @@ router.post(
 	}
 );
 
+/**
+ * POST /api/auth/forgot-password
+ * Request password reset email
+ */
+router.post(
+	'/forgot-password',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { email } = req.body;
+
+			if (!email) {
+				throw new HttpError('Email is required', 400);
+			}
+
+			// Validate email format
+			const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+			if (!emailRegex.test(email)) {
+				throw new HttpError('Invalid email format', 400);
+			}
+
+			await authService.requestPasswordReset(email);
+
+			// Always return success to prevent email enumeration
+			res.json({
+				message:
+					'If an account with that email exists, a password reset link has been sent.',
+			});
+		} catch (error) {
+			if (error instanceof AuthServiceError) {
+				next(new HttpError(error.message, error.statusCode));
+			} else {
+				next(error);
+			}
+		}
+	}
+);
+
+/**
+ * POST /api/auth/reset-password
+ * Reset password using token from email
+ */
+router.post(
+	'/reset-password',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { token, password } = req.body;
+
+			if (!token) {
+				throw new HttpError('Reset token is required', 400);
+			}
+
+			if (!password) {
+				throw new HttpError('New password is required', 400);
+			}
+
+			await authService.resetPassword(token, password);
+
+			res.json({
+				message:
+					'Password has been reset successfully. You can now log in with your new password.',
+			});
+		} catch (error) {
+			if (error instanceof AuthServiceError) {
+				next(new HttpError(error.message, error.statusCode));
+			} else {
+				next(error);
+			}
+		}
+	}
+);
+
 export default router;
