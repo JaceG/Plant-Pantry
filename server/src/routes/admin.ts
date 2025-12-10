@@ -11,7 +11,7 @@ import {
 	AuthenticatedRequest,
 } from '../middleware/auth';
 import { HttpError } from '../middleware/errorHandler';
-import { Product, UserProduct, Store, StoreChain } from '../models';
+import { Product, UserProduct, Store, StoreChain, Availability } from '../models';
 
 const router = Router();
 
@@ -2459,8 +2459,6 @@ router.delete(
 // ============================================
 // STORE AVAILABILITY MANAGEMENT
 // ============================================
-
-import { Availability, Store } from '../models';
 
 /**
  * GET /api/admin/stores/:storeId/availability
