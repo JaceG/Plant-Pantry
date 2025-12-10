@@ -9,10 +9,13 @@ export interface IUser extends Document {
 	email: string;
 	name?: string; // Real name (optional)
 	displayName: string;
-	password?: string; // Optional for OAuth users
+	password?: string; // Optional - set if user has email/password login
 	role: UserRole;
-	authProvider: AuthProvider;
-	providerId?: string; // ID from OAuth provider
+	authProvider: AuthProvider; // Original signup method (kept for backwards compat)
+	providerId?: string; // Deprecated - use googleId/appleId instead
+	// Linked OAuth accounts (user can have multiple)
+	googleId?: string; // Google OAuth ID (if linked)
+	appleId?: string; // Apple OAuth ID (if linked)
 	profilePicture?: string; // Profile picture URL from OAuth
 	// Location preferences
 	preferredCity?: string;
@@ -31,6 +34,10 @@ export interface IUser extends Document {
 	updatedAt: Date;
 	// Methods
 	comparePassword(candidatePassword: string): Promise<boolean>;
+	// Helper to check linked accounts
+	hasPassword(): boolean;
+	hasGoogle(): boolean;
+	hasApple(): boolean;
 }
 
 const SALT_ROUNDS = 10;
@@ -73,7 +80,16 @@ const userSchema = new Schema<IUser>(
 		},
 		providerId: {
 			type: String,
-			sparse: true, // Allows null/undefined values while maintaining index
+			sparse: true, // Deprecated - use googleId/appleId instead
+		},
+		// Linked OAuth accounts
+		googleId: {
+			type: String,
+			sparse: true,
+		},
+		appleId: {
+			type: String,
+			sparse: true,
 		},
 		profilePicture: {
 			type: String,
@@ -142,13 +158,28 @@ userSchema.methods.comparePassword = async function (
 	candidatePassword: string
 ): Promise<boolean> {
 	if (!this.password) {
-		return false; // OAuth users can't use password login
+		return false; // No password set
 	}
 	return bcrypt.compare(candidatePassword, this.password);
+};
+
+// Helper methods to check linked accounts
+userSchema.methods.hasPassword = function (): boolean {
+	return !!this.password;
+};
+
+userSchema.methods.hasGoogle = function (): boolean {
+	return !!this.googleId;
+};
+
+userSchema.methods.hasApple = function (): boolean {
+	return !!this.appleId;
 };
 
 // Note: email index is already created by `unique: true` in the schema
 userSchema.index({ role: 1 });
 userSchema.index({ authProvider: 1, providerId: 1 });
+userSchema.index({ googleId: 1 }, { sparse: true });
+userSchema.index({ appleId: 1 }, { sparse: true });
 
 export const User = mongoose.model<IUser>('User', userSchema);

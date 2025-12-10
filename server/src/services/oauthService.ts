@@ -66,6 +66,7 @@ class OAuthServiceError extends Error {
 export const oauthService = {
 	/**
 	 * Authenticate or register a user via OAuth
+	 * Now supports account linking - users can have multiple auth methods
 	 */
 	async authenticateOAuth(
 		provider: AuthProvider,
@@ -81,11 +82,25 @@ export const oauthService = {
 			);
 		}
 
-		// First, try to find user by provider and providerId
-		let user = await User.findOne({
-			authProvider: provider,
-			providerId: providerId,
-		});
+		// Determine which ID field to use based on provider
+		const providerIdField = provider === 'google' ? 'googleId' : 'appleId';
+
+		// First, try to find user by the new provider-specific ID field
+		let user = await User.findOne({ [providerIdField]: providerId });
+
+		// Fall back to legacy providerId lookup for backwards compatibility
+		if (!user) {
+			user = await User.findOne({
+				authProvider: provider,
+				providerId: providerId,
+			});
+
+			// If found via legacy method, migrate to new field
+			if (user) {
+				user[providerIdField as 'googleId' | 'appleId'] = providerId;
+				await user.save();
+			}
+		}
 
 		let isNewUser = false;
 
@@ -95,7 +110,7 @@ export const oauthService = {
 			if (profilePicture) {
 				user.profilePicture = profilePicture;
 			}
-			if (name) {
+			if (name && !user.name) {
 				user.name = name;
 			}
 			await user.save();
@@ -106,37 +121,37 @@ export const oauthService = {
 			});
 
 			if (existingUser) {
-				// User exists with this email but different auth method
-				if (existingUser.authProvider === 'local') {
-					// Allow linking if they originally signed up with email/password
-					// Update their account to include OAuth provider info
-					existingUser.authProvider = provider;
-					existingUser.providerId = providerId;
-					if (profilePicture) {
-						existingUser.profilePicture = profilePicture;
-					}
-					existingUser.lastLogin = new Date();
-					await existingUser.save();
-					user = existingUser;
-				} else {
-					// They used a different OAuth provider
-					throw new OAuthServiceError(
-						`This email is already registered with ${existingUser.authProvider}. Please sign in using that method.`,
-						409
-					);
+				// User exists with this email - link this OAuth provider to their account
+				// This allows users to sign in with multiple methods
+				existingUser[providerIdField as 'googleId' | 'appleId'] =
+					providerId;
+				if (profilePicture && !existingUser.profilePicture) {
+					existingUser.profilePicture = profilePicture;
 				}
+				if (name && !existingUser.name) {
+					existingUser.name = name;
+				}
+				existingUser.lastLogin = new Date();
+				await existingUser.save();
+				user = existingUser;
+
+				console.log(
+					`✅ Linked ${provider} account to existing user: ${email}`
+				);
 			} else {
-				// Create new user
-				user = await User.create({
+				// Create new user with the provider-specific ID
+				const newUserData: Record<string, unknown> = {
 					email: email.toLowerCase(),
 					name: name || undefined,
 					displayName: displayName || name || email.split('@')[0],
 					authProvider: provider,
-					providerId: providerId,
+					[providerIdField]: providerId,
 					profilePicture: profilePicture || undefined,
 					role: 'user',
 					lastLogin: new Date(),
-				});
+				};
+
+				user = await User.create(newUserData);
 				isNewUser = true;
 			}
 		}
@@ -157,6 +172,101 @@ export const oauthService = {
 			token,
 			isNewUser,
 		};
+	},
+
+	/**
+	 * Link a Google account to an existing user
+	 */
+	async linkGoogle(userId: string, credential: string): Promise<void> {
+		const userData = await this.verifyGoogleToken(credential);
+
+		// Check if this Google account is already linked to another user
+		const existingUser = await User.findOne({
+			googleId: userData.providerId,
+		});
+		if (existingUser && existingUser._id.toString() !== userId) {
+			throw new OAuthServiceError(
+				'This Google account is already linked to another user',
+				409
+			);
+		}
+
+		const user = await User.findById(userId);
+		if (!user) {
+			throw new OAuthServiceError('User not found', 404);
+		}
+
+		user.googleId = userData.providerId;
+		if (userData.profilePicture && !user.profilePicture) {
+			user.profilePicture = userData.profilePicture;
+		}
+		await user.save();
+	},
+
+	/**
+	 * Link an Apple account to an existing user
+	 */
+	async linkApple(
+		userId: string,
+		identityToken: string,
+		userData?: { name?: string; email?: string }
+	): Promise<void> {
+		const appleData = await this.verifyAppleToken(identityToken, userData);
+
+		// Check if this Apple account is already linked to another user
+		const existingUser = await User.findOne({
+			appleId: appleData.providerId,
+		});
+		if (existingUser && existingUser._id.toString() !== userId) {
+			throw new OAuthServiceError(
+				'This Apple account is already linked to another user',
+				409
+			);
+		}
+
+		const user = await User.findById(userId);
+		if (!user) {
+			throw new OAuthServiceError('User not found', 404);
+		}
+
+		user.appleId = appleData.providerId;
+		await user.save();
+	},
+
+	/**
+	 * Unlink an OAuth provider from a user
+	 */
+	async unlinkProvider(
+		userId: string,
+		provider: 'google' | 'apple'
+	): Promise<void> {
+		const user = await User.findById(userId);
+		if (!user) {
+			throw new OAuthServiceError('User not found', 404);
+		}
+
+		// Ensure user has at least one other login method
+		const hasPassword = !!user.password;
+		const hasGoogle = !!user.googleId;
+		const hasApple = !!user.appleId;
+
+		const methodCount =
+			(hasPassword ? 1 : 0) + (hasGoogle ? 1 : 0) + (hasApple ? 1 : 0);
+
+		if (methodCount <= 1) {
+			throw new OAuthServiceError(
+				'Cannot unlink your only login method. Add a password or link another account first.',
+				400
+			);
+		}
+
+		if (provider === 'google') {
+			user.googleId = undefined;
+		} else {
+			user.appleId = undefined;
+		}
+
+		await user.save();
 	},
 
 	/**

@@ -1,6 +1,12 @@
 import { httpClient } from './httpClient';
 import { AuthResponse, SignupInput, LoginInput, User } from '../types/auth';
 
+export interface LinkedAccounts {
+	hasPassword: boolean;
+	hasGoogle: boolean;
+	hasApple: boolean;
+}
+
 export const authApi = {
 	signup(input: SignupInput): Promise<AuthResponse> {
 		return httpClient.post<AuthResponse>('/auth/signup', input);
@@ -53,5 +59,42 @@ export const authApi = {
 			token,
 			password,
 		});
+	},
+
+	// Linked accounts management
+	getLinkedAccounts(): Promise<LinkedAccounts> {
+		return httpClient.get<LinkedAccounts>('/auth/linked-accounts');
+	},
+
+	setPassword(password: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>('/auth/set-password', {
+			password,
+		});
+	},
+
+	removePassword(): Promise<{ message: string }> {
+		return httpClient.delete<{ message: string }>('/auth/remove-password');
+	},
+
+	linkGoogle(credential: string): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>('/auth/link/google', {
+			credential,
+		});
+	},
+
+	linkApple(
+		identityToken: string,
+		user?: { name?: string; email?: string }
+	): Promise<{ message: string }> {
+		return httpClient.post<{ message: string }>('/auth/link/apple', {
+			identityToken,
+			user,
+		});
+	},
+
+	unlinkProvider(provider: 'google' | 'apple'): Promise<{ message: string }> {
+		return httpClient.delete<{ message: string }>(
+			`/auth/unlink/${provider}`
+		);
 	},
 };

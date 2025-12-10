@@ -340,6 +340,93 @@ export const authService = {
 	},
 
 	/**
+	 * Set password for user (for OAuth users who want to add password login)
+	 */
+	async setPassword(userId: string, newPassword: string): Promise<boolean> {
+		const user = await User.findById(userId);
+		if (!user) {
+			throw new AuthServiceError('User not found', 404);
+		}
+
+		// Validate new password
+		if (newPassword.length < 8) {
+			throw new AuthServiceError(
+				'Password must be at least 8 characters',
+				400,
+				'password'
+			);
+		}
+
+		if (!/[a-zA-Z]/.test(newPassword)) {
+			throw new AuthServiceError(
+				'Password must contain at least one letter',
+				400,
+				'password'
+			);
+		}
+
+		if (!/[0-9]/.test(newPassword)) {
+			throw new AuthServiceError(
+				'Password must contain at least one number',
+				400,
+				'password'
+			);
+		}
+
+		// Set password (will be hashed by pre-save hook)
+		user.password = newPassword;
+		await user.save();
+
+		return true;
+	},
+
+	/**
+	 * Get linked accounts info for a user
+	 */
+	async getLinkedAccounts(userId: string): Promise<{
+		hasPassword: boolean;
+		hasGoogle: boolean;
+		hasApple: boolean;
+	}> {
+		const user = await User.findById(userId);
+		if (!user) {
+			throw new AuthServiceError('User not found', 404);
+		}
+
+		return {
+			hasPassword: !!user.password,
+			hasGoogle: !!user.googleId,
+			hasApple: !!user.appleId,
+		};
+	},
+
+	/**
+	 * Remove password from user account
+	 */
+	async removePassword(userId: string): Promise<boolean> {
+		const user = await User.findById(userId);
+		if (!user) {
+			throw new AuthServiceError('User not found', 404);
+		}
+
+		// Ensure user has at least one other login method
+		const hasGoogle = !!user.googleId;
+		const hasApple = !!user.appleId;
+
+		if (!hasGoogle && !hasApple) {
+			throw new AuthServiceError(
+				'Cannot remove password - it is your only login method. Link Google or Apple first.',
+				400
+			);
+		}
+
+		user.password = undefined;
+		await user.save();
+
+		return true;
+	},
+
+	/**
 	 * Request password reset - generates token and sends email
 	 */
 	async requestPasswordReset(email: string): Promise<boolean> {
