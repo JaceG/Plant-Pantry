@@ -14,6 +14,30 @@ import {
 	User,
 } from '../models';
 
+// Helper to get user trust level for moderation decisions
+// - Admin: trusted, no review needed
+// - Moderator/Trusted contributor: trusted, needs review by admin later
+// - Regular user: not trusted, stays pending until approved
+async function getUserTrustLevel(
+	userId: string
+): Promise<{ isTrusted: boolean; needsReview: boolean }> {
+	const user = await User.findById(userId)
+		.select('trustedContributor role')
+		.lean();
+	if (!user) return { isTrusted: false, needsReview: true };
+
+	if (user.role === 'admin') {
+		return { isTrusted: true, needsReview: false };
+	}
+	if (user.role === 'moderator') {
+		return { isTrusted: true, needsReview: true };
+	}
+	if (user.trustedContributor) {
+		return { isTrusted: true, needsReview: true };
+	}
+	return { isTrusted: false, needsReview: true };
+}
+
 const router = Router();
 
 // GET /api/cities/geocode - Reverse geocode coordinates to city/state using Google Maps API
@@ -390,24 +414,66 @@ router.post(
 				field as keyof typeof cityPage
 			] as string;
 
+			const trimmedValue = suggestedValue.trim();
+
 			// Don't create edit if values are the same
-			if (originalValue === suggestedValue.trim()) {
+			if (originalValue === trimmedValue) {
 				throw new HttpError(
 					'Suggested value is the same as the current value',
 					400
 				);
 			}
 
-			// Create the content edit suggestion
+			// Check user trust level for moderation decisions
+			const { isTrusted, needsReview } = await getUserTrustLevel(userId);
+
+			// For trusted users (admin/mod/trusted contributor), auto-apply the edit
+			if (isTrusted) {
+				// Apply the edit directly
+				const updateData: Record<string, string> = {};
+				updateData[field] = trimmedValue;
+				await CityLandingPage.findByIdAndUpdate(
+					cityPage._id,
+					updateData
+				);
+
+				// Create the edit record (already approved; admins don't need review, others do)
+				const contentEdit = await CityContentEdit.create({
+					cityPageId: cityPage._id,
+					citySlug: cityPage.slug,
+					field,
+					originalValue,
+					suggestedValue: trimmedValue,
+					reason: reason?.trim(),
+					userId: new mongoose.Types.ObjectId(userId),
+					status: 'approved',
+					trustedContribution: true,
+					autoApplied: needsReview, // Admin edits don't need review (autoApplied=false)
+				});
+
+				return res.status(201).json({
+					message: 'Edit applied successfully',
+					edit: {
+						id: contentEdit._id.toString(),
+						field: contentEdit.field,
+						status: contentEdit.status,
+					},
+					autoApplied: needsReview,
+				});
+			}
+
+			// For regular users, create pending edit
 			const contentEdit = await CityContentEdit.create({
 				cityPageId: cityPage._id,
 				citySlug: cityPage.slug,
 				field,
 				originalValue,
-				suggestedValue: suggestedValue.trim(),
+				suggestedValue: trimmedValue,
 				reason: reason?.trim(),
 				userId: new mongoose.Types.ObjectId(userId),
 				status: 'pending',
+				trustedContribution: false,
+				autoApplied: false,
 			});
 
 			res.status(201).json({
@@ -417,6 +483,7 @@ router.post(
 					field: contentEdit.field,
 					status: contentEdit.status,
 				},
+				autoApplied: false,
 			});
 		} catch (error) {
 			next(error);
@@ -462,9 +529,8 @@ router.post(
 				throw new HttpError('City page not found', 404);
 			}
 
-			// Check if user is a trusted contributor
-			const user = await User.findById(userId).lean();
-			const isTrusted = user?.trustedContributor || false;
+			// Check user trust level for moderation decisions
+			const { isTrusted, needsReview } = await getUserTrustLevel(userId);
 
 			// Create the store with pending status (or confirmed if trusted)
 			const store = await Store.create({
@@ -482,7 +548,7 @@ router.post(
 				createdBy: new mongoose.Types.ObjectId(userId),
 				moderationStatus: isTrusted ? 'confirmed' : 'pending',
 				trustedContribution: isTrusted,
-				needsReview: isTrusted, // Trusted content auto-approved but flagged for review
+				needsReview: needsReview, // Admin edits don't need review; moderator/trusted edits do
 			});
 
 			res.status(201).json({
@@ -574,9 +640,8 @@ router.post(
 				});
 			}
 
-			// Check if user is a trusted contributor
-			const user = await User.findById(userId).lean();
-			const isTrusted = user?.trustedContributor || false;
+			// Check user trust level for moderation decisions
+			const { isTrusted, needsReview } = await getUserTrustLevel(userId);
 
 			// Create new availability report
 			const availability = await Availability.create({
@@ -589,7 +654,7 @@ router.post(
 				reportedBy: new mongoose.Types.ObjectId(userId),
 				lastConfirmedAt: new Date(),
 				trustedContribution: isTrusted,
-				needsReview: isTrusted,
+				needsReview: needsReview, // Admin edits don't need review; moderator/trusted edits do
 			});
 
 			res.status(201).json({

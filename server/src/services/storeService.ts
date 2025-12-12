@@ -99,14 +99,39 @@ function toStoreSummary(
 	return summary;
 }
 
-// Helper to check if user is trusted
+// Helper to check if user is trusted (for backwards compatibility)
 async function isUserTrusted(userId: string): Promise<boolean> {
+	const { isTrusted } = await getUserTrustLevel(userId);
+	return isTrusted;
+}
+
+// Helper to get user trust level for moderation decisions
+// Returns: { isTrusted: boolean, needsReview: boolean }
+// - Admin: trusted, no review needed
+// - Moderator/Trusted contributor: trusted, needs review by admin later
+// - Regular user: not trusted, stays pending until approved
+async function getUserTrustLevel(
+	userId: string
+): Promise<{ isTrusted: boolean; needsReview: boolean }> {
 	const user = await User.findById(userId)
 		.select('trustedContributor role')
 		.lean();
-	if (!user) return false;
-	if (user.role === 'admin' || user.role === 'moderator') return true;
-	return user.trustedContributor === true;
+	if (!user) return { isTrusted: false, needsReview: true };
+
+	// Admins: content applied immediately, NO review needed
+	if (user.role === 'admin') {
+		return { isTrusted: true, needsReview: false };
+	}
+	// Moderators: content applied immediately, but can be reviewed by admin later
+	if (user.role === 'moderator') {
+		return { isTrusted: true, needsReview: true };
+	}
+	// Trusted contributors: content applied immediately, but reviewed by admin later
+	if (user.trustedContributor) {
+		return { isTrusted: true, needsReview: true };
+	}
+	// Regular users: content needs approval before going live
+	return { isTrusted: false, needsReview: true };
 }
 
 export const storeService = {
@@ -214,11 +239,10 @@ export const storeService = {
 	},
 
 	async createStore(input: CreateStoreInput): Promise<StoreSummary> {
-		// Check if user is trusted (bypass moderation)
-		const isTrusted = input.createdBy
-			? await isUserTrusted(input.createdBy)
-			: true; // Admin-created stores are confirmed
-		const isUserCreated = !!input.createdBy; // Track if this is user-created
+		// Check user trust level for moderation decisions
+		const { isTrusted, needsReview } = input.createdBy
+			? await getUserTrustLevel(input.createdBy)
+			: { isTrusted: true, needsReview: false }; // Admin-created stores are confirmed, no review
 
 		const storeData: any = { ...input };
 
@@ -235,9 +259,9 @@ export const storeService = {
 		// Set moderation status based on trusted status
 		storeData.moderationStatus = isTrusted ? 'confirmed' : 'pending';
 
-		// Set review tracking fields (all user-created content needs review)
-		storeData.needsReview = isUserCreated; // Admin-created stores don't need review
-		storeData.trustedContribution = isUserCreated && isTrusted; // Track if from trusted contributor
+		// Set review tracking fields
+		storeData.needsReview = needsReview; // Admin edits don't need review; moderator/trusted edits do
+		storeData.trustedContribution = isTrusted; // Track if from trusted contributor
 
 		const store = await Store.create(storeData);
 

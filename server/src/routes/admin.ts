@@ -2399,14 +2399,15 @@ router.post(
 				);
 			}
 
-			// Create availability
+			// Create availability (admin-created, no review needed)
 			await Availability.create({
 				productId,
 				storeId,
-				status: 'known',
 				priceRange,
 				lastConfirmedAt: new Date(),
-				source: 'user_contribution',
+				source: 'admin',
+				moderationStatus: 'confirmed',
+				needsReview: false,
 			});
 
 			res.status(201).json({

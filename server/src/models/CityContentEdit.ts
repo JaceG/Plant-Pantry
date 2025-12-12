@@ -13,6 +13,9 @@ export interface ICityContentEdit extends Document {
 	reason?: string; // Optional reason for the edit
 	userId: mongoose.Types.ObjectId;
 	status: CityContentEditStatus;
+	// Trusted contributor handling
+	trustedContribution: boolean;
+	autoApplied: boolean; // If true, was auto-applied but needs review
 	reviewedBy?: mongoose.Types.ObjectId;
 	reviewedAt?: Date;
 	reviewNote?: string; // Admin note when approving/rejecting
@@ -62,6 +65,14 @@ const cityContentEditSchema = new Schema<ICityContentEdit>(
 			default: 'pending',
 			index: true,
 		},
+		trustedContribution: {
+			type: Boolean,
+			default: false,
+		},
+		autoApplied: {
+			type: Boolean,
+			default: false,
+		},
 		reviewedBy: {
 			type: Schema.Types.ObjectId,
 			ref: 'User',
@@ -84,6 +95,13 @@ cityContentEditSchema.index({ status: 1, createdAt: -1 });
 
 // Index for finding edits by city
 cityContentEditSchema.index({ citySlug: 1, status: 1 });
+
+// Index for trusted contributor review
+cityContentEditSchema.index({
+	trustedContribution: 1,
+	autoApplied: 1,
+	status: 1,
+});
 
 export const CityContentEdit = mongoose.model<ICityContentEdit>(
 	'CityContentEdit',

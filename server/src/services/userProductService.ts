@@ -58,11 +58,52 @@ export const userProductService = {
 	},
 
 	/**
+	 * Check if a user is an admin (their edits need no review at all)
+	 */
+	async isUserAdmin(userId: string): Promise<boolean> {
+		const user = await User.findById(userId).select('role').lean();
+		return user?.role === 'admin';
+	},
+
+	/**
+	 * Get user trust level for content moderation
+	 * Returns: { isTrusted: boolean, needsReview: boolean }
+	 * - Admin: trusted, no review needed
+	 * - Moderator/Trusted contributor: trusted, needs review by admin later
+	 * - Regular user: not trusted, stays pending until approved
+	 */
+	async getUserTrustLevel(
+		userId: string
+	): Promise<{ isTrusted: boolean; needsReview: boolean }> {
+		const user = await User.findById(userId)
+			.select('trustedContributor role')
+			.lean();
+		if (!user) return { isTrusted: false, needsReview: true };
+
+		// Admins: content applied immediately, NO review needed
+		if (user.role === 'admin') {
+			return { isTrusted: true, needsReview: false };
+		}
+		// Moderators: content applied immediately, but can be reviewed by admin later
+		if (user.role === 'moderator') {
+			return { isTrusted: true, needsReview: true };
+		}
+		// Trusted contributors: content applied immediately, but reviewed by admin later
+		if (user.trustedContributor) {
+			return { isTrusted: true, needsReview: true };
+		}
+		// Regular users: content needs approval before going live
+		return { isTrusted: false, needsReview: true };
+	},
+
+	/**
 	 * Create a new user-contributed product or edit of an API product
 	 */
 	async createProduct(input: CreateUserProductInput): Promise<ProductDetail> {
-		// Check if user is trusted (bypass moderation)
-		const isTrusted = await this.isUserTrusted(input.userId);
+		// Check user trust level for moderation decisions
+		const { isTrusted, needsReview } = await this.getUserTrustLevel(
+			input.userId
+		);
 
 		// Check if this is an edit of an existing API product
 		let existingEdit = null;
@@ -89,7 +130,7 @@ export const userProductService = {
 			ingredientSummary: input.ingredientSummary,
 			source: 'user_contribution',
 			status: isTrusted ? 'approved' : 'pending', // Trusted users' content goes live immediately
-			needsReview: true, // All user content needs review (even trusted)
+			needsReview: needsReview, // Admin edits don't need review; moderator/trusted edits do
 			trustedContribution: isTrusted, // Track if from trusted contributor
 		};
 
@@ -136,7 +177,7 @@ export const userProductService = {
 						source: 'user_contribution' as const,
 						reportedBy: new mongoose.Types.ObjectId(input.userId),
 						isStale: false,
-						needsReview: true, // All user content needs review (even trusted)
+						needsReview: needsReview, // Admin edits don't need review; moderator/trusted edits do
 						trustedContribution: isTrusted, // Track if from trusted contributor
 					})
 				);
@@ -210,8 +251,8 @@ export const userProductService = {
 			return null;
 		}
 
-		// Check if user is trusted (bypass moderation)
-		const isTrusted = await this.isUserTrusted(userId);
+		// Check user trust level for moderation decisions
+		const { isTrusted, needsReview } = await this.getUserTrustLevel(userId);
 
 		// Build query: admins can edit any product, regular users can only edit their own
 		const query: any = {
@@ -256,7 +297,7 @@ export const userProductService = {
 						source: 'user_contribution' as const,
 						reportedBy: new mongoose.Types.ObjectId(userId),
 						isStale: false,
-						needsReview: true, // All user content needs review (even trusted)
+						needsReview: needsReview, // Admin edits don't need review; moderator/trusted edits do
 						trustedContribution: isTrusted, // Track if from trusted contributor
 					})
 				);

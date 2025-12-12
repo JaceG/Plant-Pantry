@@ -10,6 +10,30 @@ import {
 	User,
 } from '../models';
 
+// Helper to get user trust level for moderation decisions
+// - Admin: trusted, no review needed
+// - Moderator/Trusted contributor: trusted, needs review by admin later
+// - Regular user: not trusted, stays pending until approved
+async function getUserTrustLevel(
+	userId: string
+): Promise<{ isTrusted: boolean; needsReview: boolean }> {
+	const user = await User.findById(userId)
+		.select('trustedContributor role')
+		.lean();
+	if (!user) return { isTrusted: false, needsReview: true };
+
+	if (user.role === 'admin') {
+		return { isTrusted: true, needsReview: false };
+	}
+	if (user.role === 'moderator') {
+		return { isTrusted: true, needsReview: true };
+	}
+	if (user.trustedContributor) {
+		return { isTrusted: true, needsReview: true };
+	}
+	return { isTrusted: false, needsReview: true };
+}
+
 const router = Router();
 
 /**
@@ -172,9 +196,8 @@ router.post(
 				],
 			});
 
-			// Check if user is a trusted contributor
-			const user = await User.findById(userId).lean();
-			const isTrusted = user?.trustedContributor || false;
+			// Check user trust level for moderation decisions
+			const { isTrusted, needsReview } = await getUserTrustLevel(userId);
 
 			const trimmedValue =
 				typeof suggestedValue === 'string'
@@ -222,7 +245,7 @@ router.post(
 				);
 			}
 
-			// For trusted users, auto-apply the edit but flag for review
+			// For trusted users (admin/mod/trusted contributor), auto-apply the edit
 			if (isTrusted) {
 				// Apply the edit directly
 				const updateData: Record<string, any> = {};
@@ -230,7 +253,7 @@ router.post(
 				updateData.updatedBy = new mongoose.Types.ObjectId(userId);
 				await BrandPage.findByIdAndUpdate(brandPage._id, updateData);
 
-				// Create the edit record (already approved but flagged for review)
+				// Create the edit record (already approved; admins don't need review, others do)
 				const contentEdit = await BrandContentEdit.create({
 					brandPageId: brandPage._id,
 					brandName: brandPage.brandName,
@@ -242,7 +265,7 @@ router.post(
 					userId: new mongoose.Types.ObjectId(userId),
 					status: 'approved',
 					trustedContribution: true,
-					autoApplied: true,
+					autoApplied: needsReview, // Admin edits don't need review (autoApplied=false)
 				});
 
 				return res.status(201).json({
@@ -252,7 +275,7 @@ router.post(
 						field: contentEdit.field,
 						status: contentEdit.status,
 					},
-					autoApplied: true,
+					autoApplied: needsReview,
 				});
 			}
 

@@ -9,14 +9,33 @@ import {
 } from '../middleware/auth';
 import { Availability, Store, Product, UserProduct, User } from '../models';
 
-// Helper to check if user is trusted
-async function isUserTrusted(userId: string): Promise<boolean> {
+// Helper to get user trust level for moderation decisions
+// Returns: { isTrusted: boolean, needsReview: boolean }
+// - Admin: trusted, no review needed
+// - Moderator/Trusted contributor: trusted, needs review by admin later
+// - Regular user: not trusted, stays pending until approved
+async function getUserTrustLevel(
+	userId: string
+): Promise<{ isTrusted: boolean; needsReview: boolean }> {
 	const user = await User.findById(userId)
 		.select('trustedContributor role')
 		.lean();
-	if (!user) return false;
-	if (user.role === 'admin' || user.role === 'moderator') return true;
-	return user.trustedContributor === true;
+	if (!user) return { isTrusted: false, needsReview: true };
+
+	// Admins: content applied immediately, NO review needed
+	if (user.role === 'admin') {
+		return { isTrusted: true, needsReview: false };
+	}
+	// Moderators: content applied immediately, but can be reviewed by admin later
+	if (user.role === 'moderator') {
+		return { isTrusted: true, needsReview: true };
+	}
+	// Trusted contributors: content applied immediately, but reviewed by admin later
+	if (user.trustedContributor) {
+		return { isTrusted: true, needsReview: true };
+	}
+	// Regular users: content needs approval before going live
+	return { isTrusted: false, needsReview: true };
 }
 
 const router = Router();
@@ -494,9 +513,11 @@ router.post(
 				});
 			}
 
-			// Check if user is trusted (bypass moderation)
+			// Check user trust level for moderation decisions
 			const userId = req.user?.userId;
-			const isTrusted = userId ? await isUserTrusted(userId) : false;
+			const { isTrusted, needsReview } = userId
+				? await getUserTrustLevel(userId)
+				: { isTrusted: false, needsReview: true };
 
 			// Create new availability report
 			await Availability.create({
@@ -508,12 +529,14 @@ router.post(
 				priceRange: priceRange || undefined,
 				notes: notes || undefined,
 				lastConfirmedAt: new Date(),
-				needsReview: true, // All user content needs review (even trusted)
+				needsReview: needsReview, // Admin edits don't need review; moderator/trusted edits do
 				trustedContribution: isTrusted, // Track if from trusted contributor
 			});
 
 			const message = isTrusted
-				? 'Availability reported and live. Thank you! It will be reviewed shortly.'
+				? needsReview
+					? 'Availability reported and live. Thank you! It will be reviewed shortly.'
+					: 'Availability reported and live. Thank you!'
 				: 'Availability reported. Thank you! It will be reviewed shortly.';
 
 			res.status(201).json({
