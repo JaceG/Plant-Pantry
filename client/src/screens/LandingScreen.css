@@ -118,13 +118,13 @@
 .floating-icon {
   position: absolute;
   font-size: 2.5rem;
-  opacity: 0.2;
+  opacity: 0.8;
   animation: float 8s ease-in-out infinite;
 }
 
 .icon-1 { top: 15%; left: 8%; animation-delay: 0s; }
 .icon-2 { top: 65%; left: 5%; animation-delay: 1.5s; }
-.icon-3 { top: 10%; right: 10%; animation-delay: 3s; }
+.icon-3 { top: 10%; right: 5%; animation-delay: 3s; }
 .icon-4 { top: 55%; right: 8%; animation-delay: 4.5s; }
 .icon-5 { bottom: 15%; right: 15%; animation-delay: 2s; }
 
