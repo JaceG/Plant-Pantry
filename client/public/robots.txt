@@ -1,0 +1,26 @@
+# robots.txt for The Vegan Aisle
+# https://theveganaisle.com/robots.txt
+
+User-agent: *
+Allow: /
+
+# Disallow admin and private routes
+Disallow: /admin/
+Disallow: /login
+Disallow: /signup
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /profile
+Disallow: /lists
+Disallow: /add-product
+
+# Allow important public pages
+Allow: /
+Allow: /search
+Allow: /products/
+Allow: /brands/
+Allow: /retailers/
+Allow: /cities/
+
+# Sitemap location
+Sitemap: https://theveganaisle.com/sitemap.xml

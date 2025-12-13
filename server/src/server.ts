@@ -19,6 +19,7 @@ import {
 	reviewRoutes,
 	cityRoutes,
 	brandRoutes,
+	sitemapRoutes,
 } from './routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
@@ -70,6 +71,9 @@ app.use('/api/lists', listRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/cities', cityRoutes);
 app.use('/api/brands', brandRoutes);
+
+// SEO Routes (served at root level for better discoverability)
+app.use('/', sitemapRoutes);
 
 // GET /api/config/google-api-key - Get Google API key for frontend (public endpoint)
 app.get('/api/config/google-api-key', (req, res) => {
