@@ -48,7 +48,32 @@ This guide explains how to get The Vegan Aisle indexed by Google and other searc
 
 If your frontend and backend are deployed separately, you need to ensure `/sitemap.xml` is accessible from your frontend domain. Here are options:
 
-**Option 1: Proxy through Frontend Hosting (Recommended)**
+**Option 1: Generate Static Sitemap During Build (Recommended for Render)**
+
+A build script has been created that automatically fetches the sitemap from your backend during build time. This creates a static `sitemap.xml` file that gets served with your frontend.
+
+**For Render:**
+
+1. **Add environment variable in Render dashboard:**
+   - Go to your Render service settings
+   - Add environment variable: `BACKEND_URL` = `https://plant-pantry-be0g.onrender.com`
+   - Or the script will use the default backend URL automatically
+
+2. **The build process will:**
+   - Automatically run the sitemap generation script before building
+   - Fetch the sitemap from your backend at build time
+   - Save it as `client/public/sitemap.xml`
+   - Include it in your build output as a static file
+
+3. **If the backend is not accessible during build**, the script will create a fallback sitemap with just the homepage.
+
+**Manual build (for testing):**
+```bash
+export BACKEND_URL=https://plant-pantry-be0g.onrender.com
+npm run build
+```
+
+**Option 2: Proxy through Frontend Hosting**
 
 Configure your frontend hosting to proxy `/sitemap.xml` to your backend:
 
@@ -56,7 +81,7 @@ Configure your frontend hosting to proxy `/sitemap.xml` to your backend:
   ```toml
   [[redirects]]
     from = "/sitemap.xml"
-    to = "https://your-backend-domain.com/sitemap.xml"
+    to = "https://plant-pantry-be0g.onrender.com/sitemap.xml"
     status = 200
     force = true
   ```
@@ -67,29 +92,22 @@ Configure your frontend hosting to proxy `/sitemap.xml` to your backend:
     "rewrites": [
       {
         "source": "/sitemap.xml",
-        "destination": "https://your-backend-domain.com/sitemap.xml"
+        "destination": "https://plant-pantry-be0g.onrender.com/sitemap.xml"
       }
     ]
   }
   ```
 
-- **Nginx**: Add to your nginx config:
-  ```nginx
-  location /sitemap.xml {
-    proxy_pass https://your-backend-domain.com/sitemap.xml;
-  }
-  ```
+- **Render**: Render static sites don't support server-side redirects/rewrites, so use Option 1 (build script) instead.
 
-**Option 2: Use Backend URL Directly**
+**Option 3: Use Backend URL Directly**
 
 Update `robots.txt` to point to the backend URL:
 ```
 Sitemap: https://your-backend-domain.com/sitemap.xml
 ```
 
-**Option 3: Generate Static Sitemap**
-
-For static hosting without proxy support, you can generate a static sitemap file during build (requires a build script that calls your backend API).
+This is the simplest solution if you don't need the sitemap to be served from your frontend domain.
 
 ### 3. Request Indexing for Key Pages
 

@@ -22,5 +22,7 @@ Allow: /brands/
 Allow: /retailers/
 Allow: /cities/
 
-# Sitemap location
+# Sitemap location (points to backend, will be proxied by frontend)
 Sitemap: https://theveganaisle.com/sitemap.xml
+# Backup: direct backend URL if proxy doesn't work
+# Sitemap: https://plant-pantry-be0g.onrender.com/sitemap.xml
