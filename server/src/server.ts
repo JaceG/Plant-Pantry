@@ -72,8 +72,9 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/cities', cityRoutes);
 app.use('/api/brands', brandRoutes);
 
-// SEO Routes (served at root level for better discoverability)
-app.use('/', sitemapRoutes);
+// SEO Routes - serve sitemap at both root and API path for flexibility
+app.use('/api', sitemapRoutes); // /api/sitemap.xml
+app.use('/', sitemapRoutes); // /sitemap.xml
 
 // GET /api/config/google-api-key - Get Google API key for frontend (public endpoint)
 app.get('/api/config/google-api-key', (req, res) => {

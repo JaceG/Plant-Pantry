@@ -13,7 +13,7 @@ const router = Router();
 const BASE_URL = process.env.CLIENT_URL || 'https://theveganaisle.com';
 
 /**
- * GET /api/sitemap.xml
+ * GET /sitemap.xml or /api/sitemap.xml
  * Generate XML sitemap for search engines
  */
 router.get('/sitemap.xml', async (req: Request, res: Response) => {
