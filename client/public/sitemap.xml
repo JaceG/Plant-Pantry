@@ -23,6 +23,36 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://www.theveganaisle.com/brands/beyond</loc>
+    <lastmod>2025-12-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.theveganaisle.com/brands/beyond-meat</loc>
+    <lastmod>2025-12-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.theveganaisle.com/brands/beyond-beef</loc>
+    <lastmod>2025-12-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.theveganaisle.com/brands/beyond-burger</loc>
+    <lastmod>2025-12-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.theveganaisle.com/brands/beyond-steak</loc>
+    <lastmod>2025-12-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://www.theveganaisle.com/retailers/chain/whole-foods-market</loc>
     <lastmod>2025-12-07</lastmod>
     <changefreq>weekly</changefreq>
@@ -30,7 +60,7 @@
   </url>
   <url>
     <loc>https://www.theveganaisle.com/retailers/chain/target</loc>
-    <lastmod>2025-12-07</lastmod>
+    <lastmod>2025-12-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
@@ -54,7 +84,7 @@
   </url>
   <url>
     <loc>https://www.theveganaisle.com/retailers/chain/meijer</loc>
-    <lastmod>2025-12-07</lastmod>
+    <lastmod>2025-12-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
@@ -84,6 +114,18 @@
   </url>
   <url>
     <loc>https://www.theveganaisle.com/retailers/chain/walmart</loc>
+    <lastmod>2025-12-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.theveganaisle.com/retailers/chain/supertarget</loc>
+    <lastmod>2025-12-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.theveganaisle.com/retailers/chain/walmart-supercenter</loc>
     <lastmod>2025-12-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
