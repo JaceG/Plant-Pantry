@@ -12,6 +12,7 @@ import { Toast } from '../Common/Toast';
 import { useToast } from '../Common/useToast';
 import { AutocompleteInput } from './AutocompleteInput';
 import { StoreAvailabilitySelector } from './StoreAvailabilitySelector';
+import { productEvents } from '../../utils/productEvents';
 import './AddProductForm.css';
 
 // Standard dietary tags that should always be available
@@ -245,6 +246,13 @@ export function EditProductForm({
 			}
 
 			showToast('Product updated successfully!', 'success');
+			// Emit event so other pages can refresh their product data
+			console.log(
+				'[EditProductForm] About to emit product:updated for:',
+				response.product?.id
+			);
+			productEvents.emit('product:updated', response.product.id);
+			console.log('[EditProductForm] Emit complete, calling onSave');
 			onSave(response.product);
 		} catch (error: any) {
 			showToast(error.message || 'Failed to update product', 'error');

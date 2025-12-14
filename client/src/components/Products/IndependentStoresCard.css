@@ -1,0 +1,323 @@
+.independent-stores-card {
+	background: var(--color-white);
+	border: 1px solid var(--color-sage-light);
+	border-radius: 12px;
+	overflow: hidden;
+	transition: box-shadow 0.2s ease;
+}
+
+.independent-stores-card:hover {
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.independent-card-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 1rem 1.25rem;
+	cursor: pointer;
+	transition: background-color 0.2s ease;
+}
+
+.independent-card-header:hover {
+	background-color: var(--color-mint);
+}
+
+.independent-card-main {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	flex: 1;
+	min-width: 0;
+}
+
+.independent-icon {
+	width: 48px;
+	height: 48px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1.5rem;
+	background: var(--color-sage-light);
+	border-radius: 8px;
+	flex-shrink: 0;
+}
+
+.independent-card-info {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	min-width: 0;
+}
+
+.independent-card-title {
+	font-size: 1.125rem;
+	font-weight: 600;
+	color: var(--color-charcoal);
+}
+
+.independent-card-meta {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+	font-size: 0.8125rem;
+	color: var(--color-stone);
+}
+
+.independent-store-count {
+	font-weight: 500;
+}
+
+.independent-locations {
+	opacity: 0.9;
+}
+
+.independent-card-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.independent-available-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	padding: 0.375rem 0.75rem;
+	background: rgba(52, 211, 153, 0.15);
+	color: #059669;
+	font-size: 0.8125rem;
+	font-weight: 600;
+	border-radius: 20px;
+}
+
+.independent-expand-icon {
+	font-size: 0.75rem;
+	color: var(--color-stone);
+	transition: transform 0.2s ease;
+}
+
+/* Expanded Section */
+.independent-card-expanded {
+	padding: 1rem 1.25rem 1.25rem;
+	background: var(--color-cream);
+	border-top: 1px solid var(--color-sage-light);
+}
+
+.independent-location-search {
+	margin-bottom: 1rem;
+}
+
+.independent-location-search .search-hint {
+	font-size: 0.875rem;
+	color: var(--color-charcoal);
+	margin: 0 0 0.75rem 0;
+}
+
+.independent-location-search .search-input-row {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.independent-location-search .location-search-input {
+	flex: 1;
+	padding: 0.625rem 0.875rem;
+	border: 1px solid var(--color-sage-light);
+	border-radius: 8px;
+	font-size: 0.9375rem;
+	color: var(--color-charcoal);
+	background: var(--color-white);
+	transition: border-color 0.2s ease;
+}
+
+.independent-location-search .location-search-input:focus {
+	outline: none;
+	border-color: var(--color-forest);
+	box-shadow: 0 0 0 3px rgba(52, 78, 65, 0.1);
+}
+
+.independent-location-search .location-search-input::placeholder {
+	color: var(--color-stone);
+}
+
+.independent-location-search .search-btn {
+	padding: 0.625rem 1.25rem;
+	background: var(--color-forest);
+	color: var(--color-white);
+	border: none;
+	border-radius: 8px;
+	font-size: 0.9375rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background-color 0.2s ease;
+	white-space: nowrap;
+}
+
+.independent-location-search .search-btn:hover:not(:disabled) {
+	background: var(--color-charcoal);
+}
+
+.independent-location-search .search-btn:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.independent-location-search .show-all-link {
+	display: block;
+	margin-top: 0.5rem;
+	background: none;
+	border: none;
+	color: var(--color-forest);
+	font-size: 0.8125rem;
+	font-weight: 500;
+	cursor: pointer;
+	padding: 0;
+	text-decoration: underline;
+}
+
+.independent-location-search .show-all-link:hover {
+	color: var(--color-charcoal);
+}
+
+/* No Results */
+.independent-no-results {
+	padding: 1rem;
+	text-align: center;
+}
+
+.independent-no-results p {
+	margin: 0;
+	font-size: 0.875rem;
+	color: var(--color-stone);
+}
+
+.independent-no-results .no-results-hint {
+	margin-top: 0.25rem !important;
+	font-size: 0.8125rem !important;
+}
+
+/* Search Prompt */
+.independent-search-prompt {
+	padding: 0.75rem;
+	text-align: center;
+	color: var(--color-stone);
+	font-size: 0.875rem;
+}
+
+.independent-search-prompt p {
+	margin: 0;
+}
+
+/* Results */
+.independent-stores-results {
+	margin-top: 0.5rem;
+}
+
+.independent-stores-results .results-count {
+	font-size: 0.8125rem;
+	color: var(--color-stone);
+	margin: 0 0 0.75rem 0;
+}
+
+.independent-stores-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.independent-store-item {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	padding: 0.75rem;
+	background: var(--color-white);
+	border: 1px solid var(--color-sage-light);
+	border-radius: 8px;
+}
+
+.independent-store-item .store-item-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.independent-store-item .store-item-type {
+	font-size: 0.75rem;
+	color: var(--color-stone);
+}
+
+.independent-store-item .store-item-status {
+	font-size: 0.75rem;
+	font-weight: 600;
+	padding: 2px 8px;
+	border-radius: 20px;
+}
+
+.independent-store-item .store-item-status.status-known,
+.independent-store-item .store-item-status.status-user_reported {
+	background: rgba(52, 211, 153, 0.15);
+	color: #059669;
+}
+
+.independent-store-item .store-item-info {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+.independent-store-item .store-item-name {
+	font-weight: 600;
+	font-size: 0.9375rem;
+	color: var(--color-charcoal);
+	text-decoration: none;
+}
+
+.independent-store-item .store-item-name:hover {
+	color: var(--color-forest);
+}
+
+.independent-store-item .store-item-address {
+	font-size: 0.8125rem;
+	color: var(--color-stone);
+}
+
+.independent-store-item .store-item-price {
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--color-forest);
+	margin-top: 0.25rem;
+}
+
+/* Mobile Responsive */
+@media (max-width: 600px) {
+	.independent-card-header {
+		padding: 0.875rem 1rem;
+	}
+
+	.independent-card-main {
+		gap: 0.75rem;
+	}
+
+	.independent-icon {
+		width: 40px;
+		height: 40px;
+		font-size: 1.25rem;
+	}
+
+	.independent-card-title {
+		font-size: 1rem;
+	}
+
+	.independent-available-badge {
+		font-size: 0.75rem;
+		padding: 0.25rem 0.5rem;
+	}
+
+	.independent-location-search .search-input-row {
+		flex-direction: column;
+	}
+
+	.independent-location-search .search-btn {
+		width: 100%;
+	}
+}

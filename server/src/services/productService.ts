@@ -851,49 +851,50 @@ export const productService = {
 				const { StoreChain, Store: StoreModel } = await import(
 					'../models'
 				);
+				const { getRelatedChainIds } = await import(
+					'../utils/chainUtils'
+				);
+
 				const chainsData = await StoreChain.find({
 					_id: { $in: chainIds },
 				}).lean();
-
-				// Get location counts for each chain
-				const locationCounts = await StoreModel.aggregate([
-					{
-						$match: {
-							chainId: {
-								$in: chainIds.map(
-									(id: string) =>
-										new mongoose.Types.ObjectId(id)
-								),
-							},
-						},
-					},
-					{ $group: { _id: '$chainId', count: { $sum: 1 } } },
-				]);
-				const countMap = new Map<string, number>();
-				locationCounts.forEach((lc: any) => {
-					countMap.set(lc._id.toString(), lc.count);
-				});
 
 				const chainDataMap = new Map(
 					chainsData.map((c) => [c._id.toString(), c])
 				);
 
-				enrichedChainAvailabilities = rawChainAvails.map((c: any) => {
-					const chainId =
-						c.chainId?.toString?.() || String(c.chainId);
-					const chainData = chainDataMap.get(chainId);
-					return {
-						chainId,
-						chainName: chainData?.name || 'Unknown Chain',
-						chainSlug: chainData?.slug || chainId,
-						chainLogoUrl: chainData?.logoUrl,
-						chainType: chainData?.type,
-						locationCount: countMap.get(chainId) || 0,
-						includeRelatedCompany:
-							c.includeRelatedCompany !== false,
-						priceRange: c.priceRange,
-					};
-				});
+				// Build enriched chain availabilities with proper location counts
+				enrichedChainAvailabilities = await Promise.all(
+					rawChainAvails.map(async (c: any) => {
+						const chainId =
+							c.chainId?.toString?.() || String(c.chainId);
+						const chainData = chainDataMap.get(chainId);
+						const includeRelatedCompany =
+							c.includeRelatedCompany !== false;
+
+						// Get related chain IDs if includeRelatedCompany is true
+						const relatedChainIds = await getRelatedChainIds(
+							chainId,
+							includeRelatedCompany
+						);
+
+						// Count stores across all related chains
+						const locationCount = await StoreModel.countDocuments({
+							chainId: { $in: relatedChainIds },
+						});
+
+						return {
+							chainId,
+							chainName: chainData?.name || 'Unknown Chain',
+							chainSlug: chainData?.slug || chainId,
+							chainLogoUrl: chainData?.logoUrl,
+							chainType: chainData?.type,
+							locationCount,
+							includeRelatedCompany,
+							priceRange: c.priceRange,
+						};
+					})
+				);
 			}
 		}
 
@@ -1344,11 +1345,12 @@ export const productService = {
 	 * Get featured products for the landing page
 	 * Returns products marked as featured, sorted by featuredOrder
 	 * Fetches from both Product and UserProduct collections
+	 * Also applies UserProduct overrides to API products
 	 */
 	async getFeaturedProducts(limit: number = 8): Promise<ProductSummary[]> {
 		try {
 			// Fetch featured products from both collections
-			const [apiProducts, userProducts] = await Promise.all([
+			const [apiProducts, allUserProducts] = await Promise.all([
 				Product.find({
 					featured: true,
 					archived: { $ne: true },
@@ -1358,33 +1360,79 @@ export const productService = {
 					)
 					.lean(),
 				UserProduct.find({
-					featured: true,
 					archived: { $ne: true },
 					status: 'approved',
+					$or: [
+						{ featured: true },
+						{ sourceProductId: { $exists: true, $ne: null } },
+					],
 				})
 					.select(
-						'name brand sizeOrVariant imageUrl categories tags featuredOrder featuredAt'
+						'name brand sizeOrVariant imageUrl categories tags featuredOrder featuredAt sourceProductId featured'
 					)
 					.lean(),
 			]);
 
-			// Combine and sort by featuredOrder, then featuredAt
-			const allFeatured = [...apiProducts, ...userProducts].sort(
-				(a, b) => {
-					const orderA = (a as any).featuredOrder || 0;
-					const orderB = (b as any).featuredOrder || 0;
-					if (orderA !== orderB) {
-						return orderA - orderB;
-					}
-					const timeA = (a as any).featuredAt
-						? new Date((a as any).featuredAt).getTime()
-						: 0;
-					const timeB = (b as any).featuredAt
-						? new Date((b as any).featuredAt).getTime()
-						: 0;
-					return timeB - timeA;
+			// Create a map of sourceProductId -> UserProduct for quick lookup
+			const userProductOverrides = new Map<string, any>();
+			const featuredUserProducts: any[] = [];
+
+			for (const up of allUserProducts) {
+				if ((up as any).sourceProductId) {
+					// This is an override for an API product
+					userProductOverrides.set(
+						(up as any).sourceProductId.toString(),
+						up
+					);
 				}
+				if ((up as any).featured) {
+					// This is a standalone featured UserProduct
+					featuredUserProducts.push(up);
+				}
+			}
+
+			// Apply overrides to API products
+			const processedApiProducts = apiProducts.map((product) => {
+				const override = userProductOverrides.get(
+					product._id.toString()
+				);
+				if (override) {
+					// Merge the override data with the original, keeping the original ID
+					return {
+						...product,
+						name: override.name || product.name,
+						brand: override.brand || product.brand,
+						sizeOrVariant:
+							override.sizeOrVariant || product.sizeOrVariant,
+						imageUrl: override.imageUrl || product.imageUrl,
+						categories: override.categories || product.categories,
+						tags: override.tags || product.tags,
+					};
+				}
+				return product;
+			});
+
+			// Combine processed API products with featured UserProducts (excluding overrides)
+			const nonOverrideUserProducts = featuredUserProducts.filter(
+				(up) => !(up as any).sourceProductId
 			);
+			const allFeatured = [
+				...processedApiProducts,
+				...nonOverrideUserProducts,
+			].sort((a, b) => {
+				const orderA = (a as any).featuredOrder || 0;
+				const orderB = (b as any).featuredOrder || 0;
+				if (orderA !== orderB) {
+					return orderA - orderB;
+				}
+				const timeA = (a as any).featuredAt
+					? new Date((a as any).featuredAt).getTime()
+					: 0;
+				const timeB = (b as any).featuredAt
+					? new Date((b as any).featuredAt).getTime()
+					: 0;
+				return timeB - timeA;
+			});
 
 			// Take only the requested limit
 			const featuredProducts = allFeatured.slice(0, limit);

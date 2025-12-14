@@ -70,7 +70,11 @@ export function ChainAvailabilityCard({
 
 			const response = await storesApi.getChainLocations(
 				chainAvailability.chainId,
-				{ city, state }
+				{
+					city,
+					state,
+					includeRelated: chainAvailability.includeRelatedCompany,
+				}
 			);
 			setStores(response.stores);
 			setTotalCount(response.totalCount);
@@ -94,7 +98,8 @@ export function ChainAvailabilityCard({
 		setHasSearched(true);
 		try {
 			const response = await storesApi.getChainLocations(
-				chainAvailability.chainId
+				chainAvailability.chainId,
+				{ includeRelated: chainAvailability.includeRelatedCompany }
 			);
 			setStores(response.stores.slice(0, 20)); // Limit initial display
 			setTotalCount(response.totalCount);
@@ -103,7 +108,7 @@ export function ChainAvailabilityCard({
 		} finally {
 			setLoading(false);
 		}
-	}, [chainAvailability.chainId]);
+	}, [chainAvailability.chainId, chainAvailability.includeRelatedCompany]);
 
 	return (
 		<div className='chain-availability-card'>
@@ -217,34 +222,44 @@ export function ChainAvailabilityCard({
 									  } found`}
 							</p>
 							<div className='chain-stores-list'>
-								{stores.map((store) => (
-									<div
-										key={store.id}
-										className='chain-store-item'>
-										<div className='store-item-info'>
-											<span className='store-item-name'>
-												{store.locationIdentifier ||
-													store.name}
-											</span>
-											{store.address && (
-												<span className='store-item-address'>
-													{store.address}
-													{store.city &&
-														`, ${store.city}`}
-													{store.state &&
-														`, ${store.state}`}
-													{store.zipCode &&
-														` ${store.zipCode}`}
+								{stores.map((store) => {
+									// Show store name (e.g., "Walmart Supercenter", "Kroger Marketplace")
+									// Use locationIdentifier only if it's not just an address (doesn't start with a number)
+									const hasUsefulLocationId =
+										store.locationIdentifier &&
+										!/^\d/.test(store.locationIdentifier);
+									const displayName = hasUsefulLocationId
+										? `${store.name} - ${store.locationIdentifier}`
+										: store.name;
+
+									return (
+										<div
+											key={store.id}
+											className='chain-store-item'>
+											<div className='store-item-info'>
+												<span className='store-item-name'>
+													{displayName}
 												</span>
-											)}
+												{store.address && (
+													<span className='store-item-address'>
+														{store.address}
+														{store.city &&
+															`, ${store.city}`}
+														{store.state &&
+															`, ${store.state}`}
+														{store.zipCode &&
+															` ${store.zipCode}`}
+													</span>
+												)}
+											</div>
+											<Link
+												to={`/retailers/store/${store.id}`}
+												className='store-item-link'>
+												View →
+											</Link>
 										</div>
-										<Link
-											to={`/retailers/store/${store.id}`}
-											className='store-item-link'>
-											View →
-										</Link>
-									</div>
-								))}
+									);
+								})}
 							</div>
 							{totalCount > stores.length && (
 								<Link

@@ -60,18 +60,26 @@ export const productsApi = {
 	},
 
 	getFeaturedProducts(
-		limit?: number
+		limit?: number,
+		bustCache?: boolean
 	): Promise<{ products: ProductSummary[] }> {
-		const query = limit ? `?limit=${limit}` : '';
+		const params = new URLSearchParams();
+		if (limit) params.set('limit', limit.toString());
+		if (bustCache) params.set('_t', Date.now().toString());
+		const query = params.toString() ? `?${params.toString()}` : '';
 		return httpClient.get<{ products: ProductSummary[] }>(
 			`/products/featured${query}`
 		);
 	},
 
 	getDiscoverProducts(
-		limit?: number
+		limit?: number,
+		bustCache?: boolean
 	): Promise<{ products: ProductSummary[] }> {
-		const query = limit ? `?limit=${limit}` : '';
+		const params = new URLSearchParams();
+		if (limit) params.set('limit', limit.toString());
+		if (bustCache) params.set('_t', Date.now().toString());
+		const query = params.toString() ? `?${params.toString()}` : '';
 		return httpClient.get<{ products: ProductSummary[] }>(
 			`/products/discover${query}`
 		);

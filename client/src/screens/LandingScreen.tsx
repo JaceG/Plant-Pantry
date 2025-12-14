@@ -1,13 +1,27 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { productsApi, citiesApi } from '../api';
 import { ProductSummary } from '../types';
 import { CityPageData } from '../api/citiesApi';
 import { SearchBar, ProductCard } from '../components';
+import { productEvents } from '../utils/productEvents';
 import './LandingScreen.css';
+
+// Storage key for tracking when we last fetched landing page data
+const LANDING_FETCH_KEY = 'landingLastFetched';
+
+function getLastFetchTime(): number {
+	const stored = sessionStorage.getItem(LANDING_FETCH_KEY);
+	return stored ? parseInt(stored, 10) : 0;
+}
+
+function setLastFetchTime(time: number): void {
+	sessionStorage.setItem(LANDING_FETCH_KEY, time.toString());
+}
 
 export function LandingScreen() {
 	const navigate = useNavigate();
+	const location = useLocation();
 	const [featuredProducts, setFeaturedProducts] = useState<ProductSummary[]>(
 		[]
 	);
@@ -17,31 +31,76 @@ export function LandingScreen() {
 	const [activeCities, setActiveCities] = useState<CityPageData[]>([]);
 	const [categories, setCategories] = useState<string[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [hasFetched, setHasFetched] = useState(false);
 
+	const fetchData = useCallback(async (bustCache = false) => {
+		try {
+			console.log('[LandingScreen] Fetching data, bustCache:', bustCache);
+			const [featuredRes, discoverRes, citiesRes, categoriesRes] =
+				await Promise.all([
+					productsApi.getFeaturedProducts(8, bustCache),
+					productsApi.getDiscoverProducts(6, bustCache),
+					citiesApi.getActiveCities(),
+					productsApi.getCategories(),
+				]);
+
+			setFeaturedProducts(featuredRes.products);
+			setDiscoverProducts(discoverRes.products);
+			setActiveCities(citiesRes.cities);
+			setCategories(categoriesRes.categories.slice(0, 12));
+			setLastFetchTime(Date.now());
+			setHasFetched(true);
+			console.log(
+				'[LandingScreen] Fetch complete, featured count:',
+				featuredRes.products.length
+			);
+		} catch (error) {
+			console.error('Error fetching landing page data:', error);
+		} finally {
+			setLoading(false);
+		}
+	}, []);
+
+	// Check if we need to fetch/refetch on mount or navigation
 	useEffect(() => {
-		const fetchData = async () => {
-			try {
-				const [featuredRes, discoverRes, citiesRes, categoriesRes] =
-					await Promise.all([
-						productsApi.getFeaturedProducts(8),
-						productsApi.getDiscoverProducts(6),
-						citiesApi.getActiveCities(),
-						productsApi.getCategories(),
-					]);
+		const lastFetch = getLastFetchTime();
+		const needsRefresh = productEvents.hasUpdatedSince(lastFetch);
 
-				setFeaturedProducts(featuredRes.products);
-				setDiscoverProducts(discoverRes.products);
-				setActiveCities(citiesRes.cities);
-				setCategories(categoriesRes.categories.slice(0, 12)); // Show top 12 categories
-			} catch (error) {
-				console.error('Error fetching landing page data:', error);
-			} finally {
-				setLoading(false);
+		// Always bust cache if there's been an update, even on first render
+		// This handles the case where component remounts after navigating away
+		if (!hasFetched || needsRefresh) {
+			fetchData(needsRefresh); // Bust cache if products were updated
+		}
+	}, [location.key, fetchData, hasFetched]);
+
+	// Listen for product update events (works when component stays mounted)
+	useEffect(() => {
+		const unsubscribe = productEvents.on('product:updated', () => {
+			fetchData(true); // Bust cache when triggered by event
+		});
+
+		return unsubscribe;
+	}, [fetchData]);
+
+	// Also check when window regains focus
+	useEffect(() => {
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === 'visible') {
+				const lastFetch = getLastFetchTime();
+				if (productEvents.hasUpdatedSince(lastFetch)) {
+					fetchData(true); // Bust cache when returning to tab
+				}
 			}
 		};
 
-		fetchData();
-	}, []);
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+		return () => {
+			document.removeEventListener(
+				'visibilitychange',
+				handleVisibilityChange
+			);
+		};
+	}, [fetchData]);
 
 	const handleSearch = (query: string) => {
 		if (query.trim()) {

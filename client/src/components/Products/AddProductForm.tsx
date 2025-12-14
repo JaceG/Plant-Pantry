@@ -8,6 +8,7 @@ import { Toast } from '../Common/Toast';
 import { useToast } from '../Common/useToast';
 import { AutocompleteInput } from './AutocompleteInput';
 import { StoreAvailabilitySelector } from './StoreAvailabilitySelector';
+import { productEvents } from '../../utils/productEvents';
 import './AddProductForm.css';
 
 // Standard dietary tags that should always be available
@@ -206,6 +207,8 @@ export function AddProductForm() {
 			});
 
 			showToast('Product added successfully!', 'success');
+			// Emit event so other pages can refresh their product data
+			productEvents.emit('product:created', response.product.id);
 			navigate(`/products/${response.product.id}`);
 		} catch (error: any) {
 			showToast(error.message || 'Failed to add product', 'error');

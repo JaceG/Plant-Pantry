@@ -395,6 +395,57 @@ export const storeService = {
 	},
 
 	/**
+	 * Get stores by multiple chain IDs (for related chain queries)
+	 */
+	async getStoresByMultipleChains(
+		chainIds: string[],
+		filters?: { city?: string; state?: string }
+	): Promise<StoreListResult> {
+		const validChainIds = chainIds
+			.filter((id) => mongoose.Types.ObjectId.isValid(id))
+			.map((id) => new mongoose.Types.ObjectId(id));
+
+		if (validChainIds.length === 0) {
+			return { items: [] };
+		}
+
+		const query: any = { chainId: { $in: validChainIds } };
+
+		// Support searching by city OR state (more flexible for user searches)
+		if (filters?.city || filters?.state) {
+			const orConditions: any[] = [];
+			const searchTerm = filters.city || filters.state;
+
+			if (searchTerm) {
+				orConditions.push({
+					city: { $regex: searchTerm, $options: 'i' },
+				});
+				orConditions.push({
+					state: { $regex: searchTerm, $options: 'i' },
+				});
+				orConditions.push({
+					zipCode: { $regex: searchTerm, $options: 'i' },
+				});
+			}
+
+			if (orConditions.length > 0) {
+				query.$or = orConditions;
+			}
+		}
+
+		const stores = await Store.find(query)
+			.select(
+				'name type regionOrScope websiteUrl address city state zipCode country latitude longitude googlePlaceId phoneNumber chainId locationIdentifier'
+			)
+			.sort({ state: 1, city: 1, name: 1 })
+			.lean();
+
+		return {
+			items: stores.map((s) => toStoreSummary(s, null)),
+		};
+	},
+
+	/**
 	 * Get stores grouped by chain
 	 * @param includeEmptyChains - If true, includes chains with no stores (useful for admin views)
 	 */

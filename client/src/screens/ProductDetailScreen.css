@@ -549,17 +549,41 @@
   cursor: not-allowed;
 }
 
-/* Chain-Level Availability Section */
+/* Store Availability Sections */
+.online-stores-section,
+.independent-stores-section,
 .chain-availability-section {
   margin-bottom: var(--spacing-xl);
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--color-sage-light);
+}
+
+.online-stores-section:last-child,
+.independent-stores-section:last-child,
+.chain-availability-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .availability-subsection-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: var(--color-charcoal);
-  margin: 0 0 var(--spacing-md) 0;
+  margin: 0 0 var(--spacing-lg) 0;
+}
+
+/* Online store cards get a slightly different style */
+.online-store-card {
+  background: linear-gradient(135deg, #f0f9ff 0%, var(--color-cream) 100%);
+  border-color: #bae6fd;
+}
+
+.online-store-card:hover {
+  border-color: #38bdf8;
 }
 
 .chain-availability-cards {

@@ -2,10 +2,11 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button, Toast } from '../components';
 import { RegistrationModal } from '../components/Common/RegistrationModal';
-import { StoreMap } from '../components/Products/StoreMap';
+import { ProximityStoreMap } from '../components/Products/ProximityStoreMap';
 import { EditProductForm } from '../components/Products/EditProductForm';
 import { ReportAvailability } from '../components/Products/ReportAvailability';
 import { ChainAvailabilityCard } from '../components/Products/ChainAvailabilityCard';
+import { IndependentStoresCard } from '../components/Products/IndependentStoresCard';
 import { ReviewStats, ReviewList, ReviewForm } from '../components/Reviews';
 import { useProductDetail, useShoppingList } from '../hooks';
 import { useAuth } from '../context/AuthContext';
@@ -63,30 +64,77 @@ export function ProductDetailScreen() {
 		'newest' | 'oldest' | 'helpful' | 'rating'
 	>('newest');
 
-	// Load store details for availability
+	// Load store details for availability (from both store-level and chain-level)
 	useEffect(() => {
-		if (
-			!product ||
-			!product.availability ||
-			product.availability.length === 0
-		) {
+		if (!product) {
+			setStores([]);
+			return;
+		}
+
+		const hasStoreAvailability =
+			product.availability && product.availability.length > 0;
+		const hasChainAvailability =
+			product.chainAvailabilities &&
+			product.chainAvailabilities.length > 0;
+
+		if (!hasStoreAvailability && !hasChainAvailability) {
 			setStores([]);
 			return;
 		}
 
 		const loadStores = async () => {
 			try {
-				const storePromises = (product.availability || []).map(
-					(avail) =>
-						storesApi.getStoreById(avail.storeId).catch(() => null)
+				const allStores: Store[] = [];
+
+				// Load stores from store-level availability
+				if (hasStoreAvailability) {
+					const storePromises = (product.availability || []).map(
+						(avail) =>
+							storesApi
+								.getStoreById(avail.storeId)
+								.catch(() => null)
+					);
+					const storeResults = await Promise.all(storePromises);
+					const loadedStores = storeResults
+						.filter(
+							(result): result is { store: Store } =>
+								result !== null
+						)
+						.map((result) => result.store);
+					allStores.push(...loadedStores);
+				}
+
+				// Load stores from chain-level availability
+				if (hasChainAvailability) {
+					const chainStorePromises = (
+						product.chainAvailabilities || []
+					).map(async (chainAvail) => {
+						try {
+							const response = await storesApi.getChainLocations(
+								chainAvail.chainId,
+								{
+									includeRelated:
+										chainAvail.includeRelatedCompany,
+								}
+							);
+							return response.stores;
+						} catch {
+							return [];
+						}
+					});
+					const chainStoreResults = await Promise.all(
+						chainStorePromises
+					);
+					chainStoreResults.forEach((stores) => {
+						allStores.push(...stores);
+					});
+				}
+
+				// Deduplicate stores by ID
+				const uniqueStores = Array.from(
+					new Map(allStores.map((s) => [s.id, s])).values()
 				);
-				const storeResults = await Promise.all(storePromises);
-				const loadedStores = storeResults
-					.filter(
-						(result): result is { store: Store } => result !== null
-					)
-					.map((result) => result.store);
-				setStores(loadedStores);
+				setStores(uniqueStores);
 			} catch (error) {
 				console.error('Failed to load stores:', error);
 			}
@@ -95,10 +143,14 @@ export function ProductDetailScreen() {
 		loadStores();
 	}, [product]);
 
-	// Group availability by chain
+	// Group availability by chain and store type
 	const groupedAvailability = useMemo(() => {
 		if (!product?.availability || product.availability.length === 0) {
-			return { chainGroups: [], independentStores: [] };
+			return {
+				chainGroups: [],
+				onlineStores: [],
+				independentPhysicalStores: [],
+			};
 		}
 
 		const chainGroupsMap = new Map<
@@ -108,7 +160,8 @@ export function ProductDetailScreen() {
 				items: AvailabilityInfo[];
 			}
 		>();
-		const independentStores: AvailabilityInfo[] = [];
+		const onlineStores: AvailabilityInfo[] = [];
+		const independentPhysicalStores: AvailabilityInfo[] = [];
 
 		for (const avail of product.availability) {
 			if (avail.chain) {
@@ -120,7 +173,15 @@ export function ProductDetailScreen() {
 				}
 				chainGroupsMap.get(avail.chain.id)!.items.push(avail);
 			} else {
-				independentStores.push(avail);
+				// Separate online/brand_direct from brick_and_mortar
+				if (
+					avail.storeType === 'online_retailer' ||
+					avail.storeType === 'brand_direct'
+				) {
+					onlineStores.push(avail);
+				} else {
+					independentPhysicalStores.push(avail);
+				}
 			}
 		}
 
@@ -128,25 +189,8 @@ export function ProductDetailScreen() {
 			(a, b) => b.items.length - a.items.length
 		);
 
-		return { chainGroups, independentStores };
+		return { chainGroups, onlineStores, independentPhysicalStores };
 	}, [product?.availability]);
-
-	// State for expanded chain groups in availability
-	const [expandedAvailChains, setExpandedAvailChains] = useState<Set<string>>(
-		new Set()
-	);
-
-	const toggleAvailChainExpanded = (chainId: string) => {
-		setExpandedAvailChains((prev) => {
-			const next = new Set(prev);
-			if (next.has(chainId)) {
-				next.delete(chainId);
-			} else {
-				next.add(chainId);
-			}
-			return next;
-		});
-	};
 
 	// Load review stats and reviews
 	useEffect(() => {
@@ -550,8 +594,8 @@ export function ProductDetailScreen() {
 
 	const storeTypeLabels: Record<string, string> = {
 		brick_and_mortar: '🏪 Store',
-		online_retailer: '🌐 Online',
-		brand_direct: '🏷️ Direct',
+		online_retailer: '🌐 Online Store',
+		brand_direct: '🏷️ Brand Direct Website',
 	};
 
 	const availabilityStatusLabels: Record<string, string> = {
@@ -766,12 +810,92 @@ export function ProductDetailScreen() {
 						Where to Buy
 					</h2>
 
-					{/* Chain-level availability (from chainAvailabilities) */}
+					{/* 1. Online & Brand Direct Stores (shown first) */}
+					{groupedAvailability.onlineStores.length > 0 && (
+						<div className='online-stores-section'>
+							<h3 className='availability-subsection-title'>
+								🌐 Online Stores & Brand Direct Websites
+							</h3>
+							<div className='availability-grid'>
+								{groupedAvailability.onlineStores.map(
+									(avail) => (
+										<div
+											key={avail.storeId}
+											className='availability-card online-store-card'>
+											<div className='store-header'>
+												<span className='store-type'>
+													{storeTypeLabels[
+														avail.storeType
+													] || avail.storeType}
+												</span>
+												{avail.status === 'known' ? (
+													<span
+														className={`availability-status status-${avail.status}`}>
+														{availabilityStatusLabels[
+															avail.status
+														] || avail.status}
+													</span>
+												) : (
+													<button
+														type='button'
+														className={`availability-status status-${avail.status} clickable`}
+														onClick={(e) => {
+															e.stopPropagation();
+															openConfirmModal(
+																avail.storeId,
+																avail.storeName
+															);
+														}}
+														title='Click to confirm this product is still here'>
+														{availabilityStatusLabels[
+															avail.status
+														] || avail.status}
+													</button>
+												)}
+											</div>
+											<Link
+												to={`/retailers/store/${avail.storeId}`}
+												className='store-name store-name-link'>
+												{avail.storeName}
+											</Link>
+											<span className='store-region'>
+												{avail.regionOrScope}
+											</span>
+											{avail.priceRange && (
+												<span className='store-price'>
+													{avail.priceRange}
+												</span>
+											)}
+										</div>
+									)
+								)}
+							</div>
+						</div>
+					)}
+
+					{/* 2. Independent Physical Stores */}
+					{groupedAvailability.independentPhysicalStores.length >
+						0 && (
+						<div className='independent-stores-section'>
+							<h3 className='availability-subsection-title'>
+								🏪 Independent Stores
+							</h3>
+							<IndependentStoresCard
+								stores={
+									groupedAvailability.independentPhysicalStores
+								}
+								title='Independent Stores'
+								icon='🏪'
+							/>
+						</div>
+					)}
+
+					{/* 3. Chain-level availability (from chainAvailabilities) */}
 					{product.chainAvailabilities &&
 						product.chainAvailabilities.length > 0 && (
 							<div className='chain-availability-section'>
 								<h3 className='availability-subsection-title'>
-									Available at these retailers
+									🏬 Major Retailers
 								</h3>
 								<div className='chain-availability-cards'>
 									{product.chainAvailabilities.map(
@@ -786,261 +910,50 @@ export function ProductDetailScreen() {
 							</div>
 						)}
 
-					{(product.availability?.length || 0) > 0 ? (
-						<>
-							{/* Chain availability badges for store-level data */}
-							{groupedAvailability.chainGroups.length > 0 && (
-								<div className='chain-availability-badges'>
-									<span className='badges-label'>
-										Specific locations confirmed:
-									</span>
-									<div className='chain-badges'>
-										{groupedAvailability.chainGroups.map(
-											({ chain, items }) => (
-												<Link
-													key={chain.id}
-													to={`/retailers/chain/${chain.slug}`}
-													className='chain-avail-badge'
-													title={`${
-														items.length
-													} location${
-														items.length !== 1
-															? 's'
-															: ''
-													} - View all ${
-														chain.name
-													} products`}>
-													✓ {chain.name}
-													<span className='badge-count'>
-														({items.length})
-													</span>
-												</Link>
-											)
-										)}
-									</div>
-								</div>
-							)}
-
-							{stores.length > 0 &&
-								stores.some(
-									(s) => s.latitude && s.longitude
-								) && (
-									<div className='availability-map-container'>
-										<StoreMap
-											stores={stores}
-											height='400px'
-										/>
-									</div>
-								)}
-
-							<div className='availability-grouped'>
-								{/* Chain Groups */}
+					{/* 4. Chain availability badges for store-level data */}
+					{groupedAvailability.chainGroups.length > 0 && (
+						<div className='chain-availability-badges'>
+							<span className='badges-label'>
+								Specific locations confirmed:
+							</span>
+							<div className='chain-badges'>
 								{groupedAvailability.chainGroups.map(
 									({ chain, items }) => (
-										<div
+										<Link
 											key={chain.id}
-											className='availability-chain-group'>
-											<div
-												className='chain-group-header'
-												onClick={() =>
-													toggleAvailChainExpanded(
-														chain.id
-													)
-												}>
-												<span className='chain-expand'>
-													{expandedAvailChains.has(
-														chain.id
-													)
-														? '▼'
-														: '▶'}
-												</span>
-												<div className='chain-group-info'>
-													<Link
-														to={`/retailers/chain/${chain.slug}`}
-														className='chain-group-name'
-														onClick={(e) =>
-															e.stopPropagation()
-														}>
-														{chain.name}
-													</Link>
-													<span className='chain-group-count'>
-														{items.length} location
-														{items.length !== 1
-															? 's'
-															: ''}
-													</span>
-												</div>
-											</div>
-
-											{expandedAvailChains.has(
-												chain.id
-											) && (
-												<div className='chain-locations'>
-													{items.map((avail) => (
-														<div
-															key={avail.storeId}
-															className='availability-card chain-location'>
-															<div className='store-header'>
-																<span className='store-type'>
-																	{storeTypeLabels[
-																		avail
-																			.storeType
-																	] ||
-																		avail.storeType}
-																</span>
-																{avail.status ===
-																'known' ? (
-																	<span
-																		className={`availability-status status-${avail.status}`}>
-																		{availabilityStatusLabels[
-																			avail
-																				.status
-																		] ||
-																			avail.status}
-																	</span>
-																) : (
-																	<button
-																		type='button'
-																		className={`availability-status status-${avail.status} clickable`}
-																		onClick={(
-																			e
-																		) => {
-																			e.stopPropagation();
-																			openConfirmModal(
-																				avail.storeId,
-																				avail.locationIdentifier ||
-																					avail.address ||
-																					avail.storeName
-																			);
-																		}}
-																		title='Click to confirm this product is still here'>
-																		{availabilityStatusLabels[
-																			avail
-																				.status
-																		] ||
-																			avail.status}
-																	</button>
-																)}
-															</div>
-															<h4 className='store-name'>
-																{avail.locationIdentifier ||
-																	avail.address ||
-																	avail.storeName}
-															</h4>
-															{avail.address && (
-																<span className='store-address'>
-																	{
-																		avail.address
-																	}
-																	{avail.city &&
-																		`, ${avail.city}`}
-																	{avail.state &&
-																		`, ${avail.state}`}
-																</span>
-															)}
-															{avail.priceRange && (
-																<span className='store-price'>
-																	{
-																		avail.priceRange
-																	}
-																</span>
-															)}
-														</div>
-													))}
-												</div>
-											)}
-										</div>
+											to={`/retailers/chain/${chain.slug}`}
+											className='chain-avail-badge'
+											title={`${items.length} location${
+												items.length !== 1 ? 's' : ''
+											} - View all ${
+												chain.name
+											} products`}>
+											✓ {chain.name}
+											<span className='badge-count'>
+												({items.length})
+											</span>
+										</Link>
 									)
 								)}
-
-								{/* Independent Stores */}
-								{groupedAvailability.independentStores.length >
-									0 && (
-									<>
-										{groupedAvailability.chainGroups
-											.length > 0 && (
-											<div className='availability-section-divider'>
-												<span>Independent Stores</span>
-											</div>
-										)}
-										<div className='availability-grid'>
-											{groupedAvailability.independentStores.map(
-												(avail) => (
-													<div
-														key={avail.storeId}
-														className='availability-card'>
-														<div className='store-header'>
-															<span className='store-type'>
-																{storeTypeLabels[
-																	avail
-																		.storeType
-																] ||
-																	avail.storeType}
-															</span>
-															{avail.status ===
-															'known' ? (
-																<span
-																	className={`availability-status status-${avail.status}`}>
-																	{availabilityStatusLabels[
-																		avail
-																			.status
-																	] ||
-																		avail.status}
-																</span>
-															) : (
-																<button
-																	type='button'
-																	className={`availability-status status-${avail.status} clickable`}
-																	onClick={(
-																		e
-																	) => {
-																		e.stopPropagation();
-																		openConfirmModal(
-																			avail.storeId,
-																			avail.storeName
-																		);
-																	}}
-																	title='Click to confirm this product is still here'>
-																	{availabilityStatusLabels[
-																		avail
-																			.status
-																	] ||
-																		avail.status}
-																</button>
-															)}
-														</div>
-														<Link
-															to={`/retailers/store/${avail.storeId}`}
-															className='store-name store-name-link'>
-															{avail.storeName}
-														</Link>
-														<span className='store-region'>
-															{avail.address
-																? `${
-																		avail.address
-																  }${
-																		avail.city
-																			? `, ${avail.city}`
-																			: ''
-																  }`
-																: avail.regionOrScope}
-														</span>
-														{avail.priceRange && (
-															<span className='store-price'>
-																{
-																	avail.priceRange
-																}
-															</span>
-														)}
-													</div>
-												)
-											)}
-										</div>
-									</>
-								)}
 							</div>
-						</>
-					) : !product.chainAvailabilities?.length ? (
+						</div>
+					)}
+
+					{/* 5. Map for physical stores */}
+					{stores.length > 0 &&
+						stores.some((s) => s.latitude && s.longitude) && (
+							<div className='availability-map-container'>
+								<ProximityStoreMap
+									stores={stores}
+									height='400px'
+									defaultRadius={50}
+								/>
+							</div>
+						)}
+
+					{/* Empty state */}
+					{(product.availability?.length || 0) === 0 &&
+					!product.chainAvailabilities?.length ? (
 						<div className='availability-empty'>
 							<p>
 								Availability information is not yet available

@@ -171,22 +171,49 @@ router.get(
 	async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { id } = req.params;
-			const { city, state } = req.query;
+			const { city, state, includeRelated } = req.query;
 
 			const chain = await storeChainService.getChainById(id);
 			if (!chain) {
 				throw new HttpError('Chain not found', 404);
 			}
 
-			const result = await storeService.getStoresByChain(id, {
-				city: city as string | undefined,
-				state: state as string | undefined,
-			});
+			// If includeRelated is true, get stores from all related chains (e.g., Walmart + Walmart Supercenter)
+			const shouldIncludeRelated = includeRelated === 'true';
+
+			let stores: any[] = [];
+			let totalCount = 0;
+
+			if (shouldIncludeRelated) {
+				const { getRelatedChainIds } = await import(
+					'../utils/chainUtils'
+				);
+				const relatedChainIds = await getRelatedChainIds(id, true);
+
+				if (relatedChainIds.length > 0) {
+					const result = await storeService.getStoresByMultipleChains(
+						relatedChainIds.map((cid) => cid.toString()),
+						{
+							city: city as string | undefined,
+							state: state as string | undefined,
+						}
+					);
+					stores = result.items;
+					totalCount = result.items.length;
+				}
+			} else {
+				const result = await storeService.getStoresByChain(id, {
+					city: city as string | undefined,
+					state: state as string | undefined,
+				});
+				stores = result.items;
+				totalCount = result.items.length;
+			}
 
 			res.json({
 				chain,
-				stores: result.items,
-				totalCount: result.items.length,
+				stores,
+				totalCount,
 			});
 		} catch (error) {
 			next(error);

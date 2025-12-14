@@ -67,11 +67,12 @@ export const storesApi = {
 
 	getChainLocations(
 		chainId: string,
-		filters?: { city?: string; state?: string }
+		filters?: { city?: string; state?: string; includeRelated?: boolean }
 	): Promise<{ chain: StoreChain; stores: Store[]; totalCount: number }> {
 		const params = new URLSearchParams();
 		if (filters?.city) params.set('city', filters.city);
 		if (filters?.state) params.set('state', filters.state);
+		if (filters?.includeRelated) params.set('includeRelated', 'true');
 		const queryStr = params.toString();
 		const url = `/stores/chains/${chainId}/locations${
 			queryStr ? `?${queryStr}` : ''

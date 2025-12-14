@@ -102,6 +102,10 @@ router.get(
 			const products = await productService.getFeaturedProducts(
 				limit ? parseInt(limit as string, 10) : 8
 			);
+			// Prevent caching to ensure fresh data
+			res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+			res.set('Pragma', 'no-cache');
+			res.set('Expires', '0');
 			res.json({ products });
 		} catch (error) {
 			console.error('Error in GET /api/products/featured:', error);
@@ -119,6 +123,10 @@ router.get(
 			const products = await productService.getDiscoverProducts(
 				limit ? parseInt(limit as string, 10) : 6
 			);
+			// Prevent caching to ensure fresh data
+			res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+			res.set('Pragma', 'no-cache');
+			res.set('Expires', '0');
 			res.json({ products });
 		} catch (error) {
 			console.error('Error in GET /api/products/discover:', error);
