@@ -19,6 +19,16 @@ function setLastFetchTime(time: number): void {
 	sessionStorage.setItem(LANDING_FETCH_KEY, time.toString());
 }
 
+// Utility to shuffle an array (Fisher-Yates algorithm)
+function shuffleArray<T>(array: T[]): T[] {
+	const shuffled = [...array];
+	for (let i = shuffled.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+	}
+	return shuffled;
+}
+
 export function LandingScreen() {
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -29,7 +39,10 @@ export function LandingScreen() {
 		[]
 	);
 	const [activeCities, setActiveCities] = useState<CityPageData[]>([]);
-	const [categories, setCategories] = useState<string[]>([]);
+	const [allCategories, setAllCategories] = useState<string[]>([]);
+	const [displayedCategories, setDisplayedCategories] = useState<string[]>(
+		[]
+	);
 	const [loading, setLoading] = useState(true);
 	const [hasFetched, setHasFetched] = useState(false);
 
@@ -47,7 +60,10 @@ export function LandingScreen() {
 			setFeaturedProducts(featuredRes.products);
 			setDiscoverProducts(discoverRes.products);
 			setActiveCities(citiesRes.cities);
-			setCategories(categoriesRes.categories.slice(0, 12));
+			// Store all categories and display a random selection
+			const allCats = categoriesRes.categories;
+			setAllCategories(allCats);
+			setDisplayedCategories(shuffleArray(allCats).slice(0, 12));
 			setLastFetchTime(Date.now());
 			setHasFetched(true);
 			console.log(
@@ -123,6 +139,12 @@ export function LandingScreen() {
 		}
 	};
 
+	const refreshCategories = () => {
+		if (allCategories.length > 0) {
+			setDisplayedCategories(shuffleArray(allCategories).slice(0, 12));
+		}
+	};
+
 	return (
 		<div className='landing-screen'>
 			{/* Hero Section */}
@@ -194,21 +216,32 @@ export function LandingScreen() {
 			)}
 
 			{/* Browse by Category Section */}
-			{categories.length > 0 && (
+			{displayedCategories.length > 0 && (
 				<section className='landing-section categories-section'>
 					<div className='section-container'>
 						<div className='section-header'>
-							<h2 className='section-title'>
-								<span className='title-icon'>📁</span>
-								Browse by Category
-							</h2>
-							<p className='section-subtitle'>
-								Find exactly what you're looking for
-							</p>
+							<div className='section-header-row'>
+								<div>
+									<h2 className='section-title'>
+										<span className='title-icon'>📁</span>
+										Browse by Category
+									</h2>
+									<p className='section-subtitle'>
+										Find exactly what you're looking for
+									</p>
+								</div>
+								<button
+									className='refresh-btn'
+									onClick={refreshCategories}
+									title='Show different categories'>
+									<span className='refresh-icon'>🔄</span>
+									Refresh
+								</button>
+							</div>
 						</div>
 
 						<div className='categories-grid'>
-							{categories.map((category) => (
+							{displayedCategories.map((category) => (
 								<button
 									key={category}
 									className='category-card'
