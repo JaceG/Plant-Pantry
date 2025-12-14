@@ -98,6 +98,12 @@ export interface ProductDetail {
 	createdAt: Date;
 	updatedAt: Date;
 	availability: AvailabilityInfo[];
+	// Optional chain-level availability selections for user products
+	chainAvailabilities?: Array<{
+		chainId: string;
+		includeRelatedCompany: boolean;
+		priceRange?: string;
+	}>;
 	averageRating?: number;
 	reviewCount?: number;
 	_source?: 'api' | 'user_contribution'; // Metadata to distinguish sources
@@ -843,6 +849,17 @@ export const productService = {
 			createdAt: product.createdAt,
 			updatedAt: product.updatedAt,
 			availability: availabilityInfo || [],
+			chainAvailabilities: isUserProduct
+				? ((product as any).chainAvailabilities || []).map(
+						(c: any) => ({
+							chainId:
+								c.chainId?.toString?.() || String(c.chainId),
+							includeRelatedCompany:
+								c.includeRelatedCompany !== false,
+							priceRange: c.priceRange,
+						})
+				  )
+				: undefined,
 			averageRating:
 				ratingStats.totalCount > 0
 					? ratingStats.averageRating

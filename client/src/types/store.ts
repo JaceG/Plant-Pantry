@@ -65,6 +65,8 @@ export interface CreateStoreInput {
 	longitude?: number;
 	googlePlaceId?: string;
 	phoneNumber?: string;
+	chainId?: string;
+	locationIdentifier?: string;
 	skipDuplicateCheck?: boolean;
 }
 

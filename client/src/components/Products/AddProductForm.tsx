@@ -63,6 +63,7 @@ const getDefaultFormData = (): CreateUserProductInput => ({
 	nutritionSummary: '',
 	ingredientSummary: '',
 	storeAvailabilities: [],
+	chainAvailabilities: [],
 });
 
 // Apply template to form data
@@ -78,6 +79,7 @@ const applyTemplate = (template: TemplateData): CreateUserProductInput => ({
 	nutritionSummary: template.nutritionSummary || '',
 	ingredientSummary: template.ingredientSummary || '',
 	storeAvailabilities: [],
+	chainAvailabilities: [],
 });
 
 export function AddProductForm() {
@@ -573,10 +575,17 @@ export function AddProductForm() {
 						</p>
 						<StoreAvailabilitySelector
 							value={formData.storeAvailabilities || []}
+							chainValue={formData.chainAvailabilities || []}
 							onChange={(availabilities) => {
 								setFormData((prev) => ({
 									...prev,
 									storeAvailabilities: availabilities,
+								}));
+							}}
+							onChainChange={(chainAvailabilities) => {
+								setFormData((prev) => ({
+									...prev,
+									chainAvailabilities,
 								}));
 							}}
 						/>

@@ -22,6 +22,13 @@ export interface IUserProduct extends Document {
 	nutritionSummary?: string;
 	ingredientSummary?: string;
 
+	// Optional chain/company availability selections (used to expand into store-level Availability)
+	chainAvailabilities?: Array<{
+		chainId: mongoose.Types.ObjectId;
+		includeRelatedCompany: boolean;
+		priceRange?: string;
+	}>;
+
 	// Metadata
 	source: 'user_contribution';
 	status: 'pending' | 'approved' | 'rejected'; // For moderation if needed
@@ -95,6 +102,16 @@ const userProductSchema = new Schema<IUserProduct>(
 		ingredientSummary: {
 			type: String,
 			trim: true,
+		},
+		chainAvailabilities: {
+			type: [
+				{
+					chainId: { type: Schema.Types.ObjectId, ref: 'StoreChain' },
+					includeRelatedCompany: { type: Boolean, default: true },
+					priceRange: { type: String, trim: true },
+				},
+			],
+			default: [],
 		},
 		source: {
 			type: String,

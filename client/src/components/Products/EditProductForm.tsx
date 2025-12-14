@@ -3,6 +3,7 @@ import {
 	ProductDetail,
 	CreateUserProductInput,
 	StoreAvailabilityInput,
+	ChainAvailabilityInput,
 } from '../../types/product';
 import { userProductsApi } from '../../api/userProductsApi';
 import { productsApi } from '../../api/productsApi';
@@ -66,6 +67,15 @@ export function EditProductForm({
 			priceRange: avail.priceRange,
 			status: avail.status as 'known' | 'user_reported' | 'unknown',
 		})),
+		chainAvailabilities: (product as any).chainAvailabilities
+			? (((product as any).chainAvailabilities as any[]) || []).map(
+					(c: any): ChainAvailabilityInput => ({
+						chainId: c.chainId,
+						includeRelatedCompany: c.includeRelatedCompany,
+						priceRange: c.priceRange,
+					})
+			  )
+			: [],
 		sourceProductId: product._source === 'api' ? product.id : undefined,
 	});
 
@@ -178,6 +188,16 @@ export function EditProductForm({
 			setFormData((prev) => ({
 				...prev,
 				storeAvailabilities: availabilities,
+			}));
+		},
+		[]
+	);
+
+	const handleChainAvailabilitiesChange = useCallback(
+		(chainAvailabilities: ChainAvailabilityInput[]) => {
+			setFormData((prev) => ({
+				...prev,
+				chainAvailabilities,
 			}));
 		},
 		[]
@@ -403,7 +423,9 @@ export function EditProductForm({
 					<h2>Where to Buy</h2>
 					<StoreAvailabilitySelector
 						value={formData.storeAvailabilities || []}
+						chainValue={formData.chainAvailabilities || []}
 						onChange={handleStoreAvailabilitiesChange}
+						onChainChange={handleChainAvailabilitiesChange}
 					/>
 				</div>
 

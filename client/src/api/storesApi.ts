@@ -51,6 +51,16 @@ export const storesApi = {
 		return httpClient.get<{ chains: StoreChain[] }>('/stores/chains');
 	},
 
+	createChain(input: {
+		name: string;
+		slug?: string;
+		logoUrl?: string;
+		websiteUrl?: string;
+		type?: 'national' | 'regional' | 'local';
+	}): Promise<{ chain: StoreChain }> {
+		return httpClient.post<{ chain: StoreChain }>('/stores/chains', input);
+	},
+
 	getChainById(id: string): Promise<{ chain: StoreChain }> {
 		return httpClient.get<{ chain: StoreChain }>(`/stores/chains/${id}`);
 	},

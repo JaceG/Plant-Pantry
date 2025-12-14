@@ -12,6 +12,12 @@ export interface StoreAvailabilityInput {
 	status?: 'known' | 'user_reported' | 'unknown';
 }
 
+export interface ChainAvailabilityInput {
+	chainId: string;
+	includeRelatedCompany?: boolean;
+	priceRange?: string;
+}
+
 export interface CreateUserProductInput {
 	userId: string;
 	name: string;
@@ -25,6 +31,7 @@ export interface CreateUserProductInput {
 	nutritionSummary?: string;
 	ingredientSummary?: string;
 	storeAvailabilities?: StoreAvailabilityInput[];
+	chainAvailabilities?: ChainAvailabilityInput[];
 	sourceProductId?: string; // If editing an API product
 }
 
@@ -41,6 +48,53 @@ export interface UpdateUserProductInput {
 	ingredientSummary?: string;
 	status?: 'pending' | 'approved' | 'rejected';
 	storeAvailabilities?: StoreAvailabilityInput[];
+	chainAvailabilities?: ChainAvailabilityInput[];
+}
+
+function normalizeCompanyKey(input: string): string {
+	const raw = input
+		.toLowerCase()
+		.replace(/&/g, ' and ')
+		.replace(/[^a-z0-9\s-]/g, ' ')
+		// remove common store-variant descriptors, keep the owning retailer
+		.replace(
+			/\b(supercenter|neighborhood|market|marketplace|fresh|fare|greatland|super|pharmacy|store)\b/g,
+			' '
+		)
+		.replace(/\s+/g, ' ')
+		.trim();
+	// Special-case a few known tricky brand stylings
+	if (raw === 'wal mart') return 'walmart';
+	if (raw === 'h e b' || raw === 'heb') return 'h-e-b';
+	return raw.replace(/\s+/g, ' ');
+}
+
+async function getRelatedChainIds(
+	chainId: string,
+	includeRelatedCompany: boolean
+): Promise<mongoose.Types.ObjectId[]> {
+	if (!mongoose.Types.ObjectId.isValid(chainId)) return [];
+
+	const { StoreChain } = await import('../models');
+	const chain = await StoreChain.findById(chainId).select('name').lean();
+	if (!chain) return [];
+
+	if (!includeRelatedCompany) {
+		return [new mongoose.Types.ObjectId(chainId)];
+	}
+
+	const companyKey = normalizeCompanyKey(chain.name);
+	if (!companyKey) return [new mongoose.Types.ObjectId(chainId)];
+
+	// Robust approach: scan active chains and group by normalized company key.
+	// This avoids false positives from regex prefix matching.
+	const all = await StoreChain.find({ isActive: true })
+		.select('_id name')
+		.lean();
+
+	return all
+		.filter((c: any) => normalizeCompanyKey(c.name) === companyKey)
+		.map((c: any) => c._id as mongoose.Types.ObjectId);
 }
 
 export const userProductService = {
@@ -128,6 +182,11 @@ export const userProductService = {
 			imageUrl: input.imageUrl,
 			nutritionSummary: input.nutritionSummary,
 			ingredientSummary: input.ingredientSummary,
+			chainAvailabilities: (input.chainAvailabilities || []).map((c) => ({
+				chainId: new mongoose.Types.ObjectId(c.chainId),
+				includeRelatedCompany: c.includeRelatedCompany !== false,
+				priceRange: c.priceRange,
+			})),
 			source: 'user_contribution',
 			status: isTrusted ? 'approved' : 'pending', // Trusted users' content goes live immediately
 			needsReview: needsReview, // Admin edits don't need review; moderator/trusted edits do
@@ -163,24 +222,81 @@ export const userProductService = {
 			// This ensures we replace old entries rather than trying to insert duplicates
 			await Availability.deleteMany({ productId: product._id });
 
-			// Create new availability entries if any are provided
-			if (input.storeAvailabilities.length > 0) {
-				const availabilityEntries = input.storeAvailabilities.map(
-					(avail) => ({
-						productId: product._id,
-						storeId: new mongoose.Types.ObjectId(avail.storeId),
-						moderationStatus: isTrusted
-							? ('confirmed' as const)
-							: ('pending' as const), // Trusted users' content goes live immediately
-						priceRange: avail.priceRange,
-						lastConfirmedAt: new Date(),
-						source: 'user_contribution' as const,
-						reportedBy: new mongoose.Types.ObjectId(input.userId),
-						isStale: false,
-						needsReview: needsReview, // Admin edits don't need review; moderator/trusted edits do
-						trustedContribution: isTrusted, // Track if from trusted contributor
+			// Build combined store targets:
+			// - explicit store selections
+			// - all stores in selected chain(s), optionally including related company variants
+			const storeToPrice = new Map<string, string | undefined>();
+
+			for (const avail of input.storeAvailabilities || []) {
+				if (!mongoose.Types.ObjectId.isValid(avail.storeId)) continue;
+				storeToPrice.set(avail.storeId, avail.priceRange);
+			}
+
+			const chainAvails = input.chainAvailabilities || [];
+			if (chainAvails.length > 0) {
+				const chainIdsToFetch: mongoose.Types.ObjectId[] = [];
+				const chainPriceByChainId = new Map<
+					string,
+					string | undefined
+				>();
+
+				for (const ca of chainAvails) {
+					const includeRelatedCompany =
+						ca.includeRelatedCompany !== false;
+					const relatedChainIds = await getRelatedChainIds(
+						ca.chainId,
+						includeRelatedCompany
+					);
+					relatedChainIds.forEach((id) => {
+						chainIdsToFetch.push(id);
+						chainPriceByChainId.set(id.toString(), ca.priceRange);
+					});
+				}
+
+				const uniqueChainIds = [
+					...new Map(
+						chainIdsToFetch.map((id) => [id.toString(), id])
+					).values(),
+				];
+
+				if (uniqueChainIds.length > 0) {
+					const stores = await Store.find({
+						chainId: { $in: uniqueChainIds },
+						type: 'brick_and_mortar',
 					})
-				);
+						.select('_id chainId')
+						.lean();
+
+					for (const s of stores as any[]) {
+						const storeIdStr = s._id.toString();
+						if (storeToPrice.has(storeIdStr)) continue; // explicit store selection wins
+						const chainIdStr = s.chainId?.toString();
+						const chainPrice = chainIdStr
+							? chainPriceByChainId.get(chainIdStr)
+							: undefined;
+						storeToPrice.set(storeIdStr, chainPrice);
+					}
+				}
+			}
+
+			const storeIds = Array.from(storeToPrice.keys());
+
+			// Create new availability entries if any are provided/derived
+			if (storeIds.length > 0) {
+				const availabilityEntries = storeIds.map((storeId) => ({
+					productId: product._id,
+					storeId: new mongoose.Types.ObjectId(storeId),
+					moderationStatus: isTrusted
+						? ('confirmed' as const)
+						: ('pending' as const), // Trusted users' content goes live immediately
+					priceRange: storeToPrice.get(storeId),
+					lastConfirmedAt: new Date(),
+					source: 'user_contribution' as const,
+					reportedBy: new mongoose.Types.ObjectId(input.userId),
+					isStale: false,
+					needsReview: needsReview, // Admin edits don't need review; moderator/trusted edits do
+					trustedContribution: isTrusted, // Track if from trusted contributor
+				}));
 
 				await Availability.insertMany(availabilityEntries, {
 					ordered: false,
@@ -263,8 +379,22 @@ export const userProductService = {
 			query.userId = new mongoose.Types.ObjectId(userId); // Ensure user owns it
 		}
 
-		// Separate storeAvailabilities from other product fields
-		const { storeAvailabilities, ...productUpdateData } = input;
+		// Separate availability payloads from other product fields
+		const {
+			storeAvailabilities,
+			chainAvailabilities,
+			...productUpdateData
+		} = input;
+
+		// Persist chain availability selection on the product (so UI can show it later)
+		if (chainAvailabilities !== undefined) {
+			(productUpdateData as any).chainAvailabilities =
+				chainAvailabilities.map((c) => ({
+					chainId: new mongoose.Types.ObjectId(c.chainId),
+					includeRelatedCompany: c.includeRelatedCompany !== false,
+					priceRange: c.priceRange,
+				}));
+		}
 
 		const product = await UserProduct.findOneAndUpdate(
 			query,
@@ -277,30 +407,85 @@ export const userProductService = {
 		}
 
 		// Update availability entries if provided
-		if (storeAvailabilities !== undefined) {
+		if (
+			storeAvailabilities !== undefined ||
+			chainAvailabilities !== undefined
+		) {
 			const productId = new mongoose.Types.ObjectId(id);
 
 			// Delete existing availability entries for this product
 			await Availability.deleteMany({ productId });
 
-			// Create new availability entries if any are provided
-			if (storeAvailabilities.length > 0) {
-				const availabilityEntries = storeAvailabilities.map(
-					(avail) => ({
-						productId,
-						storeId: new mongoose.Types.ObjectId(avail.storeId),
-						moderationStatus: isTrusted
-							? ('confirmed' as const)
-							: ('pending' as const), // Trusted users' content goes live immediately
-						priceRange: avail.priceRange,
-						lastConfirmedAt: new Date(),
-						source: 'user_contribution' as const,
-						reportedBy: new mongoose.Types.ObjectId(userId),
-						isStale: false,
-						needsReview: needsReview, // Admin edits don't need review; moderator/trusted edits do
-						trustedContribution: isTrusted, // Track if from trusted contributor
+			const storeToPrice = new Map<string, string | undefined>();
+			for (const avail of storeAvailabilities || []) {
+				if (!mongoose.Types.ObjectId.isValid(avail.storeId)) continue;
+				storeToPrice.set(avail.storeId, avail.priceRange);
+			}
+
+			const chainAvails = chainAvailabilities || [];
+			if (chainAvails.length > 0) {
+				const chainIdsToFetch: mongoose.Types.ObjectId[] = [];
+				const chainPriceByChainId = new Map<
+					string,
+					string | undefined
+				>();
+
+				for (const ca of chainAvails) {
+					const includeRelatedCompany =
+						ca.includeRelatedCompany !== false;
+					const relatedChainIds = await getRelatedChainIds(
+						ca.chainId,
+						includeRelatedCompany
+					);
+					relatedChainIds.forEach((id) => {
+						chainIdsToFetch.push(id);
+						chainPriceByChainId.set(id.toString(), ca.priceRange);
+					});
+				}
+
+				const uniqueChainIds = [
+					...new Map(
+						chainIdsToFetch.map((id) => [id.toString(), id])
+					).values(),
+				];
+
+				if (uniqueChainIds.length > 0) {
+					const stores = await Store.find({
+						chainId: { $in: uniqueChainIds },
+						type: 'brick_and_mortar',
 					})
-				);
+						.select('_id chainId')
+						.lean();
+
+					for (const s of stores as any[]) {
+						const storeIdStr = s._id.toString();
+						if (storeToPrice.has(storeIdStr)) continue;
+						const chainIdStr = s.chainId?.toString();
+						const chainPrice = chainIdStr
+							? chainPriceByChainId.get(chainIdStr)
+							: undefined;
+						storeToPrice.set(storeIdStr, chainPrice);
+					}
+				}
+			}
+
+			const storeIds = Array.from(storeToPrice.keys());
+
+			if (storeIds.length > 0) {
+				const availabilityEntries = storeIds.map((storeId) => ({
+					productId,
+					storeId: new mongoose.Types.ObjectId(storeId),
+					moderationStatus: isTrusted
+						? ('confirmed' as const)
+						: ('pending' as const),
+					priceRange: storeToPrice.get(storeId),
+					lastConfirmedAt: new Date(),
+					source: 'user_contribution' as const,
+					reportedBy: new mongoose.Types.ObjectId(userId),
+					isStale: false,
+					needsReview: needsReview,
+					trustedContribution: isTrusted,
+				}));
 
 				await Availability.insertMany(availabilityEntries, {
 					ordered: false,

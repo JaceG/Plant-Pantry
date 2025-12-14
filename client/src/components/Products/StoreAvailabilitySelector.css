@@ -228,6 +228,126 @@
   margin-bottom: 0.5rem;
 }
 
+.new-store-chain-section {
+  margin: 0.75rem 0 1rem 0;
+  padding: 0.75rem;
+  background: var(--color-cream);
+  border: 1px solid var(--color-sage-light);
+  border-radius: 10px;
+}
+
+.new-store-chain-hint {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-stone);
+  line-height: 1.35;
+}
+
+.new-store-chain-actions {
+  margin-top: 0.5rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Create Chain Modal (reuse AdminStores class names) */
+.chain-modal {
+  max-width: 500px;
+}
+
+.chain-modal-error {
+  padding: 0.75rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.modal-content.chain-modal {
+  background: var(--color-white, #fff);
+  border-radius: 12px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-content.chain-modal .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--color-sage-light, #dfe9df);
+}
+
+.modal-content.chain-modal .modal-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-charcoal, #222);
+}
+
+.modal-content.chain-modal .modal-close {
+  background: none;
+  border: none;
+  font-size: 1.6rem;
+  color: var(--color-stone, #777);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.modal-content.chain-modal .modal-close:hover {
+  color: var(--color-charcoal, #222);
+}
+
+.modal-content.chain-modal .modal-body {
+  padding: 1.5rem;
+}
+
+.modal-content.chain-modal .modal-body .form-group {
+  margin-bottom: 1rem;
+}
+
+.modal-content.chain-modal .modal-body label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-charcoal, #222);
+  margin-bottom: 0.5rem;
+}
+
+.modal-content.chain-modal .modal-body input,
+.modal-content.chain-modal .modal-body select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--color-sage-light, #dfe9df);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: var(--color-charcoal, #222);
+  background: var(--color-white, #fff);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+
+.modal-content.chain-modal .modal-body input:focus,
+.modal-content.chain-modal .modal-body select:focus {
+  outline: none;
+  border-color: var(--color-sage, #8bb18b);
+  box-shadow: 0 0 0 3px rgba(139, 177, 139, 0.2);
+}
+
+.modal-content.chain-modal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid var(--color-sage-light, #dfe9df);
+  background: var(--color-mint, #f3fbf3);
+  border-radius: 0 0 12px 12px;
+}
+
 .online-store-form {
   display: flex;
   flex-direction: column;
@@ -620,6 +740,96 @@
   font-weight: 500;
 }
 
+/* ============================================
+   Chain picker (Add Entire Chain) UI
+   ============================================ */
+.chain-picker-wrapper {
+  margin-top: 0.75rem;
+  border: 1px solid var(--color-sage-light);
+  border-radius: 10px;
+  background: var(--color-cream);
+  padding: 1rem;
+}
+
+.chain-picker-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.chain-picker-header strong {
+  display: block;
+  font-size: 1.05rem;
+  line-height: 1.2;
+  color: var(--color-charcoal);
+}
+
+.chain-picker-subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--color-stone);
+}
+
+.chain-picker-back {
+  background: var(--color-white);
+  border: 1px solid var(--color-sage-light);
+  color: var(--color-forest);
+  border-radius: 8px;
+  padding: 0.4rem 0.65rem;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.chain-picker-back:hover {
+  border-color: var(--color-sage);
+  background: var(--color-mint);
+}
+
+.chain-picker-actions {
+  background: var(--color-white);
+  border: 1px solid var(--color-sage-light);
+  border-radius: 10px;
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.chain-variants-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: var(--color-charcoal);
+  user-select: none;
+}
+
+.chain-variants-toggle input {
+  width: 16px;
+  height: 16px;
+  margin-top: 0.15rem;
+  accent-color: var(--color-forest);
+}
+
+.chain-picker-buttons {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.chain-picker-hint {
+  font-size: 0.85rem;
+  color: var(--color-stone);
+  line-height: 1.35;
+}
+
 @media (max-width: 768px) {
   .selection-mode-toggle {
     flex-direction: column;
@@ -636,5 +846,9 @@
   .store-item-price {
     flex: 1;
     width: 100%;
+  }
+
+  .chain-picker-buttons {
+    grid-template-columns: 1fr;
   }
 }

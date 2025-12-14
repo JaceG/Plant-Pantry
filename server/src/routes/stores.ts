@@ -98,6 +98,54 @@ router.get(
 	}
 );
 
+// POST /api/stores/chains - Create a new store chain (trusted users only)
+router.post(
+	'/chains',
+	authMiddleware,
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const userId = req.userId;
+			if (!userId) {
+				throw new HttpError('User not authenticated', 401);
+			}
+
+			const { name, slug, logoUrl, websiteUrl, type } = req.body;
+			if (!name || !String(name).trim()) {
+				throw new HttpError('Chain name is required', 400);
+			}
+
+			const { isTrusted } = await getUserTrustLevel(userId);
+			if (!isTrusted) {
+				throw new HttpError(
+					'Only admins/moderators/trusted contributors can create chains',
+					403
+				);
+			}
+
+			const chain = await storeChainService.createChain({
+				name: String(name).trim(),
+				slug: slug ? String(slug).trim() : undefined,
+				logoUrl: logoUrl ? String(logoUrl).trim() : undefined,
+				websiteUrl: websiteUrl ? String(websiteUrl).trim() : undefined,
+				type,
+			});
+
+			res.status(201).json({ chain });
+		} catch (error: any) {
+			if (error.code === 11000) {
+				next(
+					new HttpError(
+						'A chain with this name or slug already exists',
+						409
+					)
+				);
+			} else {
+				next(error);
+			}
+		}
+	}
+);
+
 // GET /api/stores/chains/:id - Get a specific chain
 router.get(
 	'/chains/:id',
@@ -436,6 +484,8 @@ router.post(
 				longitude,
 				googlePlaceId,
 				phoneNumber,
+				chainId,
+				locationIdentifier,
 				skipDuplicateCheck,
 			} = req.body;
 
@@ -457,6 +507,8 @@ router.post(
 				longitude,
 				googlePlaceId,
 				phoneNumber,
+				chainId,
+				locationIdentifier,
 				createdBy: userId, // Track who created the store
 			};
 

@@ -61,6 +61,11 @@ export interface ProductDetail {
 	createdAt: string;
 	updatedAt: string;
 	availability: AvailabilityInfo[];
+	chainAvailabilities?: Array<{
+		chainId: string;
+		includeRelatedCompany: boolean;
+		priceRange?: string;
+	}>;
 	averageRating?: number;
 	reviewCount?: number;
 	_source?: 'api' | 'user_contribution';
@@ -76,6 +81,16 @@ export interface StoreAvailabilityInput {
 	status?: 'known' | 'user_reported' | 'unknown';
 }
 
+export interface ChainAvailabilityInput {
+	chainId: string;
+	/**
+	 * If true, treat this as "company-wide" and apply to related chain variants
+	 * (e.g. Walmart + Walmart Supercenter) when the backend expands it.
+	 */
+	includeRelatedCompany?: boolean;
+	priceRange?: string;
+}
+
 export interface CreateUserProductInput {
 	name: string;
 	brand: string;
@@ -88,6 +103,7 @@ export interface CreateUserProductInput {
 	nutritionSummary?: string;
 	ingredientSummary?: string;
 	storeAvailabilities?: StoreAvailabilityInput[];
+	chainAvailabilities?: ChainAvailabilityInput[];
 }
 
 export interface ProductFilters {

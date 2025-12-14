@@ -1,7 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { storesApi, StoresGroupedResponse } from '../../api/storesApi';
 import { Store, StoreChain, GooglePlacePrediction } from '../../types/store';
-import { StoreAvailabilityInput } from '../../types/product';
+import {
+	StoreAvailabilityInput,
+	ChainAvailabilityInput,
+} from '../../types/product';
 import { AutocompleteInput } from './AutocompleteInput';
 import { StoreMap } from './StoreMap';
 import { ChainLocationPicker } from './ChainLocationPicker';
@@ -11,26 +14,33 @@ import './StoreAvailabilitySelector.css';
 interface StoreAvailabilitySelectorProps {
 	value: StoreAvailabilityInput[];
 	onChange: (availabilities: StoreAvailabilityInput[]) => void;
+	chainValue: ChainAvailabilityInput[];
+	onChainChange: (chainAvailabilities: ChainAvailabilityInput[]) => void;
 }
 
 type StoreInputMode = 'physical' | 'online';
 type StoreSelectionMode = 'existing' | 'new';
+type PhysicalNewMode = 'google_places' | 'manual';
 
 export function StoreAvailabilitySelector({
 	value,
 	onChange,
+	chainValue,
+	onChainChange,
 }: StoreAvailabilitySelectorProps) {
 	const [stores, setStores] = useState<Store[]>([]);
 	const [chains, setChains] = useState<StoreChain[]>([]);
 	const [groupedData, setGroupedData] =
 		useState<StoresGroupedResponse | null>(null);
 	const [searchQuery, setSearchQuery] = useState('');
+	const [newChainSearch, setNewChainSearch] = useState('');
 	const [existingStoreSearch, setExistingStoreSearch] = useState('');
 	const [placePredictions, setPlacePredictions] = useState<
 		GooglePlacePrediction[]
 	>([]);
 	const [selectedStore, setSelectedStore] = useState<Store | null>(null);
 	const [selectedChain, setSelectedChain] = useState<StoreChain | null>(null);
+	const [applyToCompanyVariants, setApplyToCompanyVariants] = useState(true);
 	const [priceRange, setPriceRange] = useState('');
 	const [loadingStores, setLoadingStores] = useState(false);
 	const [showPlaceSearch, setShowPlaceSearch] = useState(false);
@@ -38,6 +48,8 @@ export function StoreAvailabilitySelector({
 	const [selectionMode, setSelectionMode] =
 		useState<StoreSelectionMode>('existing');
 	const [showExistingDropdown, setShowExistingDropdown] = useState(false);
+	const [physicalNewMode, setPhysicalNewMode] =
+		useState<PhysicalNewMode>('google_places');
 
 	// Online store form fields
 	const [onlineStoreName, setOnlineStoreName] = useState('');
@@ -47,12 +59,45 @@ export function StoreAvailabilitySelector({
 	>('online_retailer');
 	const [onlineStoreRegion, setOnlineStoreRegion] = useState('US - Online');
 
+	// Manual physical store form fields
+	const [manualStoreName, setManualStoreName] = useState('');
+	const [manualStoreAddress, setManualStoreAddress] = useState('');
+	const [manualStoreCity, setManualStoreCity] = useState('');
+	const [manualStoreState, setManualStoreState] = useState('');
+	const [manualStoreZip, setManualStoreZip] = useState('');
+	const [manualChainName, setManualChainName] = useState('');
+	const [manualChainId, setManualChainId] = useState<string | null>(null);
+	const [manualLocationIdentifier, setManualLocationIdentifier] =
+		useState('');
+
 	// Duplicate detection state
 	const [duplicateWarning, setDuplicateWarning] = useState<{
 		show: boolean;
 		similarStores: Store[];
 		pendingStoreInput: any;
 	} | null>(null);
+
+	// Chain modal state (reuse AdminStores "Create Chain" modal UX)
+	const [showChainModal, setShowChainModal] = useState(false);
+	const [chainModalError, setChainModalError] = useState<string | null>(null);
+	const [chainSaveLoading, setChainSaveLoading] = useState(false);
+	const chainModalOnCreatedRef = useRef<((chain: StoreChain) => void) | null>(
+		null
+	);
+	const [chainForm, setChainForm] = useState<{
+		name: string;
+		slug: string;
+		websiteUrl: string;
+		logoUrl: string;
+		type: 'national' | 'regional' | 'local';
+	}>({
+		name: '',
+		slug: '',
+		websiteUrl: '',
+		logoUrl: '',
+		type: 'regional',
+	});
+	const [selectChainAfterCreate, setSelectChainAfterCreate] = useState(true);
 
 	// Filter stores by type and search query
 	const filteredExistingStores = useMemo(() => {
@@ -115,6 +160,11 @@ export function StoreAvailabilitySelector({
 		[physicalStoreOptions]
 	);
 
+	const chainNameOptions = useMemo(() => chains.map((c) => c.name), [chains]);
+	const chainNameToChain = useMemo(() => {
+		return new Map(chains.map((c) => [c.name, c] as const));
+	}, [chains]);
+
 	// Load existing stores and chains
 	useEffect(() => {
 		const loadStores = async () => {
@@ -172,6 +222,11 @@ export function StoreAvailabilitySelector({
 			setShowPlaceSearch(false);
 			return;
 		}
+		if (storeMode === 'physical' && physicalNewMode === 'manual') {
+			setPlacePredictions([]);
+			setShowPlaceSearch(false);
+			return;
+		}
 
 		if (searchQuery.trim().length > 2) {
 			const timeoutId = setTimeout(async () => {
@@ -189,7 +244,7 @@ export function StoreAvailabilitySelector({
 			setPlacePredictions([]);
 			setShowPlaceSearch(false);
 		}
-	}, [searchQuery, storeMode]);
+	}, [searchQuery, storeMode, physicalNewMode]);
 
 	const handleStoreNameSelect = useCallback(
 		(displayName: string) => {
@@ -218,6 +273,93 @@ export function StoreAvailabilitySelector({
 		setShowExistingDropdown(false);
 	}, []);
 
+	const openCreateChainModal = useCallback(
+		(opts?: {
+			name?: string;
+			selectAfter?: boolean;
+			onCreated?: (chain: StoreChain) => void;
+		}) => {
+			setChainModalError(null);
+			setSelectChainAfterCreate(opts?.selectAfter ?? true);
+			chainModalOnCreatedRef.current = opts?.onCreated ?? null;
+			setChainForm({
+				name: opts?.name || '',
+				slug: '',
+				websiteUrl: '',
+				logoUrl: '',
+				type: 'regional',
+			});
+			setShowChainModal(true);
+		},
+		[]
+	);
+
+	const handleNewChainSelect = useCallback(
+		(name: string) => {
+			const trimmed = name.trim();
+			if (!trimmed) return;
+
+			const existing = chainNameToChain.get(trimmed);
+			if (existing) {
+				setSelectedChain(existing);
+				setSelectedStore(null);
+				return;
+			}
+
+			openCreateChainModal({ name: trimmed, selectAfter: true });
+		},
+		[chainNameToChain, openCreateChainModal]
+	);
+
+	const handleChainFormChange = useCallback(
+		(
+			field: 'name' | 'slug' | 'websiteUrl' | 'logoUrl' | 'type',
+			value: string
+		) => {
+			setChainForm((prev) => ({ ...prev, [field]: value }));
+		},
+		[]
+	);
+
+	const handleSaveChainFromModal = useCallback(async () => {
+		if (!chainForm.name.trim()) return;
+		setChainSaveLoading(true);
+		setChainModalError(null);
+		try {
+			const res = await storesApi.createChain({
+				name: chainForm.name.trim(),
+				slug: chainForm.slug.trim() || undefined,
+				websiteUrl: chainForm.websiteUrl.trim() || undefined,
+				logoUrl: chainForm.logoUrl.trim() || undefined,
+				type: chainForm.type,
+			});
+
+			setChains((prev) => {
+				if (prev.some((c) => c.id === res.chain.id)) return prev;
+				return [...prev, res.chain];
+			});
+
+			chainModalOnCreatedRef.current?.(res.chain);
+
+			if (selectChainAfterCreate) {
+				setSelectedChain(res.chain);
+				setSelectedStore(null);
+			}
+
+			setShowChainModal(false);
+		} catch (error: any) {
+			const msg =
+				error?.message ||
+				(error?.status === 409
+					? 'A chain with this name or slug already exists'
+					: null) ||
+				'Failed to create chain';
+			setChainModalError(msg);
+		} finally {
+			setChainSaveLoading(false);
+		}
+	}, [chainForm, selectChainAfterCreate]);
+
 	const handleChainLocationSelect = useCallback((store: Store) => {
 		setSelectedStore(store);
 		setSelectedChain(null);
@@ -226,6 +368,34 @@ export function StoreAvailabilitySelector({
 	const handleBackFromChainPicker = useCallback(() => {
 		setSelectedChain(null);
 	}, []);
+
+	const handleAddChain = useCallback(() => {
+		if (!selectedChain) return;
+		if (chainValue.some((c) => c.chainId === selectedChain.id)) return;
+		onChainChange([
+			...chainValue,
+			{
+				chainId: selectedChain.id,
+				includeRelatedCompany: applyToCompanyVariants,
+				priceRange: priceRange.trim() || undefined,
+			},
+		]);
+		setSelectedChain(null);
+		setPriceRange('');
+	}, [
+		selectedChain,
+		chainValue,
+		onChainChange,
+		applyToCompanyVariants,
+		priceRange,
+	]);
+
+	const handleRemoveChain = useCallback(
+		(chainId: string) => {
+			onChainChange(chainValue.filter((c) => c.chainId !== chainId));
+		},
+		[chainValue, onChainChange]
+	);
 
 	const handlePlaceSelect = useCallback(
 		async (placeId: string) => {
@@ -341,6 +511,75 @@ export function StoreAvailabilitySelector({
 		onlineStoreUrl,
 		onlineStoreType,
 		onlineStoreRegion,
+		stores,
+	]);
+
+	const handleCreateManualPhysicalStore = useCallback(async () => {
+		if (!manualStoreName.trim()) return;
+		// City/state strongly recommended so it can be browsed/searchable
+		const regionOrScope =
+			manualStoreCity.trim() && manualStoreState.trim()
+				? `${manualStoreCity.trim()}, ${manualStoreState.trim()}`
+				: manualStoreAddress.trim() || 'Unknown';
+
+		try {
+			const storeInput = {
+				name: manualStoreName.trim(),
+				type: 'brick_and_mortar' as const,
+				regionOrScope,
+				address: manualStoreAddress.trim() || undefined,
+				city: manualStoreCity.trim() || undefined,
+				state: manualStoreState.trim() || undefined,
+				zipCode: manualStoreZip.trim() || undefined,
+				country: 'US',
+				chainId: manualChainId || undefined,
+				locationIdentifier:
+					manualLocationIdentifier.trim() || undefined,
+			};
+
+			const response = await storesApi.createStore(storeInput);
+
+			if (response.isDuplicate) {
+				if (response.duplicateType === 'exact' && response.store) {
+					setSelectedStore(response.store);
+					if (!stores.some((s) => s.id === response.store!.id)) {
+						setStores((prev) => [...prev, response.store!]);
+					}
+				} else if (
+					response.duplicateType === 'similar' &&
+					response.similarStores
+				) {
+					setDuplicateWarning({
+						show: true,
+						similarStores: response.similarStores,
+						pendingStoreInput: storeInput,
+					});
+					return;
+				}
+			} else if (response.store) {
+				setSelectedStore(response.store);
+				setStores((prev) => [...prev, response.store!]);
+			}
+
+			setManualStoreName('');
+			setManualStoreAddress('');
+			setManualStoreCity('');
+			setManualStoreState('');
+			setManualStoreZip('');
+			setManualChainName('');
+			setManualChainId(null);
+			setManualLocationIdentifier('');
+		} catch (error) {
+			console.error('Failed to create manual physical store:', error);
+		}
+	}, [
+		manualStoreName,
+		manualStoreAddress,
+		manualStoreCity,
+		manualStoreState,
+		manualStoreZip,
+		manualChainId,
+		manualLocationIdentifier,
 		stores,
 	]);
 
@@ -510,11 +749,71 @@ export function StoreAvailabilitySelector({
 
 				{/* Chain Location Picker (when chain is selected) */}
 				{selectedChain && storeMode === 'physical' && (
-					<ChainLocationPicker
-						chain={selectedChain}
-						onSelectLocation={handleChainLocationSelect}
-						onBack={handleBackFromChainPicker}
-					/>
+					<div className='chain-picker-wrapper'>
+						<div className='chain-picker-header'>
+							<div>
+								<strong>{selectedChain.name}</strong>
+								<div className='chain-picker-subtitle'>
+									Choose how to add this retailer
+								</div>
+							</div>
+							<button
+								type='button'
+								className='chain-picker-back'
+								onClick={handleBackFromChainPicker}>
+								Back
+							</button>
+						</div>
+
+						<div className='chain-picker-actions'>
+							<label className='chain-variants-toggle'>
+								<input
+									type='checkbox'
+									checked={applyToCompanyVariants}
+									onChange={(e) =>
+										setApplyToCompanyVariants(
+											e.target.checked
+										)
+									}
+								/>
+								<span>
+									Apply to related variants (e.g., Walmart +
+									Walmart Supercenter)
+								</span>
+							</label>
+
+							<div className='store-price-input'>
+								<input
+									type='text'
+									placeholder='Price range (optional)'
+									value={priceRange}
+									onChange={(e) =>
+										setPriceRange(e.target.value)
+									}
+								/>
+							</div>
+
+							<div className='chain-picker-buttons'>
+								<Button
+									type='button'
+									onClick={handleAddChain}
+									variant='primary'
+									size='sm'>
+									Add Entire Chain
+								</Button>
+								<span className='chain-picker-hint'>
+									Adds this product to all locations in the
+									chain (and variants if enabled).
+								</span>
+							</div>
+						</div>
+
+						<ChainLocationPicker
+							chain={selectedChain}
+							onSelectLocation={handleChainLocationSelect}
+							onBack={handleBackFromChainPicker}
+						/>
+					</div>
 				)}
 
 				{/* Existing Store Selection */}
@@ -848,50 +1147,325 @@ export function StoreAvailabilitySelector({
 				{selectionMode === 'new' && storeMode === 'physical' && (
 					<div className='new-store-section'>
 						<label>Search for a physical store or location</label>
-						<div className='store-search-input-wrapper'>
-							<AutocompleteInput
-								value={searchQuery}
-								onChange={setSearchQuery}
-								onSelect={handleStoreNameSelect}
-								options={storeDisplayNames}
-								placeholder='Search stores or type to search Google Places...'
-								allowNew={true}
-								newItemLabel='Search Google Places for'
-							/>
-
-							{showPlaceSearch && placePredictions.length > 0 && (
-								<div className='google-places-dropdown'>
-									<div className='places-header'>
-										📍 Google Places Results
-									</div>
-									{placePredictions.map((prediction) => (
-										<div
-											key={prediction.place_id}
-											className='place-option'
-											onClick={() =>
-												handlePlaceSelect(
-													prediction.place_id
-												)
-											}>
-											<div className='place-main-text'>
-												{
-													prediction
-														.structured_formatting
-														.main_text
-												}
-											</div>
-											<div className='place-secondary-text'>
-												{
-													prediction
-														.structured_formatting
-														.secondary_text
-												}
-											</div>
-										</div>
-									))}
-								</div>
-							)}
+						<div className='selection-mode-toggle'>
+							<button
+								type='button'
+								className={`selection-mode-button ${
+									physicalNewMode === 'google_places'
+										? 'active'
+										: ''
+								}`}
+								onClick={() =>
+									setPhysicalNewMode('google_places')
+								}>
+								📍 Google Places
+							</button>
+							<button
+								type='button'
+								className={`selection-mode-button ${
+									physicalNewMode === 'manual' ? 'active' : ''
+								}`}
+								onClick={() => {
+									setPhysicalNewMode('manual');
+									setSearchQuery('');
+									setPlacePredictions([]);
+									setShowPlaceSearch(false);
+								}}>
+								✍️ Manual Entry
+							</button>
 						</div>
+
+						<div className='new-store-chain-section'>
+							<label>
+								Add to a chain (instead of a single location)
+							</label>
+							<AutocompleteInput
+								value={newChainSearch}
+								onChange={setNewChainSearch}
+								onSelect={(name) => {
+									void handleNewChainSelect(name);
+									setNewChainSearch('');
+								}}
+								options={chainNameOptions}
+								placeholder='Search or create a chain (e.g., Walmart)'
+								allowNew={true}
+								newItemLabel='Create new chain'
+							/>
+							<div className='new-store-chain-actions'>
+								<Button
+									type='button'
+									variant='secondary'
+									size='sm'
+									onClick={() =>
+										openCreateChainModal({
+											selectAfter: true,
+										})
+									}>
+									+ Create Chain
+								</Button>
+							</div>
+							<div className='new-store-chain-hint'>
+								Select a chain to add “all locations” (or choose
+								a specific location next).
+							</div>
+						</div>
+
+						{physicalNewMode === 'google_places' ? (
+							<>
+								<div className='store-search-input-wrapper'>
+									<AutocompleteInput
+										value={searchQuery}
+										onChange={setSearchQuery}
+										onSelect={handleStoreNameSelect}
+										options={storeDisplayNames}
+										placeholder='Search stores or type to search Google Places...'
+										allowNew={true}
+										newItemLabel='Search Google Places for'
+									/>
+
+									{showPlaceSearch &&
+										placePredictions.length > 0 && (
+											<div className='google-places-dropdown'>
+												<div className='places-header'>
+													📍 Google Places Results
+												</div>
+												{placePredictions.map(
+													(prediction) => (
+														<div
+															key={
+																prediction.place_id
+															}
+															className='place-option'
+															onClick={() =>
+																handlePlaceSelect(
+																	prediction.place_id
+																)
+															}>
+															<div className='place-main-text'>
+																{
+																	prediction
+																		.structured_formatting
+																		.main_text
+																}
+															</div>
+															<div className='place-secondary-text'>
+																{
+																	prediction
+																		.structured_formatting
+																		.secondary_text
+																}
+															</div>
+														</div>
+													)
+												)}
+											</div>
+										)}
+								</div>
+
+								{searchQuery.trim().length > 0 && (
+									<div className='new-store-actions'>
+										<Button
+											type='button'
+											variant='secondary'
+											size='sm'
+											onClick={async () => {
+												try {
+													const res =
+														await storesApi.createChain(
+															{
+																name: searchQuery.trim(),
+																type: 'national',
+															}
+														);
+													setChains((prev) => {
+														if (
+															prev.some(
+																(c) =>
+																	c.id ===
+																	res.chain.id
+															)
+														)
+															return prev;
+														return [
+															...prev,
+															res.chain,
+														];
+													});
+													setSelectedChain(res.chain);
+													setSelectionMode(
+														'existing'
+													);
+													setShowExistingDropdown(
+														false
+													);
+													setSearchQuery('');
+													setPlacePredictions([]);
+													setShowPlaceSearch(false);
+												} catch (error) {
+													console.error(
+														'Failed to create chain:',
+														error
+													);
+												}
+											}}>
+											Create chain “{searchQuery.trim()}”
+										</Button>
+									</div>
+								)}
+							</>
+						) : (
+							<div className='online-store-form'>
+								<label>Add a physical store manually</label>
+								<div className='form-group'>
+									<label>Chain (optional)</label>
+									<AutocompleteInput
+										value={manualChainName}
+										onChange={(v) => {
+											setManualChainName(v);
+											setManualChainId(null);
+										}}
+										onSelect={(name) => {
+											const maybe =
+												chainNameToChain.get(name);
+											if (maybe) {
+												setManualChainName(maybe.name);
+												setManualChainId(maybe.id);
+												return;
+											}
+											// Use the same Create Chain modal (admin UX)
+											openCreateChainModal({
+												name: name.trim(),
+												selectAfter: false,
+												onCreated: (chain) => {
+													setManualChainName(
+														chain.name
+													);
+													setManualChainId(chain.id);
+												},
+											});
+											setManualChainName(name.trim());
+										}}
+										options={chainNameOptions}
+										placeholder='Search or create a chain (e.g., Kroger)'
+										allowNew={true}
+										newItemLabel='Create new chain'
+									/>
+									<div className='new-store-chain-actions'>
+										<Button
+											type='button'
+											variant='secondary'
+											size='sm'
+											onClick={() =>
+												openCreateChainModal({
+													name: manualChainName.trim(),
+													selectAfter: false,
+													onCreated: (chain) => {
+														setManualChainName(
+															chain.name
+														);
+														setManualChainId(
+															chain.id
+														);
+													},
+												})
+											}>
+											+ Create Chain
+										</Button>
+									</div>
+								</div>
+								{manualChainId && (
+									<div className='form-group'>
+										<label>
+											Location identifier (optional)
+										</label>
+										<input
+											type='text'
+											value={manualLocationIdentifier}
+											onChange={(e) =>
+												setManualLocationIdentifier(
+													e.target.value
+												)
+											}
+											placeholder='e.g., “#1234”, “Downtown”, “Main St”'
+											className='form-input'
+										/>
+									</div>
+								)}
+								<div className='form-group'>
+									<label>
+										Store Name{' '}
+										<span className='required'>*</span>
+									</label>
+									<input
+										type='text'
+										value={manualStoreName}
+										onChange={(e) =>
+											setManualStoreName(e.target.value)
+										}
+										placeholder='e.g., Bob’s Market'
+										className='form-input'
+									/>
+								</div>
+								<div className='form-group'>
+									<label>Address</label>
+									<input
+										type='text'
+										value={manualStoreAddress}
+										onChange={(e) =>
+											setManualStoreAddress(
+												e.target.value
+											)
+										}
+										placeholder='Street address (optional)'
+										className='form-input'
+									/>
+								</div>
+								<div className='form-group'>
+									<label>City</label>
+									<input
+										type='text'
+										value={manualStoreCity}
+										onChange={(e) =>
+											setManualStoreCity(e.target.value)
+										}
+										placeholder='City (recommended)'
+										className='form-input'
+									/>
+								</div>
+								<div className='form-group'>
+									<label>State</label>
+									<input
+										type='text'
+										value={manualStoreState}
+										onChange={(e) =>
+											setManualStoreState(e.target.value)
+										}
+										placeholder='State (recommended)'
+										className='form-input'
+									/>
+								</div>
+								<div className='form-group'>
+									<label>Zip</label>
+									<input
+										type='text'
+										value={manualStoreZip}
+										onChange={(e) =>
+											setManualStoreZip(e.target.value)
+										}
+										placeholder='Zip (optional)'
+										className='form-input'
+									/>
+								</div>
+								<Button
+									type='button'
+									onClick={handleCreateManualPhysicalStore}
+									variant='primary'
+									size='sm'
+									disabled={!manualStoreName.trim()}>
+									Create Store
+								</Button>
+							</div>
+						)}
 					</div>
 				)}
 
@@ -1154,6 +1728,201 @@ export function StoreAvailabilitySelector({
 							</div>
 						);
 					})}
+				</div>
+			)}
+
+			{chainValue.length > 0 && (
+				<div className='selected-stores-list'>
+					<h3>Chains (applies to all locations)</h3>
+					{chainValue.map((c) => {
+						const chain = chains.find((x) => x.id === c.chainId);
+						return (
+							<div
+								key={c.chainId}
+								className='selected-store-item'>
+								<div className='store-item-info'>
+									<strong>
+										{chain?.name || 'Unknown Chain'}
+									</strong>
+									<span className='store-item-address'>
+										{c.includeRelatedCompany !== false
+											? 'Includes related variants'
+											: 'This chain only'}
+									</span>
+								</div>
+								<div className='store-item-price'>
+									<input
+										type='text'
+										placeholder='Price range'
+										value={c.priceRange || ''}
+										onChange={(e) => {
+											onChainChange(
+												chainValue.map((x) =>
+													x.chainId === c.chainId
+														? {
+																...x,
+																priceRange:
+																	e.target
+																		.value,
+														  }
+														: x
+												)
+											);
+										}}
+									/>
+								</div>
+								<button
+									type='button'
+									onClick={() => handleRemoveChain(c.chainId)}
+									className='store-item-remove'>
+									×
+								</button>
+							</div>
+						);
+					})}
+				</div>
+			)}
+
+			{/* Create Chain Modal (reuse AdminStores UX + classes) */}
+			{showChainModal && (
+				<div
+					className='modal-overlay'
+					onClick={() => {
+						chainModalOnCreatedRef.current = null;
+						setShowChainModal(false);
+					}}>
+					<div
+						className='modal-content chain-modal'
+						onClick={(e) => e.stopPropagation()}>
+						<div className='modal-header'>
+							<h2>Create Chain</h2>
+							<button
+								className='modal-close'
+								onClick={() => {
+									chainModalOnCreatedRef.current = null;
+									setShowChainModal(false);
+								}}>
+								×
+							</button>
+						</div>
+
+						<div className='modal-body'>
+							{chainModalError && (
+								<div className='chain-modal-error'>
+									⚠️ {chainModalError}
+								</div>
+							)}
+
+							<div className='form-group'>
+								<label htmlFor='chain-name'>Chain Name *</label>
+								<input
+									type='text'
+									id='chain-name'
+									value={chainForm.name}
+									onChange={(e) =>
+										handleChainFormChange(
+											'name',
+											e.target.value
+										)
+									}
+									placeholder='e.g., Kroger, Whole Foods'
+									required
+								/>
+							</div>
+
+							<div className='form-group'>
+								<label htmlFor='chain-slug'>
+									URL Slug (optional)
+								</label>
+								<input
+									type='text'
+									id='chain-slug'
+									value={chainForm.slug}
+									onChange={(e) =>
+										handleChainFormChange(
+											'slug',
+											e.target.value
+										)
+									}
+									placeholder='Auto-generated from name'
+								/>
+							</div>
+
+							<div className='form-group'>
+								<label htmlFor='chain-type'>Chain Type</label>
+								<select
+									id='chain-type'
+									value={chainForm.type}
+									onChange={(e) =>
+										handleChainFormChange(
+											'type',
+											e.target.value
+										)
+									}>
+									<option value='national'>
+										🌎 National
+									</option>
+									<option value='regional'>
+										📍 Regional
+									</option>
+									<option value='local'>🏘️ Local</option>
+								</select>
+							</div>
+
+							<div className='form-group'>
+								<label htmlFor='chain-website'>
+									Website URL
+								</label>
+								<input
+									type='url'
+									id='chain-website'
+									value={chainForm.websiteUrl}
+									onChange={(e) =>
+										handleChainFormChange(
+											'websiteUrl',
+											e.target.value
+										)
+									}
+									placeholder='https://...'
+								/>
+							</div>
+
+							<div className='form-group'>
+								<label htmlFor='chain-logo'>Logo URL</label>
+								<input
+									type='url'
+									id='chain-logo'
+									value={chainForm.logoUrl}
+									onChange={(e) =>
+										handleChainFormChange(
+											'logoUrl',
+											e.target.value
+										)
+									}
+									placeholder='https://...'
+								/>
+							</div>
+						</div>
+
+						<div className='modal-footer'>
+							<Button
+								variant='secondary'
+								onClick={() => {
+									chainModalOnCreatedRef.current = null;
+									setShowChainModal(false);
+								}}
+								disabled={chainSaveLoading}>
+								Cancel
+							</Button>
+							<Button
+								variant='primary'
+								onClick={handleSaveChainFromModal}
+								isLoading={chainSaveLoading}
+								disabled={!chainForm.name.trim()}>
+								Create Chain
+							</Button>
+						</div>
+					</div>
 				</div>
 			)}
 		</div>
