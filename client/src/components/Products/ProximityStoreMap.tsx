@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { Store } from '../../types/store';
 import { StoreMap } from './StoreMap';
+import { useLocation } from '../../context/LocationContext';
 import './ProximityStoreMap.css';
 
 interface ProximityStoreMapProps {
@@ -34,61 +35,25 @@ export function ProximityStoreMap({
 	height = '400px',
 	defaultRadius = 50,
 }: ProximityStoreMapProps) {
-	const [userLocation, setUserLocation] = useState<{
-		lat: number;
-		lng: number;
-	} | null>(null);
-	const [locationError, setLocationError] = useState<string | null>(null);
-	const [locationLoading, setLocationLoading] = useState(true);
+	const { location, hasLocation } = useLocation();
 	const [radius, setRadius] = useState(defaultRadius);
 	const [showAll, setShowAll] = useState(false);
-	const [manualSearch, setManualSearch] = useState('');
-	const [searchLocation, setSearchLocation] = useState<{
-		lat: number;
-		lng: number;
-	} | null>(null);
 
-	// Get user's location on mount
-	useEffect(() => {
-		if (!navigator.geolocation) {
-			setLocationError('Geolocation is not supported by your browser');
-			setLocationLoading(false);
-			return;
-		}
+	// Get user coordinates
+	const userLat = location?.lat;
+	const userLng = location?.lng;
+	const hasCoordinates = Boolean(userLat && userLng);
 
-		navigator.geolocation.getCurrentPosition(
-			(position) => {
-				setUserLocation({
-					lat: position.coords.latitude,
-					lng: position.coords.longitude,
-				});
-				setLocationLoading(false);
-			},
-			(error) => {
-				console.warn('Geolocation error:', error.message);
-				setLocationError(
-					'Unable to get your location. You can search manually or view all stores.'
-				);
-				setLocationLoading(false);
-			},
-			{
-				enableHighAccuracy: false,
-				timeout: 10000,
-				maximumAge: 300000, // 5 minutes
-			}
-		);
-	}, []);
+	// Filter stores that have coordinates
+	const storesWithCoords = useMemo(
+		() => stores.filter((s) => s.latitude && s.longitude),
+		[stores]
+	);
 
-	// Active location (user's or searched)
-	const activeLocation = searchLocation || userLocation;
-
-	// Filter stores by proximity
+	// Filter stores by proximity (always called, but returns different results based on conditions)
 	const filteredStores = useMemo(() => {
-		const storesWithCoords = stores.filter(
-			(s) => s.latitude && s.longitude
-		);
-
-		if (showAll || !activeLocation) {
+		// If showing all or no coordinates, return all stores with coords
+		if (showAll || !hasCoordinates || !userLat || !userLng) {
 			return storesWithCoords;
 		}
 
@@ -96,8 +61,8 @@ export function ProximityStoreMap({
 			.map((store) => ({
 				store,
 				distance: calculateDistance(
-					activeLocation.lat,
-					activeLocation.lng,
+					userLat,
+					userLng,
 					store.latitude!,
 					store.longitude!
 				),
@@ -105,86 +70,55 @@ export function ProximityStoreMap({
 			.filter((item) => item.distance <= radius)
 			.sort((a, b) => a.distance - b.distance)
 			.map((item) => item.store);
-	}, [stores, activeLocation, radius, showAll]);
+	}, [storesWithCoords, userLat, userLng, radius, showAll, hasCoordinates]);
 
 	// Count stores outside radius
 	const storesOutsideRadius = useMemo(() => {
-		if (!activeLocation || showAll) return 0;
-		const storesWithCoords = stores.filter(
-			(s) => s.latitude && s.longitude
-		);
+		if (showAll || !hasCoordinates) return 0;
 		return storesWithCoords.length - filteredStores.length;
-	}, [stores, filteredStores, activeLocation, showAll]);
+	}, [
+		storesWithCoords.length,
+		filteredStores.length,
+		showAll,
+		hasCoordinates,
+	]);
 
-	// Handle manual location search using geocoding
-	const handleSearch = useCallback(async () => {
-		if (!manualSearch.trim()) return;
+	// If no location is set, don't show the map at all
+	if (!hasLocation || !location) {
+		return null;
+	}
 
-		try {
-			// Use browser's Geocoding API if available, or a simple lookup
-			// For now, we'll rely on Google Maps Geocoder if loaded
-			if (window.google?.maps?.Geocoder) {
-				const geocoder = new window.google.maps.Geocoder();
-				geocoder.geocode(
-					{ address: manualSearch },
-					(results: any, status: any) => {
-						if (status === 'OK' && results[0]) {
-							const location = results[0].geometry.location;
-							setSearchLocation({
-								lat: location.lat(),
-								lng: location.lng(),
-							});
-							setLocationError(null);
-						} else {
-							setLocationError(
-								'Could not find that location. Try a different search.'
-							);
-						}
-					}
-				);
-			} else {
-				setLocationError(
-					'Location search is not available. Please enable location access.'
-				);
-			}
-		} catch (error) {
-			console.error('Geocoding error:', error);
-			setLocationError('Failed to search location.');
-		}
-	}, [manualSearch]);
+	// If no stores have coordinates, don't show the map
+	if (storesWithCoords.length === 0) {
+		return null;
+	}
 
-	const handleKeyPress = (e: React.KeyboardEvent) => {
-		if (e.key === 'Enter') {
-			handleSearch();
-		}
-	};
-
-	// Show loading state
-	if (locationLoading) {
+	// If we don't have coordinates, show a message but still display all stores
+	if (!hasCoordinates) {
 		return (
-			<div className='proximity-map-container' style={{ height }}>
-				<div className='proximity-map-loading'>
-					<span className='loading-spinner' />
-					<p>Getting your location...</p>
+			<div className='proximity-map-wrapper'>
+				<div className='proximity-map-controls'>
+					<div className='proximity-map-info'>
+						<span className='proximity-status'>
+							📍 Location set to {location.city}, {location.state}{' '}
+							(showing all {storesWithCoords.length} stores)
+						</span>
+					</div>
 				</div>
+				<StoreMap stores={storesWithCoords} height={height} />
 			</div>
 		);
 	}
-
-	// Total stores with coordinates
-	const totalStoresWithCoords = stores.filter(
-		(s) => s.latitude && s.longitude
-	).length;
 
 	return (
 		<div className='proximity-map-wrapper'>
 			<div className='proximity-map-controls'>
 				<div className='proximity-map-info'>
-					{activeLocation && !showAll ? (
+					{!showAll ? (
 						<span className='proximity-status'>
 							📍 Showing {filteredStores.length} store
 							{filteredStores.length !== 1 ? 's' : ''} within{' '}
-							{radius} miles
+							{radius} miles of {location.city}
 							{storesOutsideRadius > 0 && (
 								<span className='stores-outside'>
 									{' '}
@@ -192,19 +126,15 @@ export function ProximityStoreMap({
 								</span>
 							)}
 						</span>
-					) : showAll ? (
-						<span className='proximity-status'>
-							📍 Showing all {totalStoresWithCoords} stores
-						</span>
 					) : (
-						<span className='proximity-status location-unavailable'>
-							📍 Location not available
+						<span className='proximity-status'>
+							📍 Showing all {storesWithCoords.length} stores
 						</span>
 					)}
 				</div>
 
 				<div className='proximity-map-actions'>
-					{activeLocation && !showAll && (
+					{!showAll && (
 						<select
 							value={radius}
 							onChange={(e) => setRadius(Number(e.target.value))}
@@ -224,7 +154,7 @@ export function ProximityStoreMap({
 						</button>
 					)}
 
-					{showAll && activeLocation && (
+					{showAll && (
 						<button
 							onClick={() => setShowAll(false)}
 							className='show-nearby-btn'>
@@ -234,39 +164,13 @@ export function ProximityStoreMap({
 				</div>
 			</div>
 
-			{locationError && !activeLocation && (
-				<div className='proximity-search-fallback'>
-					<p className='fallback-message'>{locationError}</p>
-					<div className='fallback-search'>
-						<input
-							type='text'
-							value={manualSearch}
-							onChange={(e) => setManualSearch(e.target.value)}
-							onKeyPress={handleKeyPress}
-							placeholder='Enter city, state or ZIP...'
-							className='fallback-search-input'
-						/>
-						<button
-							onClick={handleSearch}
-							disabled={!manualSearch.trim()}
-							className='fallback-search-btn'>
-							Search
-						</button>
-					</div>
-					<button
-						onClick={() => setShowAll(true)}
-						className='view-all-link'>
-						Or view all {totalStoresWithCoords} stores
-					</button>
-				</div>
-			)}
-
 			{filteredStores.length > 0 ? (
 				<StoreMap stores={filteredStores} height={height} />
-			) : activeLocation ? (
+			) : (
 				<div className='proximity-map-empty'>
 					<p>
-						No stores found within {radius} miles of your location.
+						No stores found within {radius} miles of {location.city}
+						.
 					</p>
 					<button
 						onClick={() => setRadius(radius * 2)}
@@ -279,8 +183,6 @@ export function ProximityStoreMap({
 						Or view all stores
 					</button>
 				</div>
-			) : (
-				<StoreMap stores={stores} height={height} />
 			)}
 		</div>
 	);

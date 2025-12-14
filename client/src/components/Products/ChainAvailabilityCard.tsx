@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { storesApi } from '../../api/storesApi';
 import { Store } from '../../types/store';
+import { useLocation } from '../../context/LocationContext';
 import './ChainAvailabilityCard.css';
 
 interface ChainAvailability {
@@ -22,12 +23,14 @@ interface ChainAvailabilityCardProps {
 export function ChainAvailabilityCard({
 	chainAvailability,
 }: ChainAvailabilityCardProps) {
+	const { location } = useLocation();
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [stores, setStores] = useState<Store[]>([]);
 	const [totalCount, setTotalCount] = useState(0);
 	const [loading, setLoading] = useState(false);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [hasSearched, setHasSearched] = useState(false);
+	const [hasAutoSearched, setHasAutoSearched] = useState(false);
 
 	const chainTypeLabels: Record<string, string> = {
 		national: '🌎 Nationwide',
@@ -35,10 +38,41 @@ export function ChainAvailabilityCard({
 		local: '🏘️ Local',
 	};
 
+	// Auto-search when expanded if user has a location set
+	useEffect(() => {
+		if (isExpanded && location && !hasAutoSearched && !hasSearched) {
+			const autoSearch = async () => {
+				setLoading(true);
+				setHasAutoSearched(true);
+				setHasSearched(true);
+				try {
+					const response = await storesApi.getChainLocations(
+						chainAvailability.chainId,
+						{
+							city: location.city,
+							state: location.state,
+							includeRelated:
+								chainAvailability.includeRelatedCompany,
+						}
+					);
+					setStores(response.stores);
+					setTotalCount(response.totalCount);
+					// Pre-fill search query with user's location
+					setSearchQuery(`${location.city}, ${location.state}`);
+				} catch (error) {
+					console.error('Failed to auto-search stores:', error);
+				} finally {
+					setLoading(false);
+				}
+			};
+			autoSearch();
+		}
+	}, [isExpanded, location, hasAutoSearched, hasSearched, chainAvailability]);
+
 	const handleExpand = useCallback(async () => {
 		if (!isExpanded) {
 			setIsExpanded(true);
-			// Don't auto-load stores - wait for user to search
+			// Auto-search will be triggered by the useEffect above
 		} else {
 			setIsExpanded(false);
 		}

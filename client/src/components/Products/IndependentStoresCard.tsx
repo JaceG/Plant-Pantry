@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AvailabilityInfo } from '../../types/product';
+import { useLocation } from '../../context/LocationContext';
 import './IndependentStoresCard.css';
 
 interface IndependentStoresCardProps {
@@ -14,9 +15,11 @@ export function IndependentStoresCard({
 	title = 'Independent Stores',
 	icon = '🏪',
 }: IndependentStoresCardProps) {
+	const { location } = useLocation();
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [hasSearched, setHasSearched] = useState(false);
+	const [hasAutoSearched, setHasAutoSearched] = useState(false);
 
 	const storeTypeLabels: Record<string, string> = {
 		brick_and_mortar: '🏪 Store',
@@ -30,6 +33,16 @@ export function IndependentStoresCard({
 		discontinued: 'Discontinued',
 		seasonal: 'Seasonal',
 	};
+
+	// Auto-search when expanded if user has a location set
+	useEffect(() => {
+		if (isExpanded && location && !hasAutoSearched && !hasSearched) {
+			setHasAutoSearched(true);
+			setHasSearched(true);
+			// Pre-fill search query with user's location
+			setSearchQuery(`${location.city}, ${location.state}`);
+		}
+	}, [isExpanded, location, hasAutoSearched, hasSearched]);
 
 	// Filter stores based on search query
 	const filteredStores = useMemo(() => {
