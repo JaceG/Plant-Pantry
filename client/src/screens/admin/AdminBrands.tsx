@@ -436,20 +436,21 @@ export function AdminBrands() {
 												: 'Assign'}
 										</Button>
 									)}
-									<Button
-										variant={
-											brand.isOfficial
-												? 'danger'
-												: 'primary'
-										}
-										size='sm'
-										onClick={() =>
-											handleToggleOfficial(brand)
-										}>
-										{brand.isOfficial
-											? 'Remove Official'
-											: 'Make Official'}
-									</Button>
+								<Button
+									variant={
+										brand.isOfficial
+											? 'secondary'
+											: 'primary'
+									}
+									size='sm'
+									className={brand.isOfficial ? 'btn-danger' : ''}
+									onClick={() =>
+										handleToggleOfficial(brand)
+									}>
+									{brand.isOfficial
+										? 'Remove Official'
+										: 'Make Official'}
+								</Button>
 								</div>
 
 								{/* Expanded children */}
@@ -650,16 +651,18 @@ function ChildBrandsList({
 	return (
 		<ul className='children-list'>
 			{children.map((child) => (
-				<li key={child.id} className='child-item'>
-					<span className='child-name'>{child.displayName}</span>
+			<li key={child.id || child.brandName} className='child-item'>
+				<span className='child-name'>{child.displayName}</span>
+				{child.id && (
 					<button
 						className='unassign-btn'
 						onClick={() =>
-							handleUnassign(child.id, child.displayName)
+							handleUnassign(child.id!, child.displayName)
 						}>
 						Unassign
 					</button>
-				</li>
+				)}
+			</li>
 			))}
 		</ul>
 	);
