@@ -23,6 +23,20 @@
   color: var(--color-stone);
   margin-right: var(--spacing-sm);
   flex-shrink: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.search-icon:hover {
+  color: var(--color-sage);
+  transform: scale(1.1);
+}
+
+.search-icon:active {
+  transform: scale(0.95);
 }
 
 .search-input {

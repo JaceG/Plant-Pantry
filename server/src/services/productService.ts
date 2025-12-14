@@ -408,21 +408,27 @@ export const productService = {
 			// ALSO include pending products created by the current user
 			// Exclude archived products from public listings
 			const userProductQuery: any = {
-				...query,
 				archived: { $ne: true }, // Exclude archived products
-				$or: [
-					{ status: 'approved' }, // Show approved products to everyone
-					// Show pending products to their creator
-					...(filters.userId
-						? [
-								{
-									status: 'pending',
-									userId: new mongoose.Types.ObjectId(
-										filters.userId
-									),
-								},
-						  ]
-						: []),
+				$and: [
+					// Include all search/filter criteria from query
+					...(Object.keys(query).length > 0 ? [query] : []),
+					// AND ensure proper status
+					{
+						$or: [
+							{ status: 'approved' }, // Show approved products to everyone
+							// Show pending products to their creator
+							...(filters.userId
+								? [
+										{
+											status: 'pending',
+											userId: new mongoose.Types.ObjectId(
+												filters.userId
+											),
+										},
+								  ]
+								: []),
+						],
+					},
 				],
 			};
 

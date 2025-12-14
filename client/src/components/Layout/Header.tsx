@@ -52,11 +52,11 @@ export function Header({ defaultListId }: HeaderProps) {
 
 	const handleHeaderSearch = useCallback(
 		(query: string) => {
-			// Navigate to home page with search query
+			// Navigate to search page with search query
 			if (query.trim()) {
-				navigate(`/?q=${encodeURIComponent(query.trim())}`);
+				navigate(`/search?q=${encodeURIComponent(query.trim())}`);
 			} else {
-				navigate('/');
+				navigate('/search');
 			}
 		},
 		[navigate]
