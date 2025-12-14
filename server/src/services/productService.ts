@@ -8,6 +8,7 @@ import {
 	ArchivedFilter,
 	FilterDisplayName,
 	Review,
+	BrandPage,
 } from '../models';
 import { availabilityService } from './availabilityService';
 // Temporarily comment out to test
@@ -274,13 +275,69 @@ export const productService = {
 			}
 
 			// Filter by brand (case-insensitive exact match)
+			// If brand is an official brand with child brands, include products from all child brands
 			if (brand) {
-				query.brand = {
-					$regex: new RegExp(
-						`^${brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
-						'i'
-					),
-				};
+				// First, check if this brand is an official brand with children
+				const brandPage = await BrandPage.findOne({
+					$or: [
+						{
+							brandName: {
+								$regex: new RegExp(
+									`^${brand.replace(
+										/[.*+?^${}()|[\]\\]/g,
+										'\\$&'
+									)}$`,
+									'i'
+								),
+							},
+						},
+						{
+							slug: brand
+								.toLowerCase()
+								.replace(/[^a-z0-9]+/g, '-')
+								.replace(/^-|-$/g, ''),
+						},
+					],
+					isOfficial: true,
+				}).lean();
+
+				if (brandPage) {
+					// This is an official brand - get all child brands
+					const childBrands = await BrandPage.find({
+						parentBrandId: brandPage._id,
+						isActive: true,
+					})
+						.select('brandName')
+						.lean();
+
+					// Build regex array for official brand + all child brands
+					const brandNames = [
+						brandPage.brandName,
+						...childBrands.map((c) => c.brandName),
+					];
+
+					// Create OR query for all brand names
+					const brandRegexes = brandNames.map(
+						(name) =>
+							new RegExp(
+								`^${name.replace(
+									/[.*+?^${}()|[\]\\]/g,
+									'\\$&'
+								)}$`,
+								'i'
+							)
+					);
+
+					query.brand = { $in: brandRegexes };
+				} else {
+					// Not an official brand, just do exact match
+					query.brand = {
+						$regex: new RegExp(
+							`^${brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+							'i'
+						),
+					};
+				}
 			}
 
 			// If minRating is provided, get product IDs that meet the rating requirement

@@ -1,5 +1,13 @@
 import { httpClient } from './httpClient';
 
+// Brand hierarchy types
+export interface BrandRef {
+	id: string;
+	brandName: string;
+	slug: string;
+	displayName: string;
+}
+
 // Brand page types
 export interface BrandPageData {
 	id?: string;
@@ -10,6 +18,9 @@ export interface BrandPageData {
 	logoUrl?: string | null;
 	websiteUrl?: string | null;
 	isActive: boolean;
+	isOfficial: boolean;
+	parentBrand?: BrandRef | null;
+	childBrands?: BrandRef[];
 	exists: boolean; // false if auto-generated (page doesn't exist in DB yet)
 }
 

@@ -49,6 +49,7 @@ function generateSlug(name: string): string {
 /**
  * GET /api/brands/:brandName/page
  * Get brand page data (creates one if it doesn't exist)
+ * If brand has a parent, includes parent brand info for redirect/banner
  */
 router.get(
 	'/:brandName/page',
@@ -121,9 +122,50 @@ router.get(
 						logoUrl: null,
 						websiteUrl: null,
 						isActive: true,
+						isOfficial: false,
+						parentBrand: null,
+						childBrands: [],
 						exists: false, // Indicates this is auto-generated
 					},
 				});
+			}
+
+			// If this brand has a parent, fetch parent info
+			let parentBrand = null;
+			if (brandPage.parentBrandId) {
+				const parent = await BrandPage.findById(brandPage.parentBrandId)
+					.select('brandName slug displayName')
+					.lean();
+				if (parent) {
+					parentBrand = {
+						id: parent._id.toString(),
+						brandName: parent.brandName,
+						slug: parent.slug,
+						displayName: parent.displayName,
+					};
+				}
+			}
+
+			// If this is an official brand, fetch child brands
+			let childBrands: Array<{
+				id: string;
+				brandName: string;
+				slug: string;
+				displayName: string;
+			}> = [];
+			if (brandPage.isOfficial) {
+				const children = await BrandPage.find({
+					parentBrandId: brandPage._id,
+					isActive: true,
+				})
+					.select('brandName slug displayName')
+					.lean();
+				childBrands = children.map((child) => ({
+					id: child._id.toString(),
+					brandName: child.brandName,
+					slug: child.slug,
+					displayName: child.displayName,
+				}));
 			}
 
 			res.json({
@@ -136,6 +178,9 @@ router.get(
 					logoUrl: brandPage.logoUrl,
 					websiteUrl: brandPage.websiteUrl,
 					isActive: brandPage.isActive,
+					isOfficial: brandPage.isOfficial || false,
+					parentBrand,
+					childBrands,
 					exists: true,
 				},
 			});

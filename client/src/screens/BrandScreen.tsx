@@ -260,12 +260,48 @@ export function BrandScreen() {
 
 	return (
 		<div className='brand-screen'>
+			{/* Sub-brand banner - shown when this brand has a parent */}
+			{brandPageData?.parentBrand && (
+				<div className='sub-brand-banner'>
+					<span className='banner-icon'>🔗</span>
+					<span className='banner-text'>
+						This is part of the{' '}
+						<Link
+							to={`/brands/${encodeURIComponent(
+								brandPageData.parentBrand.slug
+							)}`}
+							className='parent-brand-link'>
+							{brandPageData.parentBrand.displayName}
+						</Link>{' '}
+						brand family
+					</span>
+					<Link
+						to={`/brands/${encodeURIComponent(
+							brandPageData.parentBrand.slug
+						)}`}
+						className='view-official-btn'>
+						View Official Page →
+					</Link>
+				</div>
+			)}
+
 			{/* Hero Section */}
 			<div className='brand-hero'>
 				<div className='brand-hero-content'>
 					<nav className='breadcrumb'>
 						<Link to='/'>Products</Link>
 						<span className='separator'>/</span>
+						{brandPageData?.parentBrand && (
+							<>
+								<Link
+									to={`/brands/${encodeURIComponent(
+										brandPageData.parentBrand.slug
+									)}`}>
+									{brandPageData.parentBrand.displayName}
+								</Link>
+								<span className='separator'>/</span>
+							</>
+						)}
 						<span>
 							{brandPageData?.displayName || decodedBrandName}
 						</span>
@@ -282,6 +318,13 @@ export function BrandScreen() {
 							</button>
 						)}
 					</nav>
+
+					{/* Official badge for official brands */}
+					{brandPageData?.isOfficial && (
+						<span className='official-brand-badge'>
+							✓ Official Brand Page
+						</span>
+					)}
 
 					{/* Brand Title - Editable */}
 					{editMode && editingField === 'displayName' ? (
@@ -517,6 +560,34 @@ export function BrandScreen() {
 								)}
 							</div>
 						)}
+
+						{/* Also known as - for official brands with child brands */}
+						{brandPageData?.isOfficial &&
+							brandPageData.childBrands &&
+							brandPageData.childBrands.length > 0 && (
+								<div className='also-known-as'>
+									<span className='aka-label'>
+										Also known as:
+									</span>
+									<div className='aka-brands'>
+										{brandPageData.childBrands.map(
+											(child, index) => (
+												<span
+													key={child.id}
+													className='aka-brand'>
+													{child.displayName}
+													{index <
+													brandPageData.childBrands!
+														.length -
+														1
+														? ', '
+														: ''}
+												</span>
+											)
+										)}
+									</div>
+								</div>
+							)}
 
 						<p className='brand-claim-notice'>
 							Are you the brand owner? Contact us to claim this

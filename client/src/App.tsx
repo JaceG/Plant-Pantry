@@ -29,6 +29,7 @@ import { CityLandingScreen } from './screens/CityLandingScreen';
 import {
 	AdminDashboard,
 	AdminProducts,
+	AdminBrands,
 	AdminStores,
 	AdminUsers,
 	AdminFilters,
@@ -111,6 +112,14 @@ function AppContent() {
 					element={
 						<ProtectedRoute requireAdmin>
 							<AdminProducts />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path='/admin/brands'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminBrands />
 						</ProtectedRoute>
 					}
 				/>

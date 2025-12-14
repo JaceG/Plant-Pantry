@@ -8,6 +8,9 @@ export interface IBrandPage extends Document {
 	description?: string; // Brand description/story
 	logoUrl?: string;
 	websiteUrl?: string;
+	// Brand hierarchy - for consolidating brand variations
+	parentBrandId?: mongoose.Types.ObjectId; // References the "official" brand
+	isOfficial: boolean; // Marks this as a canonical/official brand
 	// Meta
 	isActive: boolean;
 	createdBy?: mongoose.Types.ObjectId;
@@ -48,6 +51,17 @@ const brandPageSchema = new Schema<IBrandPage>(
 			type: String,
 			trim: true,
 		},
+		// Brand hierarchy - for consolidating brand variations
+		parentBrandId: {
+			type: Schema.Types.ObjectId,
+			ref: 'BrandPage',
+			default: null,
+		},
+		isOfficial: {
+			type: Boolean,
+			default: false,
+			index: true,
+		},
 		isActive: {
 			type: Boolean,
 			default: true,
@@ -70,6 +84,7 @@ const brandPageSchema = new Schema<IBrandPage>(
 brandPageSchema.index({ slug: 1 });
 brandPageSchema.index({ brandName: 'text', displayName: 'text' });
 brandPageSchema.index({ isActive: 1 });
+brandPageSchema.index({ parentBrandId: 1 }); // For finding child brands
 
 // Pre-save hook to generate slug from brandName if not provided
 brandPageSchema.pre('save', function (next) {

@@ -1009,6 +1009,112 @@ export const adminApi = {
 			{ reviewNote: note }
 		);
 	},
+
+	// ============================================
+	// BRAND HIERARCHY MANAGEMENT
+	// ============================================
+
+	/**
+	 * Get all brands with hierarchy info
+	 */
+	getBrands(options?: {
+		includeInactive?: boolean;
+		officialOnly?: boolean;
+		unassignedOnly?: boolean;
+	}): Promise<{ brands: AdminBrand[] }> {
+		const params = new URLSearchParams();
+		if (options?.includeInactive) params.append('includeInactive', 'true');
+		if (options?.officialOnly) params.append('officialOnly', 'true');
+		if (options?.unassignedOnly) params.append('unassignedOnly', 'true');
+		const query = params.toString();
+		return httpClient.get<{ brands: AdminBrand[] }>(
+			`/admin/brands${query ? `?${query}` : ''}`
+		);
+	},
+
+	/**
+	 * Get official brands only (for dropdown selection)
+	 */
+	getOfficialBrands(): Promise<{ brands: BrandRef[] }> {
+		return httpClient.get<{ brands: BrandRef[] }>('/admin/brands/official');
+	},
+
+	/**
+	 * Get a specific brand with full details
+	 */
+	getBrand(brandId: string): Promise<{ brand: AdminBrandDetail }> {
+		return httpClient.get<{ brand: AdminBrandDetail }>(
+			`/admin/brands/${brandId}`
+		);
+	},
+
+	/**
+	 * Mark a brand as official or not
+	 * @param brandId - The brand ID or 'new' if brand has no BrandPage yet
+	 * @param isOfficial - Whether to mark as official
+	 * @param brandName - Required if brand has no BrandPage (id is null)
+	 */
+	setBrandOfficial(
+		brandId: string | null,
+		isOfficial: boolean,
+		brandName?: string
+	): Promise<{
+		message: string;
+		brand: { id: string; isOfficial: boolean };
+	}> {
+		const id = brandId || 'new';
+		return httpClient.put<{
+			message: string;
+			brand: { id: string; isOfficial: boolean };
+		}>(`/admin/brands/${id}/official`, { isOfficial, brandName });
+	},
+
+	/**
+	 * Assign a brand to a parent official brand
+	 * @param brandId - The brand ID or 'new' if brand has no BrandPage yet
+	 * @param parentBrandId - The parent brand ID to assign to, or null to unassign
+	 * @param brandName - Required if brand has no BrandPage (id is null)
+	 */
+	assignBrandParent(
+		brandId: string | null,
+		parentBrandId: string | null,
+		brandName?: string
+	): Promise<{
+		message: string;
+		brand: { id: string; parentBrandId: string | null };
+	}> {
+		const id = brandId || 'new';
+		return httpClient.put<{
+			message: string;
+			brand: { id: string; parentBrandId: string | null };
+		}>(`/admin/brands/${id}/assign-parent`, { parentBrandId, brandName });
+	},
+
+	/**
+	 * Bulk assign multiple brands to a parent official brand
+	 */
+	bulkAssignBrandChildren(
+		parentBrandId: string,
+		childBrandIds: string[]
+	): Promise<{ message: string; modifiedCount: number }> {
+		return httpClient.post<{ message: string; modifiedCount: number }>(
+			`/admin/brands/${parentBrandId}/bulk-assign-children`,
+			{ childBrandIds }
+		);
+	},
+
+	/**
+	 * Get child brands of an official brand
+	 */
+	getBrandChildren(brandId: string): Promise<{
+		parentBrand: BrandRef;
+		children: AdminBrand[];
+	}> {
+		return httpClient.get<{
+			parentBrand: BrandRef;
+			children: AdminBrand[];
+		}>(`/admin/brands/${brandId}/children`);
+	},
 };
 
 // Pending Reports types
@@ -1141,4 +1247,31 @@ export interface BrandContentEdit {
 	reviewedAt?: string;
 	reviewNote?: string;
 	createdAt: string;
+}
+
+// Brand hierarchy types
+export interface BrandRef {
+	id: string;
+	brandName: string;
+	slug: string;
+	displayName: string;
+}
+
+export interface AdminBrand {
+	id: string | null; // null if brand has no BrandPage yet
+	brandName: string;
+	slug: string;
+	displayName: string;
+	isOfficial: boolean;
+	isActive: boolean;
+	hasPage: boolean; // true if BrandPage exists in DB
+	parentBrand: BrandRef | null;
+	childCount: number;
+}
+
+export interface AdminBrandDetail extends AdminBrand {
+	description?: string;
+	logoUrl?: string;
+	websiteUrl?: string;
+	childBrands: BrandRef[];
 }

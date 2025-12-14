@@ -7,7 +7,14 @@ import {
 	authMiddleware,
 	AuthenticatedRequest,
 } from '../middleware/auth';
-import { Availability, Store, Product, UserProduct, User } from '../models';
+import {
+	Availability,
+	Store,
+	Product,
+	UserProduct,
+	User,
+	BrandPage,
+} from '../models';
 
 // Helper to get user trust level for moderation decisions
 // Returns: { isTrusted: boolean, needsReview: boolean }
@@ -143,32 +150,77 @@ router.get(
 			const { brandName } = req.params;
 			const decodedBrandName = decodeURIComponent(brandName);
 
-			// Find all products from this brand
+			// Check if this is an official brand with child brands
+			const brandPage = await BrandPage.findOne({
+				$or: [
+					{
+						brandName: {
+							$regex: new RegExp(
+								`^${decodedBrandName.replace(
+									/[.*+?^${}()|[\]\\]/g,
+									'\\$&'
+								)}$`,
+								'i'
+							),
+						},
+					},
+					{
+						slug: decodedBrandName
+							.toLowerCase()
+							.replace(/[^a-z0-9]+/g, '-')
+							.replace(/^-|-$/g, ''),
+					},
+				],
+				isOfficial: true,
+			}).lean();
+
+			// Build brand query - either just this brand, or include child brands
+			let brandQuery: any;
+			if (brandPage) {
+				// Get child brands
+				const childBrands = await BrandPage.find({
+					parentBrandId: brandPage._id,
+					isActive: true,
+				})
+					.select('brandName')
+					.lean();
+
+				const brandNames = [
+					brandPage.brandName,
+					...childBrands.map((c) => c.brandName),
+				];
+
+				const brandRegexes = brandNames.map(
+					(name) =>
+						new RegExp(
+							`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+							'i'
+						)
+				);
+
+				brandQuery = { $in: brandRegexes };
+			} else {
+				brandQuery = {
+					$regex: new RegExp(
+						`^${decodedBrandName.replace(
+							/[.*+?^${}()|[\]\\]/g,
+							'\\$&'
+						)}$`,
+						'i'
+					),
+				};
+			}
+
+			// Find all products from this brand (and child brands if official)
 			const [apiProducts, userProducts] = await Promise.all([
 				Product.find({
-					brand: {
-						$regex: new RegExp(
-							`^${decodedBrandName.replace(
-								/[.*+?^${}()|[\]\\]/g,
-								'\\$&'
-							)}$`,
-							'i'
-						),
-					},
+					brand: brandQuery,
 					archived: { $ne: true },
 				})
 					.select('_id')
 					.lean(),
 				UserProduct.find({
-					brand: {
-						$regex: new RegExp(
-							`^${decodedBrandName.replace(
-								/[.*+?^${}()|[\]\\]/g,
-								'\\$&'
-							)}$`,
-							'i'
-						),
-					},
+					brand: brandQuery,
 					status: 'approved',
 					archived: { $ne: true },
 				})

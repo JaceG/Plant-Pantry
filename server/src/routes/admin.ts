@@ -3142,6 +3142,538 @@ router.post(
 // BRAND CONTENT EDIT REVIEW
 // ============================================
 
+// ============================================
+// BRAND HIERARCHY MANAGEMENT
+// ============================================
+
+/**
+ * Helper to generate a URL-friendly slug from a brand name
+ */
+function generateBrandSlug(name: string): string {
+	return name
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-|-$/g, '');
+}
+
+/**
+ * GET /api/admin/brands
+ * Get all brands with hierarchy info for admin management
+ * Discovers brands from products and merges with BrandPage entries
+ */
+router.get(
+	'/brands',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const officialOnly = req.query.officialOnly === 'true';
+			const unassignedOnly = req.query.unassignedOnly === 'true';
+
+			// Get all distinct brand names from products
+			const [productBrands, userProductBrands] = await Promise.all([
+				Product.distinct('brand', { archived: { $ne: true } }),
+				UserProduct.distinct('brand', {
+					status: 'approved',
+					archived: { $ne: true },
+				}),
+			]);
+
+			// Combine and dedupe brand names (case-insensitive, whitespace-normalized)
+			const allBrandNames = [...productBrands, ...userProductBrands];
+
+			// Normalize function: trim and collapse multiple spaces to single space
+			const normalize = (name: string) =>
+				name.trim().replace(/\s+/g, ' ').toLowerCase();
+
+			const uniqueBrandNames = [
+				...new Map(
+					allBrandNames.map((name) => [normalize(name), name.trim()])
+				).values(),
+			];
+
+			// Get all existing BrandPage entries
+			const existingBrandPages = await BrandPage.find()
+				.populate('parentBrandId', 'brandName slug displayName')
+				.lean();
+
+			// Create a map of normalized brandName -> BrandPage
+			const brandPageMap = new Map(
+				existingBrandPages.map((bp) => [normalize(bp.brandName), bp])
+			);
+
+			// Get child counts for official brands
+			const officialBrandIds = existingBrandPages
+				.filter((b) => b.isOfficial)
+				.map((b) => b._id);
+
+			const childCounts = await BrandPage.aggregate([
+				{
+					$match: {
+						parentBrandId: { $in: officialBrandIds },
+					},
+				},
+				{
+					$group: {
+						_id: '$parentBrandId',
+						count: { $sum: 1 },
+					},
+				},
+			]);
+
+			const childCountMap = new Map(
+				childCounts.map((c) => [c._id.toString(), c.count])
+			);
+
+			// Build combined brand list
+			const items: any[] = [];
+
+			for (const brandName of uniqueBrandNames) {
+				const existingPage = brandPageMap.get(normalize(brandName));
+
+				if (existingPage) {
+					// Brand has a BrandPage entry
+					const item = {
+						id: existingPage._id.toString(),
+						brandName: existingPage.brandName,
+						slug: existingPage.slug,
+						displayName: existingPage.displayName,
+						isOfficial: existingPage.isOfficial || false,
+						isActive: existingPage.isActive,
+						hasPage: true,
+						parentBrand: existingPage.parentBrandId
+							? {
+									id: (
+										existingPage.parentBrandId as any
+									)._id?.toString(),
+									brandName: (
+										existingPage.parentBrandId as any
+									).brandName,
+									slug: (existingPage.parentBrandId as any)
+										.slug,
+									displayName: (
+										existingPage.parentBrandId as any
+									).displayName,
+							  }
+							: null,
+						childCount:
+							childCountMap.get(existingPage._id.toString()) || 0,
+					};
+
+					// Apply filters
+					if (officialOnly && !item.isOfficial) continue;
+					if (unassignedOnly && (item.isOfficial || item.parentBrand))
+						continue;
+
+					items.push(item);
+				} else {
+					// Brand only exists on products, no BrandPage yet
+					// Skip if filtering for official only
+					if (officialOnly) continue;
+
+					items.push({
+						id: null, // No BrandPage yet
+						brandName: brandName,
+						slug: generateBrandSlug(brandName),
+						displayName: brandName,
+						isOfficial: false,
+						isActive: true,
+						hasPage: false,
+						parentBrand: null,
+						childCount: 0,
+					});
+				}
+			}
+
+			// Sort: official first, then alphabetically
+			items.sort((a, b) => {
+				if (a.isOfficial !== b.isOfficial) {
+					return a.isOfficial ? -1 : 1;
+				}
+				return a.displayName.localeCompare(b.displayName);
+			});
+
+			res.json({ brands: items });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * GET /api/admin/brands/official
+ * Get all official brands (for dropdown selection)
+ */
+router.get(
+	'/brands/official',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const brands = await BrandPage.find({
+				isOfficial: true,
+				isActive: true,
+			})
+				.select('brandName slug displayName')
+				.sort({ displayName: 1 })
+				.lean();
+
+			res.json({
+				brands: brands.map((b) => ({
+					id: b._id.toString(),
+					brandName: b.brandName,
+					slug: b.slug,
+					displayName: b.displayName,
+				})),
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * GET /api/admin/brands/:id
+ * Get a specific brand with full details
+ */
+router.get(
+	'/brands/:id',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+
+			const brand = await BrandPage.findById(id)
+				.populate('parentBrandId', 'brandName slug displayName')
+				.lean();
+
+			if (!brand) {
+				throw new HttpError('Brand not found', 404);
+			}
+
+			// Get child brands if official
+			let childBrands: any[] = [];
+			if (brand.isOfficial) {
+				const children = await BrandPage.find({
+					parentBrandId: brand._id,
+				})
+					.select('brandName slug displayName isActive')
+					.lean();
+				childBrands = children.map((c) => ({
+					id: c._id.toString(),
+					brandName: c.brandName,
+					slug: c.slug,
+					displayName: c.displayName,
+					isActive: c.isActive,
+				}));
+			}
+
+			res.json({
+				brand: {
+					id: brand._id.toString(),
+					brandName: brand.brandName,
+					slug: brand.slug,
+					displayName: brand.displayName,
+					description: brand.description,
+					logoUrl: brand.logoUrl,
+					websiteUrl: brand.websiteUrl,
+					isOfficial: brand.isOfficial || false,
+					isActive: brand.isActive,
+					parentBrand: brand.parentBrandId
+						? {
+								id: (
+									brand.parentBrandId as any
+								)._id?.toString(),
+								brandName: (brand.parentBrandId as any)
+									.brandName,
+								slug: (brand.parentBrandId as any).slug,
+								displayName: (brand.parentBrandId as any)
+									.displayName,
+						  }
+						: null,
+					childBrands,
+				},
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * PUT /api/admin/brands/:id/official
+ * Mark a brand as official or not
+ * If id is a brand name (no existing BrandPage), creates one first
+ */
+router.put(
+	'/brands/:id/official',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { isOfficial, brandName } = req.body;
+
+			if (typeof isOfficial !== 'boolean') {
+				throw new HttpError('isOfficial must be a boolean', 400);
+			}
+
+			let brand;
+
+			// Check if id is a valid ObjectId
+			if (mongoose.Types.ObjectId.isValid(id)) {
+				brand = await BrandPage.findById(id);
+			}
+
+			// If not found by ID and brandName provided, create new BrandPage
+			if (!brand && brandName) {
+				brand = await BrandPage.create({
+					brandName: brandName,
+					slug: generateBrandSlug(brandName),
+					displayName: brandName,
+					isOfficial: isOfficial,
+					isActive: true,
+				});
+			} else if (!brand) {
+				throw new HttpError('Brand not found', 404);
+			} else {
+				// Update existing brand
+				if (isOfficial) {
+					brand.isOfficial = true;
+					brand.parentBrandId = undefined;
+				} else {
+					// If unmarking as official, first unassign all child brands
+					await BrandPage.updateMany(
+						{ parentBrandId: brand._id },
+						{ $unset: { parentBrandId: 1 } }
+					);
+					brand.isOfficial = false;
+				}
+				await brand.save();
+			}
+
+			res.json({
+				message: isOfficial
+					? 'Brand marked as official'
+					: 'Brand unmarked as official',
+				brand: {
+					id: brand._id.toString(),
+					isOfficial: brand.isOfficial,
+				},
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * PUT /api/admin/brands/:id/assign-parent
+ * Assign a brand to an official parent brand
+ * If id is not a valid ObjectId, creates BrandPage first using brandName from body
+ */
+router.put(
+	'/brands/:id/assign-parent',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { parentBrandId, brandName } = req.body;
+
+			let brand;
+
+			// Check if id is a valid ObjectId
+			if (mongoose.Types.ObjectId.isValid(id)) {
+				brand = await BrandPage.findById(id);
+			}
+
+			// If not found by ID and brandName provided, create new BrandPage
+			if (!brand && brandName) {
+				brand = await BrandPage.create({
+					brandName: brandName,
+					slug: generateBrandSlug(brandName),
+					displayName: brandName,
+					isOfficial: false,
+					isActive: true,
+				});
+			} else if (!brand) {
+				throw new HttpError('Brand not found', 404);
+			}
+
+			// Cannot assign a parent to an official brand
+			if (brand.isOfficial) {
+				throw new HttpError(
+					'Cannot assign a parent to an official brand. Unmark it as official first.',
+					400
+				);
+			}
+
+			if (parentBrandId) {
+				// Verify parent exists and is official
+				const parentBrand = await BrandPage.findById(parentBrandId);
+				if (!parentBrand) {
+					throw new HttpError('Parent brand not found', 404);
+				}
+				if (!parentBrand.isOfficial) {
+					throw new HttpError(
+						'Parent brand must be marked as official',
+						400
+					);
+				}
+
+				brand.parentBrandId = parentBrand._id;
+			} else {
+				// Clear parent assignment
+				brand.parentBrandId = undefined;
+			}
+
+			await brand.save();
+
+			res.json({
+				message: parentBrandId
+					? 'Brand assigned to parent'
+					: 'Brand unassigned from parent',
+				brand: {
+					id: brand._id.toString(),
+					parentBrandId: brand.parentBrandId?.toString() || null,
+				},
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/brands/:id/bulk-assign-children
+ * Assign multiple brands to an official parent brand
+ * Handles both existing BrandPages (ObjectIds) and brands without pages (brand names)
+ */
+router.post(
+	'/brands/:id/bulk-assign-children',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { childBrandIds } = req.body;
+
+			if (!Array.isArray(childBrandIds) || childBrandIds.length === 0) {
+				throw new HttpError('childBrandIds array is required', 400);
+			}
+
+			// Verify parent exists and is official
+			const parentBrand = await BrandPage.findById(id);
+			if (!parentBrand) {
+				throw new HttpError('Parent brand not found', 404);
+			}
+			if (!parentBrand.isOfficial) {
+				throw new HttpError(
+					'Parent brand must be marked as official',
+					400
+				);
+			}
+
+			// Separate valid ObjectIds from brand names
+			const validObjectIds: string[] = [];
+			const brandNames: string[] = [];
+
+			for (const childId of childBrandIds) {
+				if (mongoose.Types.ObjectId.isValid(childId)) {
+					validObjectIds.push(childId);
+				} else {
+					brandNames.push(childId);
+				}
+			}
+
+			let createdCount = 0;
+			const newBrandPageIds: string[] = [];
+
+			// Create BrandPages for brands that don't have one yet
+			for (const brandName of brandNames) {
+				// Check if a BrandPage already exists for this brand name
+				const existing = await BrandPage.findOne({
+					brandName: { $regex: new RegExp(`^${brandName}$`, 'i') },
+				});
+
+				if (existing) {
+					// Already exists, just add to the list
+					newBrandPageIds.push(existing._id.toString());
+				} else {
+					// Create new BrandPage
+					const newBrandPage = await BrandPage.create({
+						brandName: brandName,
+						slug: generateBrandSlug(brandName),
+						displayName: brandName,
+						isOfficial: false,
+						isActive: true,
+						parentBrandId: parentBrand._id,
+					});
+					newBrandPageIds.push(newBrandPage._id.toString());
+					createdCount++;
+				}
+			}
+
+			// Combine all brand IDs (existing + newly created)
+			const allBrandIds = [...validObjectIds, ...newBrandPageIds];
+
+			// Update all existing child brands (excluding the parent itself and other official brands)
+			const result = await BrandPage.updateMany(
+				{
+					_id: { $in: allBrandIds, $ne: id },
+					isOfficial: { $ne: true },
+				},
+				{ parentBrandId: parentBrand._id }
+			);
+
+			const totalAssigned = result.modifiedCount + createdCount;
+
+			res.json({
+				message: `${totalAssigned} brand(s) assigned to ${parentBrand.displayName}`,
+				modifiedCount: totalAssigned,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * GET /api/admin/brands/:id/children
+ * Get all child brands of an official brand
+ */
+router.get(
+	'/brands/:id/children',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+
+			const brand = await BrandPage.findById(id).lean();
+			if (!brand) {
+				throw new HttpError('Brand not found', 404);
+			}
+
+			const children = await BrandPage.find({
+				parentBrandId: brand._id,
+			})
+				.select('brandName slug displayName isActive')
+				.sort({ brandName: 1 })
+				.lean();
+
+			res.json({
+				parentBrand: {
+					id: brand._id.toString(),
+					brandName: brand.brandName,
+					displayName: brand.displayName,
+				},
+				children: children.map((c) => ({
+					id: c._id.toString(),
+					brandName: c.brandName,
+					slug: c.slug,
+					displayName: c.displayName,
+					isActive: c.isActive,
+				})),
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// ============================================
+// BRAND CONTENT EDIT REVIEW
+// ============================================
+
 /**
  * GET /api/admin/brand-content-edits
  * Get all pending brand content edits for review
