@@ -232,6 +232,7 @@ export function EditProductForm({
 					nutritionSummary: formData.nutritionSummary,
 					ingredientSummary: formData.ingredientSummary,
 					storeAvailabilities: formData.storeAvailabilities,
+					chainAvailabilities: formData.chainAvailabilities,
 				});
 			} else {
 				// Editing a user product - use update endpoint

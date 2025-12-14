@@ -203,6 +203,7 @@ router.post(
 				nutritionSummary,
 				ingredientSummary,
 				storeAvailabilities,
+				chainAvailabilities,
 			} = req.body;
 
 			// Validation
@@ -226,6 +227,7 @@ router.post(
 				nutritionSummary,
 				ingredientSummary,
 				storeAvailabilities: storeAvailabilities || [],
+				chainAvailabilities: chainAvailabilities || [],
 				sourceProductId, // This marks it as an edit of an API product
 			});
 

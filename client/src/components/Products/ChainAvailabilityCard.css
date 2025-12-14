@@ -1,0 +1,396 @@
+.chain-availability-card {
+	background: var(--color-white);
+	border: 1px solid var(--color-sage-light);
+	border-radius: 12px;
+	overflow: hidden;
+	transition: box-shadow 0.2s ease;
+}
+
+.chain-availability-card:hover {
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.chain-card-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 1rem 1.25rem;
+	cursor: pointer;
+	transition: background-color 0.2s ease;
+}
+
+.chain-card-header:hover {
+	background-color: var(--color-mint);
+}
+
+.chain-card-main {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	flex: 1;
+	min-width: 0;
+}
+
+.chain-logo {
+	width: 48px;
+	height: 48px;
+	object-fit: contain;
+	border-radius: 8px;
+	background: var(--color-cream);
+	flex-shrink: 0;
+}
+
+.chain-logo-placeholder {
+	width: 48px;
+	height: 48px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1.5rem;
+	background: var(--color-sage-light);
+	border-radius: 8px;
+	flex-shrink: 0;
+}
+
+.chain-card-info {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	min-width: 0;
+}
+
+.chain-card-name {
+	font-size: 1.125rem;
+	font-weight: 600;
+	color: var(--color-charcoal);
+	text-decoration: none;
+	transition: color 0.2s ease;
+}
+
+.chain-card-name:hover {
+	color: var(--color-forest);
+}
+
+.chain-card-meta {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	flex-wrap: wrap;
+}
+
+.chain-type-badge {
+	font-size: 0.75rem;
+	color: var(--color-stone);
+}
+
+.chain-location-count {
+	font-size: 0.8125rem;
+	color: var(--color-stone);
+}
+
+.chain-card-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.chain-available-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	padding: 0.375rem 0.75rem;
+	background: rgba(52, 211, 153, 0.15);
+	color: #059669;
+	font-size: 0.8125rem;
+	font-weight: 600;
+	border-radius: 20px;
+}
+
+.chain-expand-icon {
+	font-size: 0.75rem;
+	color: var(--color-stone);
+	transition: transform 0.2s ease;
+}
+
+/* Expanded Section */
+.chain-card-expanded {
+	padding: 1rem 1.25rem 1.25rem;
+	background: var(--color-cream);
+	border-top: 1px solid var(--color-sage-light);
+}
+
+.chain-location-search {
+	margin-bottom: 1rem;
+}
+
+.search-hint {
+	font-size: 0.875rem;
+	color: var(--color-charcoal);
+	margin: 0 0 0.75rem 0;
+}
+
+.search-input-row {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.location-search-input {
+	flex: 1;
+	padding: 0.625rem 0.875rem;
+	border: 1px solid var(--color-sage-light);
+	border-radius: 8px;
+	font-size: 0.9375rem;
+	color: var(--color-charcoal);
+	background: var(--color-white);
+	transition: border-color 0.2s ease;
+}
+
+.location-search-input:focus {
+	outline: none;
+	border-color: var(--color-forest);
+	box-shadow: 0 0 0 3px rgba(52, 78, 65, 0.1);
+}
+
+.location-search-input::placeholder {
+	color: var(--color-stone);
+}
+
+.search-btn {
+	padding: 0.625rem 1.25rem;
+	background: var(--color-forest);
+	color: var(--color-white);
+	border: none;
+	border-radius: 8px;
+	font-size: 0.9375rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background-color 0.2s ease;
+	white-space: nowrap;
+}
+
+.search-btn:hover:not(:disabled) {
+	background: var(--color-charcoal);
+}
+
+.search-btn:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.show-all-link {
+	display: block;
+	margin-top: 0.5rem;
+	background: none;
+	border: none;
+	color: var(--color-forest);
+	font-size: 0.8125rem;
+	font-weight: 500;
+	cursor: pointer;
+	padding: 0;
+	text-decoration: underline;
+}
+
+.show-all-link:hover {
+	color: var(--color-charcoal);
+}
+
+/* Loading State */
+.chain-stores-loading {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 1rem;
+	color: var(--color-stone);
+	font-size: 0.875rem;
+}
+
+.loading-spinner-small {
+	width: 16px;
+	height: 16px;
+	border: 2px solid var(--color-sage-light);
+	border-top-color: var(--color-forest);
+	border-radius: 50%;
+	animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* No Results */
+.chain-no-results {
+	padding: 1rem;
+	text-align: center;
+}
+
+.chain-no-results p {
+	margin: 0;
+	font-size: 0.875rem;
+	color: var(--color-stone);
+}
+
+.no-results-hint {
+	margin-top: 0.25rem !important;
+	font-size: 0.8125rem !important;
+}
+
+/* Search Prompt */
+.chain-search-prompt {
+	padding: 0.75rem;
+	text-align: center;
+	color: var(--color-stone);
+	font-size: 0.875rem;
+}
+
+.chain-search-prompt p {
+	margin: 0;
+}
+
+/* Results */
+.chain-stores-results {
+	margin-top: 0.5rem;
+}
+
+.results-count {
+	font-size: 0.8125rem;
+	color: var(--color-stone);
+	margin: 0 0 0.75rem 0;
+}
+
+.chain-stores-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.chain-store-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.75rem;
+	background: var(--color-white);
+	border: 1px solid var(--color-sage-light);
+	border-radius: 8px;
+}
+
+.store-item-info {
+	display: flex;
+	flex-direction: column;
+	gap: 0.125rem;
+	min-width: 0;
+	flex: 1;
+}
+
+.store-item-name {
+	font-weight: 500;
+	color: var(--color-charcoal);
+	font-size: 0.9375rem;
+}
+
+.store-item-address {
+	font-size: 0.8125rem;
+	color: var(--color-stone);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.store-item-link {
+	color: var(--color-forest);
+	font-size: 0.8125rem;
+	font-weight: 500;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.store-item-link:hover {
+	text-decoration: underline;
+}
+
+.view-all-stores-link {
+	display: block;
+	margin-top: 1rem;
+	padding: 0.625rem 1rem;
+	background: var(--color-white);
+	border: 1px solid var(--color-sage-light);
+	border-radius: 8px;
+	color: var(--color-forest);
+	font-size: 0.875rem;
+	font-weight: 500;
+	text-align: center;
+	text-decoration: none;
+	transition: all 0.2s ease;
+}
+
+.view-all-stores-link:hover {
+	background: var(--color-mint);
+	border-color: var(--color-sage);
+}
+
+/* Price Info */
+.chain-price-info {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.5rem 1.25rem;
+	background: var(--color-mint);
+	border-top: 1px solid var(--color-sage-light);
+	font-size: 0.875rem;
+}
+
+.price-label {
+	color: var(--color-stone);
+}
+
+.price-value {
+	color: var(--color-forest);
+	font-weight: 600;
+}
+
+/* Mobile Responsive */
+@media (max-width: 600px) {
+	.chain-card-header {
+		padding: 0.875rem 1rem;
+	}
+
+	.chain-card-main {
+		gap: 0.75rem;
+	}
+
+	.chain-logo,
+	.chain-logo-placeholder {
+		width: 40px;
+		height: 40px;
+		font-size: 1.25rem;
+	}
+
+	.chain-card-name {
+		font-size: 1rem;
+	}
+
+	.chain-available-badge {
+		font-size: 0.75rem;
+		padding: 0.25rem 0.5rem;
+	}
+
+	.search-input-row {
+		flex-direction: column;
+	}
+
+	.search-btn {
+		width: 100%;
+	}
+
+	.chain-store-item {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.5rem;
+	}
+
+	.store-item-link {
+		align-self: flex-end;
+	}
+}

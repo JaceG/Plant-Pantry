@@ -101,6 +101,11 @@ export interface ProductDetail {
 	// Optional chain-level availability selections for user products
 	chainAvailabilities?: Array<{
 		chainId: string;
+		chainName: string;
+		chainSlug: string;
+		chainLogoUrl?: string;
+		chainType?: 'national' | 'regional' | 'local';
+		locationCount: number;
 		includeRelatedCompany: boolean;
 		priceRange?: string;
 	}>;
@@ -834,6 +839,64 @@ export const productService = {
 			product._id.toString()
 		);
 
+		// Build enriched chainAvailabilities with chain details
+		let enrichedChainAvailabilities: ProductDetail['chainAvailabilities'];
+		if (isUserProduct && (product as any).chainAvailabilities?.length > 0) {
+			const rawChainAvails = (product as any).chainAvailabilities || [];
+			const chainIds = rawChainAvails
+				.map((c: any) => c.chainId?.toString?.() || String(c.chainId))
+				.filter((id: string) => mongoose.Types.ObjectId.isValid(id));
+
+			if (chainIds.length > 0) {
+				const { StoreChain, Store: StoreModel } = await import(
+					'../models'
+				);
+				const chainsData = await StoreChain.find({
+					_id: { $in: chainIds },
+				}).lean();
+
+				// Get location counts for each chain
+				const locationCounts = await StoreModel.aggregate([
+					{
+						$match: {
+							chainId: {
+								$in: chainIds.map(
+									(id: string) =>
+										new mongoose.Types.ObjectId(id)
+								),
+							},
+						},
+					},
+					{ $group: { _id: '$chainId', count: { $sum: 1 } } },
+				]);
+				const countMap = new Map<string, number>();
+				locationCounts.forEach((lc: any) => {
+					countMap.set(lc._id.toString(), lc.count);
+				});
+
+				const chainDataMap = new Map(
+					chainsData.map((c) => [c._id.toString(), c])
+				);
+
+				enrichedChainAvailabilities = rawChainAvails.map((c: any) => {
+					const chainId =
+						c.chainId?.toString?.() || String(c.chainId);
+					const chainData = chainDataMap.get(chainId);
+					return {
+						chainId,
+						chainName: chainData?.name || 'Unknown Chain',
+						chainSlug: chainData?.slug || chainId,
+						chainLogoUrl: chainData?.logoUrl,
+						chainType: chainData?.type,
+						locationCount: countMap.get(chainId) || 0,
+						includeRelatedCompany:
+							c.includeRelatedCompany !== false,
+						priceRange: c.priceRange,
+					};
+				});
+			}
+		}
+
 		return {
 			id: product._id.toString(),
 			name: product.name || '',
@@ -849,17 +912,7 @@ export const productService = {
 			createdAt: product.createdAt,
 			updatedAt: product.updatedAt,
 			availability: availabilityInfo || [],
-			chainAvailabilities: isUserProduct
-				? ((product as any).chainAvailabilities || []).map(
-						(c: any) => ({
-							chainId:
-								c.chainId?.toString?.() || String(c.chainId),
-							includeRelatedCompany:
-								c.includeRelatedCompany !== false,
-							priceRange: c.priceRange,
-						})
-				  )
-				: undefined,
+			chainAvailabilities: enrichedChainAvailabilities,
 			averageRating:
 				ratingStats.totalCount > 0
 					? ratingStats.averageRating

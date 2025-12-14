@@ -549,7 +549,26 @@
   cursor: not-allowed;
 }
 
-/* Chain Availability Badges */
+/* Chain-Level Availability Section */
+.chain-availability-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.availability-subsection-title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-charcoal);
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+.chain-availability-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+/* Chain Availability Badges (store-level) */
 .chain-availability-badges {
   display: flex;
   flex-wrap: wrap;

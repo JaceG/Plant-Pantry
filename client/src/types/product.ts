@@ -63,6 +63,11 @@ export interface ProductDetail {
 	availability: AvailabilityInfo[];
 	chainAvailabilities?: Array<{
 		chainId: string;
+		chainName: string;
+		chainSlug: string;
+		chainLogoUrl?: string;
+		chainType?: 'national' | 'regional' | 'local';
+		locationCount: number;
 		includeRelatedCompany: boolean;
 		priceRange?: string;
 	}>;

@@ -5,6 +5,7 @@ import { RegistrationModal } from '../components/Common/RegistrationModal';
 import { StoreMap } from '../components/Products/StoreMap';
 import { EditProductForm } from '../components/Products/EditProductForm';
 import { ReportAvailability } from '../components/Products/ReportAvailability';
+import { ChainAvailabilityCard } from '../components/Products/ChainAvailabilityCard';
 import { ReviewStats, ReviewList, ReviewForm } from '../components/Reviews';
 import { useProductDetail, useShoppingList } from '../hooks';
 import { useAuth } from '../context/AuthContext';
@@ -765,13 +766,33 @@ export function ProductDetailScreen() {
 						Where to Buy
 					</h2>
 
+					{/* Chain-level availability (from chainAvailabilities) */}
+					{product.chainAvailabilities &&
+						product.chainAvailabilities.length > 0 && (
+							<div className='chain-availability-section'>
+								<h3 className='availability-subsection-title'>
+									Available at these retailers
+								</h3>
+								<div className='chain-availability-cards'>
+									{product.chainAvailabilities.map(
+										(chainAvail) => (
+											<ChainAvailabilityCard
+												key={chainAvail.chainId}
+												chainAvailability={chainAvail}
+											/>
+										)
+									)}
+								</div>
+							</div>
+						)}
+
 					{(product.availability?.length || 0) > 0 ? (
 						<>
-							{/* Chain availability badges */}
+							{/* Chain availability badges for store-level data */}
 							{groupedAvailability.chainGroups.length > 0 && (
 								<div className='chain-availability-badges'>
 									<span className='badges-label'>
-										Available at:
+										Specific locations confirmed:
 									</span>
 									<div className='chain-badges'>
 										{groupedAvailability.chainGroups.map(
@@ -1019,7 +1040,7 @@ export function ProductDetailScreen() {
 								)}
 							</div>
 						</>
-					) : (
+					) : !product.chainAvailabilities?.length ? (
 						<div className='availability-empty'>
 							<p>
 								Availability information is not yet available
@@ -1030,7 +1051,7 @@ export function ProductDetailScreen() {
 								you've found this product!
 							</p>
 						</div>
-					)}
+					) : null}
 
 					{/* Report Availability CTA */}
 					{!product._archived && (
