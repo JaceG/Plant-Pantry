@@ -506,16 +506,30 @@ export const productService = {
 						.lean(),
 					UserProduct.find(userProductQuery)
 						.select(
-							'name brand sizeOrVariant imageUrl categories tags'
+							'name brand sizeOrVariant imageUrl categories tags sourceProductId'
 						)
 						.lean(),
 					Product.countDocuments(apiProductQuery),
 					UserProduct.countDocuments(userProductQuery),
 				]);
 
+			// Build a set of API product IDs that have been superseded by user edits
+			// User products with sourceProductId are edits that should replace the original API product
+			const supersededApiProductIds = new Set<string>();
+			userProducts.forEach((up: any) => {
+				if (up.sourceProductId) {
+					supersededApiProductIds.add(up.sourceProductId.toString());
+				}
+			});
+
+			// Filter out API products that have been superseded by user edits
+			const filteredApiProducts = apiProducts.filter(
+				(p) => !supersededApiProductIds.has(p._id.toString())
+			);
+
 			// Get all product IDs to fetch rating stats
 			const allProductIds = [
-				...apiProducts.map((p) => p._id.toString()),
+				...filteredApiProducts.map((p) => p._id.toString()),
 				...userProducts.map((p) => p._id.toString()),
 			];
 
@@ -668,7 +682,7 @@ export const productService = {
 
 			// Combine and sort all products
 			const allProducts = [
-				...apiProducts.map((p) => {
+				...filteredApiProducts.map((p) => {
 					const id = p._id.toString();
 					const stats = ratingStatsMap.get(id);
 					const availStats = availabilityStatsMap.get(id);
@@ -707,7 +721,9 @@ export const productService = {
 			].sort((a, b) => a.name.localeCompare(b.name));
 
 			// Apply pagination after sorting
-			const totalCount = apiCount + userCount;
+			// Adjust totalCount to account for filtered out superseded products
+			const filteredApiCount = filteredApiProducts.length;
+			const totalCount = filteredApiCount + userCount;
 			const paginatedItems = allProducts.slice(skip, skip + pageSize);
 
 			return {
