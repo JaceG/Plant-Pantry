@@ -1,18 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
-import { adminApi, AdminBrand, BrandRef } from '../../api/adminApi';
+import { Link } from 'react-router-dom';
+import {
+	adminApi,
+	AdminBrand,
+	AdminBrandsResponse,
+	BrandRef,
+} from '../../api/adminApi';
 import { AdminLayout } from './AdminLayout';
 import { Button } from '../../components/Common/Button';
 import { Toast } from '../../components/Common/Toast';
 import './AdminBrands.css';
 
-type ViewMode = 'all' | 'official' | 'unassigned';
+const LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
 
 export function AdminBrands() {
-	const [brands, setBrands] = useState<AdminBrand[]>([]);
-	const [officialBrands, setOfficialBrands] = useState<BrandRef[]>([]);
+	const [officialBrands, setOfficialBrands] = useState<AdminBrand[]>([]);
+	const [unassignedBrands, setUnassignedBrands] = useState<AdminBrand[]>([]);
+	const [officialBrandRefs, setOfficialBrandRefs] = useState<BrandRef[]>([]);
+	const [letterCounts, setLetterCounts] = useState<Record<string, number>>(
+		{}
+	);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [viewMode, setViewMode] = useState<ViewMode>('all');
+	const [selectedLetter, setSelectedLetter] = useState<string>('A');
 	const [toast, setToast] = useState<{
 		message: string;
 		type: 'success' | 'error';
@@ -20,6 +30,9 @@ export function AdminBrands() {
 
 	// Search state
 	const [searchQuery, setSearchQuery] = useState('');
+
+	// Official brands section collapse state
+	const [officialCollapsed, setOfficialCollapsed] = useState(false);
 
 	// Selected brands for bulk assignment
 	const [selectedBrandIds, setSelectedBrandIds] = useState<Set<string>>(
@@ -46,14 +59,27 @@ export function AdminBrands() {
 		try {
 			setLoading(true);
 			const [brandsRes, officialRes] = await Promise.all([
-				adminApi.getBrands({
-					officialOnly: viewMode === 'official',
-					unassignedOnly: viewMode === 'unassigned',
-				}),
+				adminApi.getBrands({ letter: selectedLetter }),
 				adminApi.getOfficialBrands(),
 			]);
-			setBrands(brandsRes.brands);
-			setOfficialBrands(officialRes.brands);
+
+			// Handle new response structure
+			if (brandsRes.officialBrands !== undefined) {
+				setOfficialBrands(brandsRes.officialBrands);
+				setUnassignedBrands(brandsRes.unassignedBrands || []);
+			} else {
+				// Legacy fallback
+				setOfficialBrands(
+					brandsRes.brands?.filter((b) => b.isOfficial) || []
+				);
+				setUnassignedBrands(
+					brandsRes.brands?.filter(
+						(b) => !b.isOfficial && !b.parentBrand
+					) || []
+				);
+			}
+			setLetterCounts(brandsRes.letterCounts || {});
+			setOfficialBrandRefs(officialRes.brands);
 		} catch (err) {
 			setError(
 				err instanceof Error ? err.message : 'Failed to load brands'
@@ -61,14 +87,20 @@ export function AdminBrands() {
 		} finally {
 			setLoading(false);
 		}
-	}, [viewMode]);
+	}, [selectedLetter]);
 
 	useEffect(() => {
 		fetchBrands();
 	}, [fetchBrands]);
 
 	// Filter brands by search query
-	const filteredBrands = brands.filter(
+	const filteredOfficialBrands = officialBrands.filter(
+		(brand) =>
+			brand.brandName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+			brand.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+	);
+
+	const filteredUnassignedBrands = unassignedBrands.filter(
 		(brand) =>
 			brand.brandName.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			brand.displayName.toLowerCase().includes(searchQuery.toLowerCase())
@@ -91,12 +123,11 @@ export function AdminBrands() {
 		});
 	};
 
-	// Select all unassigned (non-official) brands
+	// Select all unassigned brands on current page
 	const selectAllUnassigned = () => {
-		const unassigned = filteredBrands.filter(
-			(b) => !b.isOfficial && !b.parentBrand
+		setSelectedBrandIds(
+			new Set(filteredUnassignedBrands.map((b) => getBrandKey(b)))
 		);
-		setSelectedBrandIds(new Set(unassigned.map((b) => getBrandKey(b))));
 	};
 
 	// Clear selection
@@ -107,7 +138,6 @@ export function AdminBrands() {
 	// Toggle official status
 	const handleToggleOfficial = async (brand: AdminBrand) => {
 		try {
-			// Pass brandName if brand has no BrandPage yet (id is null)
 			await adminApi.setBrandOfficial(
 				brand.id,
 				!brand.isOfficial,
@@ -143,7 +173,6 @@ export function AdminBrands() {
 
 		setAssignLoading(true);
 		try {
-			// Pass brandName if brand has no BrandPage yet (id is null)
 			await adminApi.assignBrandParent(
 				assigningBrand.id,
 				assignParentId || null,
@@ -214,12 +243,17 @@ export function AdminBrands() {
 		});
 	};
 
-	// Get unassigned brands count
-	const unassignedCount = brands.filter(
-		(b) => !b.isOfficial && !b.parentBrand
-	).length;
+	// Calculate totals
+	const totalUnassigned = Object.values(letterCounts).reduce(
+		(sum, count) => sum + count,
+		0
+	);
 
-	if (loading && brands.length === 0) {
+	if (
+		loading &&
+		officialBrands.length === 0 &&
+		unassignedBrands.length === 0
+	) {
 		return (
 			<AdminLayout>
 				<div className='admin-loading'>
@@ -256,60 +290,185 @@ export function AdminBrands() {
 
 				{/* Stats Row */}
 				<div className='brands-stats'>
-					<div className='stat-box'>
-						<span className='stat-value'>{brands.length}</span>
-						<span className='stat-label'>Total Brands</span>
-					</div>
 					<div className='stat-box official'>
 						<span className='stat-value'>
-							{brands.filter((b) => b.isOfficial).length}
+							{officialBrands.length}
 						</span>
 						<span className='stat-label'>Official Brands</span>
 					</div>
 					<div className='stat-box warning'>
-						<span className='stat-value'>{unassignedCount}</span>
+						<span className='stat-value'>{totalUnassigned}</span>
 						<span className='stat-label'>Unassigned</span>
 					</div>
 				</div>
 
-				{/* Toolbar */}
-				<div className='brands-toolbar'>
-					<div className='toolbar-left'>
-						<div className='view-tabs'>
-							<button
-								className={`view-tab ${
-									viewMode === 'all' ? 'active' : ''
-								}`}
-								onClick={() => setViewMode('all')}>
-								All Brands
-							</button>
-							<button
-								className={`view-tab ${
-									viewMode === 'official' ? 'active' : ''
-								}`}
-								onClick={() => setViewMode('official')}>
-								Official Only
-							</button>
-							<button
-								className={`view-tab ${
-									viewMode === 'unassigned' ? 'active' : ''
-								}`}
-								onClick={() => setViewMode('unassigned')}>
-								Unassigned ({unassignedCount})
-							</button>
-						</div>
+				{/* Search */}
+				<div className='brands-search'>
+					<input
+						type='text'
+						className='search-input'
+						placeholder='Search brands...'
+						value={searchQuery}
+						onChange={(e) => setSearchQuery(e.target.value)}
+					/>
+				</div>
 
-						<input
-							type='text'
-							className='search-input'
-							placeholder='Search brands...'
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-						/>
+				{/* Official Brands Section */}
+				<section className='brands-section official-section'>
+					<div
+						className='section-header'
+						onClick={() =>
+							setOfficialCollapsed(!officialCollapsed)
+						}>
+						<h2>
+							<span className='collapse-icon'>
+								{officialCollapsed ? '▶' : '▼'}
+							</span>
+							Official Brands ({filteredOfficialBrands.length})
+						</h2>
 					</div>
 
-					<div className='toolbar-right'>
-						{selectedBrandIds.size > 0 && (
+					{!officialCollapsed && (
+						<div className='brands-list'>
+							{filteredOfficialBrands.length === 0 ? (
+								<div className='empty-state'>
+									<p>No official brands found</p>
+								</div>
+							) : (
+								filteredOfficialBrands.map((brand) => (
+									<div
+										key={getBrandKey(brand)}
+										className='brand-row official'>
+										<div className='brand-checkbox' />
+
+										<div className='brand-info'>
+											<div className='brand-name-row'>
+												{brand.id && (
+													<button
+														className='expand-btn'
+														onClick={() =>
+															toggleExpandBrand(
+																brand.id!
+															)
+														}>
+														{expandedBrands.has(
+															brand.id
+														)
+															? '▼'
+															: '▶'}
+													</button>
+												)}
+												<Link
+													to={`/brands/${encodeURIComponent(
+														brand.brandName
+													)}`}
+													className='brand-display-name brand-link'>
+													{brand.displayName}
+												</Link>
+												<span className='official-badge'>
+													Official
+												</span>
+												<span className='product-count'>
+													{brand.productCount} product
+													{brand.productCount !== 1
+														? 's'
+														: ''}
+												</span>
+												{brand.childCount > 0 && (
+													<span className='child-count'>
+														+{brand.childCount}{' '}
+														sub-brand
+														{brand.childCount !== 1
+															? 's'
+															: ''}
+													</span>
+												)}
+											</div>
+											{brand.brandName !==
+												brand.displayName && (
+												<span className='brand-name-raw'>
+													DB: {brand.brandName}
+												</span>
+											)}
+										</div>
+
+										<div className='brand-actions'>
+											<Button
+												variant='secondary'
+												size='sm'
+												className='btn-danger'
+												onClick={() =>
+													handleToggleOfficial(brand)
+												}>
+												Remove Official
+											</Button>
+										</div>
+
+										{/* Expanded children */}
+										{brand.id &&
+											expandedBrands.has(brand.id) && (
+												<div className='brand-children'>
+													{brand.childCount === 0 ? (
+														<p className='no-children'>
+															No sub-brands
+															assigned yet
+														</p>
+													) : (
+														<ChildBrandsList
+															parentId={brand.id}
+															onUnassign={
+																fetchBrands
+															}
+															setToast={setToast}
+														/>
+													)}
+												</div>
+											)}
+									</div>
+								))
+							)}
+						</div>
+					)}
+				</section>
+
+				{/* Unassigned Brands Section */}
+				<section className='brands-section unassigned-section'>
+					<div className='section-header'>
+						<h2>
+							Unassigned Brands (
+							{letterCounts[selectedLetter] || 0})
+						</h2>
+					</div>
+
+					{/* Letter Pagination */}
+					<div className='letter-pagination'>
+						{LETTERS.map((letter) => (
+							<button
+								key={letter}
+								className={`letter-tab ${
+									selectedLetter === letter ? 'active' : ''
+								} ${
+									(letterCounts[letter] || 0) === 0
+										? 'empty'
+										: ''
+								}`}
+								onClick={() => {
+									setSelectedLetter(letter);
+									setSelectedBrandIds(new Set());
+								}}>
+								<span className='letter-char'>{letter}</span>
+								{(letterCounts[letter] || 0) > 0 && (
+									<span className='letter-count'>
+										{letterCounts[letter]}
+									</span>
+								)}
+							</button>
+						))}
+					</div>
+
+					{/* Bulk Actions Toolbar */}
+					<div className='bulk-actions-toolbar'>
+						{selectedBrandIds.size > 0 ? (
 							<>
 								<span className='selection-count'>
 									{selectedBrandIds.size} selected
@@ -329,38 +488,37 @@ export function AdminBrands() {
 									Assign to Official Brand
 								</Button>
 							</>
-						)}
-						{selectedBrandIds.size === 0 &&
-							viewMode === 'unassigned' && (
+						) : (
+							filteredUnassignedBrands.length > 0 && (
 								<Button
 									variant='secondary'
 									size='sm'
 									onClick={selectAllUnassigned}>
-									Select All
+									Select All on Page
 								</Button>
-							)}
+							)
+						)}
 					</div>
-				</div>
 
-				{/* Brands List */}
-				<div className='brands-list'>
-					{filteredBrands.length === 0 ? (
-						<div className='empty-state'>
-							<p>No brands found</p>
-						</div>
-					) : (
-						filteredBrands.map((brand) => (
-							<div
-								key={getBrandKey(brand)}
-								className={`brand-row ${
-									brand.isOfficial ? 'official' : ''
-								} ${
-									selectedBrandIds.has(getBrandKey(brand))
-										? 'selected'
-										: ''
-								}`}>
-								<div className='brand-checkbox'>
-									{!brand.isOfficial && (
+					{/* Unassigned Brands List */}
+					<div className='brands-list'>
+						{filteredUnassignedBrands.length === 0 ? (
+							<div className='empty-state'>
+								<p>
+									No unassigned brands starting with "
+									{selectedLetter}"
+								</p>
+							</div>
+						) : (
+							filteredUnassignedBrands.map((brand) => (
+								<div
+									key={getBrandKey(brand)}
+									className={`brand-row ${
+										selectedBrandIds.has(getBrandKey(brand))
+											? 'selected'
+											: ''
+									}`}>
+									<div className='brand-checkbox'>
 										<input
 											type='checkbox'
 											checked={selectedBrandIds.has(
@@ -370,113 +528,55 @@ export function AdminBrands() {
 												toggleBrandSelection(brand)
 											}
 										/>
-									)}
-								</div>
+									</div>
 
-								<div className='brand-info'>
-									<div className='brand-name-row'>
-										{brand.isOfficial && brand.id && (
-											<button
-												className='expand-btn'
-												onClick={() =>
-													toggleExpandBrand(brand.id!)
-												}>
-												{expandedBrands.has(brand.id)
-													? '▼'
-													: '▶'}
-											</button>
-										)}
-										<span className='brand-display-name'>
-											{brand.displayName}
-										</span>
-										{brand.isOfficial && (
-											<span className='official-badge'>
-												Official
-											</span>
-										)}
-										{!brand.hasPage && (
-											<span className='no-page-badge'>
-												No page
-											</span>
-										)}
-										{brand.childCount > 0 && (
-											<span className='child-count'>
-												+{brand.childCount} sub-brand
-												{brand.childCount !== 1
+									<div className='brand-info'>
+										<div className='brand-name-row'>
+											<Link
+												to={`/brands/${encodeURIComponent(
+													brand.brandName
+												)}`}
+												className='brand-display-name brand-link'>
+												{brand.displayName}
+											</Link>
+											<span className='product-count'>
+												{brand.productCount} product
+												{brand.productCount !== 1
 													? 's'
 													: ''}
 											</span>
+										</div>
+										{brand.brandName !==
+											brand.displayName && (
+											<span className='brand-name-raw'>
+												DB: {brand.brandName}
+											</span>
 										)}
 									</div>
-									{brand.brandName !== brand.displayName && (
-										<span className='brand-name-raw'>
-											DB: {brand.brandName}
-										</span>
-									)}
-									{brand.parentBrand && (
-										<span className='parent-info'>
-											→ Part of{' '}
-											<strong>
-												{brand.parentBrand.displayName}
-											</strong>
-										</span>
-									)}
-								</div>
 
-								<div className='brand-actions'>
-									{!brand.isOfficial && (
+									<div className='brand-actions'>
 										<Button
 											variant='secondary'
 											size='sm'
 											onClick={() =>
 												openAssignModal(brand)
 											}>
-											{brand.parentBrand
-												? 'Change'
-												: 'Assign'}
+											Assign
 										</Button>
-									)}
-									<Button
-										variant={
-											brand.isOfficial
-												? 'secondary'
-												: 'primary'
-										}
-										size='sm'
-										className={
-											brand.isOfficial ? 'btn-danger' : ''
-										}
-										onClick={() =>
-											handleToggleOfficial(brand)
-										}>
-										{brand.isOfficial
-											? 'Remove Official'
-											: 'Make Official'}
-									</Button>
+										<Button
+											variant='primary'
+											size='sm'
+											onClick={() =>
+												handleToggleOfficial(brand)
+											}>
+											Make Official
+										</Button>
+									</div>
 								</div>
-
-								{/* Expanded children */}
-								{brand.isOfficial &&
-									brand.id &&
-									expandedBrands.has(brand.id) && (
-										<div className='brand-children'>
-											{brand.childCount === 0 ? (
-												<p className='no-children'>
-													No sub-brands assigned yet
-												</p>
-											) : (
-												<ChildBrandsList
-													parentId={brand.id}
-													onUnassign={fetchBrands}
-													setToast={setToast}
-												/>
-											)}
-										</div>
-									)}
-							</div>
-						))
-					)}
-				</div>
+							))
+						)}
+					</div>
+				</section>
 
 				{/* Assign Parent Modal */}
 				{assigningBrand && (
@@ -504,7 +604,7 @@ export function AdminBrands() {
 								<option value=''>
 									-- No parent (unassign) --
 								</option>
-								{officialBrands
+								{officialBrandRefs
 									.filter((ob) => ob.id !== assigningBrand.id)
 									.map((ob) => (
 										<option key={ob.id} value={ob.id}>
@@ -558,7 +658,7 @@ export function AdminBrands() {
 								<option value=''>
 									-- Select official brand --
 								</option>
-								{officialBrands.map((ob) => (
+								{officialBrandRefs.map((ob) => (
 									<option key={ob.id} value={ob.id}>
 										{ob.displayName}
 									</option>

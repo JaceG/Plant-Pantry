@@ -3160,6 +3160,8 @@ function generateBrandSlug(name: string): string {
  * GET /api/admin/brands
  * Get all brands with hierarchy info for admin management
  * Discovers brands from products and merges with BrandPage entries
+ * Supports letter-based filtering: letter=A returns brands starting with A
+ * letter=# returns brands starting with numbers or special characters
  */
 router.get(
 	'/brands',
@@ -3167,28 +3169,82 @@ router.get(
 		try {
 			const officialOnly = req.query.officialOnly === 'true';
 			const unassignedOnly = req.query.unassignedOnly === 'true';
+			const letter = (req.query.letter as string)?.toUpperCase();
 
-			// Get all distinct brand names from products
-			const [productBrands, userProductBrands] = await Promise.all([
-				Product.distinct('brand', { archived: { $ne: true } }),
-				UserProduct.distinct('brand', {
-					status: 'approved',
-					archived: { $ne: true },
-				}),
-			]);
+			// Get product counts per brand (case-insensitive)
+			const [productBrandCounts, userProductBrandCounts] =
+				await Promise.all([
+					Product.aggregate([
+						{ $match: { archived: { $ne: true } } },
+						{
+							$group: {
+								_id: {
+									$toLower: { $trim: { input: '$brand' } },
+								},
+								count: { $sum: 1 },
+								originalName: { $first: '$brand' },
+							},
+						},
+					]),
+					UserProduct.aggregate([
+						{
+							$match: {
+								status: 'approved',
+								archived: { $ne: true },
+							},
+						},
+						{
+							$group: {
+								_id: {
+									$toLower: { $trim: { input: '$brand' } },
+								},
+								count: { $sum: 1 },
+								originalName: { $first: '$brand' },
+							},
+						},
+					]),
+				]);
 
-			// Combine and dedupe brand names (case-insensitive, whitespace-normalized)
-			const allBrandNames = [...productBrands, ...userProductBrands];
+			// Build a map of normalized brand name -> { count, originalName }
+			const brandCountMap = new Map<
+				string,
+				{ count: number; originalName: string }
+			>();
+
+			for (const item of productBrandCounts) {
+				const key = item._id;
+				const existing = brandCountMap.get(key);
+				if (existing) {
+					existing.count += item.count;
+				} else {
+					brandCountMap.set(key, {
+						count: item.count,
+						originalName: item.originalName,
+					});
+				}
+			}
+
+			for (const item of userProductBrandCounts) {
+				const key = item._id;
+				const existing = brandCountMap.get(key);
+				if (existing) {
+					existing.count += item.count;
+				} else {
+					brandCountMap.set(key, {
+						count: item.count,
+						originalName: item.originalName,
+					});
+				}
+			}
+
+			// Get unique brand names from the count map
+			const uniqueBrandNames = Array.from(brandCountMap.values()).map(
+				(v) => v.originalName.trim()
+			);
 
 			// Normalize function: trim and collapse multiple spaces to single space
 			const normalize = (name: string) =>
 				name.trim().replace(/\s+/g, ' ').toLowerCase();
-
-			const uniqueBrandNames = [
-				...new Map(
-					allBrandNames.map((name) => [normalize(name), name.trim()])
-				).values(),
-			];
 
 			// Get all existing BrandPage entries
 			const existingBrandPages = await BrandPage.find()
@@ -3223,11 +3279,32 @@ router.get(
 				childCounts.map((c) => [c._id.toString(), c.count])
 			);
 
+			// Helper to check if brand starts with a letter or # (non-letter)
+			const getFirstLetter = (name: string): string => {
+				const firstChar = name.trim().charAt(0).toUpperCase();
+				return /[A-Z]/.test(firstChar) ? firstChar : '#';
+			};
+
+			// Helper to check if brand matches letter filter
+			const matchesLetter = (name: string): boolean => {
+				if (!letter) return true;
+				const firstLetter = getFirstLetter(name);
+				return firstLetter === letter;
+			};
+
 			// Build combined brand list
-			const items: any[] = [];
+			const officialItems: any[] = [];
+			const unassignedItems: any[] = [];
+			const letterCounts: Record<string, number> = { '#': 0 };
+			'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach((l) => {
+				letterCounts[l] = 0;
+			});
 
 			for (const brandName of uniqueBrandNames) {
-				const existingPage = brandPageMap.get(normalize(brandName));
+				const normalizedName = normalize(brandName);
+				const existingPage = brandPageMap.get(normalizedName);
+				const productCount =
+					brandCountMap.get(normalizedName)?.count || 0;
 
 				if (existingPage) {
 					// Brand has a BrandPage entry
@@ -3238,7 +3315,7 @@ router.get(
 						displayName: existingPage.displayName,
 						isOfficial: existingPage.isOfficial || false,
 						isActive: existingPage.isActive,
-						hasPage: true,
+						productCount,
 						parentBrand: existingPage.parentBrandId
 							? {
 									id: (
@@ -3258,40 +3335,69 @@ router.get(
 							childCountMap.get(existingPage._id.toString()) || 0,
 					};
 
-					// Apply filters
-					if (officialOnly && !item.isOfficial) continue;
-					if (unassignedOnly && (item.isOfficial || item.parentBrand))
-						continue;
+					// Track letter counts for unassigned brands
+					if (!item.isOfficial && !item.parentBrand) {
+						const firstLetter = getFirstLetter(item.displayName);
+						letterCounts[firstLetter] =
+							(letterCounts[firstLetter] || 0) + 1;
+					}
 
-					items.push(item);
+					// Separate official vs unassigned
+					if (item.isOfficial) {
+						officialItems.push(item);
+					} else if (!item.parentBrand) {
+						// Only include if matches letter filter
+						if (matchesLetter(item.displayName)) {
+							unassignedItems.push(item);
+						}
+					}
 				} else {
 					// Brand only exists on products, no BrandPage yet
-					// Skip if filtering for official only
-					if (officialOnly) continue;
-
-					items.push({
+					const item = {
 						id: null, // No BrandPage yet
 						brandName: brandName,
 						slug: generateBrandSlug(brandName),
 						displayName: brandName,
 						isOfficial: false,
 						isActive: true,
-						hasPage: false,
+						productCount,
 						parentBrand: null,
 						childCount: 0,
-					});
+					};
+
+					// Track letter counts
+					const firstLetter = getFirstLetter(item.displayName);
+					letterCounts[firstLetter] =
+						(letterCounts[firstLetter] || 0) + 1;
+
+					// Only include if matches letter filter
+					if (matchesLetter(item.displayName)) {
+						unassignedItems.push(item);
+					}
 				}
 			}
 
-			// Sort: official first, then alphabetically
-			items.sort((a, b) => {
-				if (a.isOfficial !== b.isOfficial) {
-					return a.isOfficial ? -1 : 1;
-				}
-				return a.displayName.localeCompare(b.displayName);
-			});
+			// Sort both lists alphabetically
+			officialItems.sort((a, b) =>
+				a.displayName.localeCompare(b.displayName)
+			);
+			unassignedItems.sort((a, b) =>
+				a.displayName.localeCompare(b.displayName)
+			);
 
-			res.json({ brands: items });
+			// Return based on filter
+			if (officialOnly) {
+				res.json({ brands: officialItems, letterCounts });
+			} else if (unassignedOnly) {
+				res.json({ brands: unassignedItems, letterCounts });
+			} else {
+				// Return both sections
+				res.json({
+					officialBrands: officialItems,
+					unassignedBrands: unassignedItems,
+					letterCounts,
+				});
+			}
 		} catch (error) {
 			next(error);
 		}

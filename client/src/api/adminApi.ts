@@ -1016,18 +1016,21 @@ export const adminApi = {
 
 	/**
 	 * Get all brands with hierarchy info
+	 * Now supports letter-based pagination
 	 */
 	getBrands(options?: {
 		includeInactive?: boolean;
 		officialOnly?: boolean;
 		unassignedOnly?: boolean;
-	}): Promise<{ brands: AdminBrand[] }> {
+		letter?: string; // A-Z or # for non-letter
+	}): Promise<AdminBrandsResponse> {
 		const params = new URLSearchParams();
 		if (options?.includeInactive) params.append('includeInactive', 'true');
 		if (options?.officialOnly) params.append('officialOnly', 'true');
 		if (options?.unassignedOnly) params.append('unassignedOnly', 'true');
+		if (options?.letter) params.append('letter', options.letter);
 		const query = params.toString();
-		return httpClient.get<{ brands: AdminBrand[] }>(
+		return httpClient.get<AdminBrandsResponse>(
 			`/admin/brands${query ? `?${query}` : ''}`
 		);
 	},
@@ -1264,9 +1267,19 @@ export interface AdminBrand {
 	displayName: string;
 	isOfficial: boolean;
 	isActive: boolean;
-	hasPage: boolean; // true if BrandPage exists in DB
+	productCount: number; // number of products with this brand
 	parentBrand: BrandRef | null;
 	childCount: number;
+}
+
+export interface AdminBrandsResponse {
+	// When no officialOnly/unassignedOnly filters
+	officialBrands?: AdminBrand[];
+	unassignedBrands?: AdminBrand[];
+	// When filtering by officialOnly or unassignedOnly
+	brands?: AdminBrand[];
+	// Letter counts for pagination
+	letterCounts: Record<string, number>;
 }
 
 export interface AdminBrandDetail extends AdminBrand {
