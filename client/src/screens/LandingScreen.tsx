@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { productsApi, citiesApi } from '../api';
 import { ProductSummary } from '../types';
@@ -9,6 +9,47 @@ import './LandingScreen.css';
 
 // Storage key for tracking when we last fetched landing page data
 const LANDING_FETCH_KEY = 'landingLastFetched';
+
+// Calculate how many items fit per row based on container width
+// Grid uses minmax(250px, 1fr) with gap of var(--spacing-lg) which is typically 24px
+function calculateItemsPerRow(containerWidth: number): number {
+	const minItemWidth = 250;
+	const gap = 24;
+	// Calculate how many items fit: (width + gap) / (minItemWidth + gap)
+	const itemsPerRow = Math.floor(
+		(containerWidth + gap) / (minItemWidth + gap)
+	);
+	// Clamp between 1 and 5
+	return Math.max(1, Math.min(5, itemsPerRow));
+}
+
+// Custom hook to track grid columns based on container width
+function useDiscoverGridCount(
+	containerRef: React.RefObject<HTMLDivElement | null>
+): number {
+	const [itemsPerRow, setItemsPerRow] = useState(3); // Default to 3
+
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container) return;
+
+		const updateCount = () => {
+			const width = container.offsetWidth;
+			setItemsPerRow(calculateItemsPerRow(width));
+		};
+
+		// Initial calculation
+		updateCount();
+
+		// Use ResizeObserver to track container size changes
+		const resizeObserver = new ResizeObserver(updateCount);
+		resizeObserver.observe(container);
+
+		return () => resizeObserver.disconnect();
+	}, [containerRef]);
+
+	return itemsPerRow * 4; // Always 4 rows
+}
 
 function getLastFetchTime(): number {
 	const stored = sessionStorage.getItem(LANDING_FETCH_KEY);
@@ -32,6 +73,8 @@ function shuffleArray<T>(array: T[]): T[] {
 export function LandingScreen() {
 	const navigate = useNavigate();
 	const location = useLocation();
+	const discoverContainerRef = useRef<HTMLDivElement>(null);
+	const discoverCount = useDiscoverGridCount(discoverContainerRef);
 	const [featuredProducts, setFeaturedProducts] = useState<ProductSummary[]>(
 		[]
 	);
@@ -45,37 +88,50 @@ export function LandingScreen() {
 	);
 	const [loading, setLoading] = useState(true);
 	const [hasFetched, setHasFetched] = useState(false);
+	const lastDiscoverCountRef = useRef<number>(discoverCount);
 
-	const fetchData = useCallback(async (bustCache = false) => {
-		try {
-			console.log('[LandingScreen] Fetching data, bustCache:', bustCache);
-			const [featuredRes, discoverRes, citiesRes, categoriesRes] =
-				await Promise.all([
-					productsApi.getFeaturedProducts(8, bustCache),
-					productsApi.getDiscoverProducts(6, bustCache),
-					citiesApi.getActiveCities(),
-					productsApi.getCategories(),
-				]);
+	const fetchData = useCallback(
+		async (bustCache = false, overrideDiscoverCount?: number) => {
+			const count = overrideDiscoverCount ?? discoverCount;
+			try {
+				console.log(
+					'[LandingScreen] Fetching data, bustCache:',
+					bustCache,
+					'discoverCount:',
+					count
+				);
+				const [featuredRes, discoverRes, citiesRes, categoriesRes] =
+					await Promise.all([
+						productsApi.getFeaturedProducts(8, bustCache),
+						productsApi.getDiscoverProducts(count, bustCache),
+						citiesApi.getActiveCities(),
+						productsApi.getCategories(),
+					]);
 
-			setFeaturedProducts(featuredRes.products);
-			setDiscoverProducts(discoverRes.products);
-			setActiveCities(citiesRes.cities);
-			// Store all categories and display a random selection
-			const allCats = categoriesRes.categories;
-			setAllCategories(allCats);
-			setDisplayedCategories(shuffleArray(allCats).slice(0, 12));
-			setLastFetchTime(Date.now());
-			setHasFetched(true);
-			console.log(
-				'[LandingScreen] Fetch complete, featured count:',
-				featuredRes.products.length
-			);
-		} catch (error) {
-			console.error('Error fetching landing page data:', error);
-		} finally {
-			setLoading(false);
-		}
-	}, []);
+				setFeaturedProducts(featuredRes.products);
+				setDiscoverProducts(discoverRes.products);
+				setActiveCities(citiesRes.cities);
+				// Store all categories and display a random selection
+				const allCats = categoriesRes.categories;
+				setAllCategories(allCats);
+				setDisplayedCategories(shuffleArray(allCats).slice(0, 12));
+				setLastFetchTime(Date.now());
+				setHasFetched(true);
+				lastDiscoverCountRef.current = count;
+				console.log(
+					'[LandingScreen] Fetch complete, featured count:',
+					featuredRes.products.length,
+					'discover count:',
+					discoverRes.products.length
+				);
+			} catch (error) {
+				console.error('Error fetching landing page data:', error);
+			} finally {
+				setLoading(false);
+			}
+		},
+		[discoverCount]
+	);
 
 	// Check if we need to fetch/refetch on mount or navigation
 	useEffect(() => {
@@ -118,6 +174,24 @@ export function LandingScreen() {
 		};
 	}, [fetchData]);
 
+	// Refetch discover products when grid count changes
+	useEffect(() => {
+		if (hasFetched && discoverCount !== lastDiscoverCountRef.current) {
+			const fetchDiscoverOnly = async () => {
+				try {
+					const discoverRes = await productsApi.getDiscoverProducts(
+						discoverCount
+					);
+					setDiscoverProducts(discoverRes.products);
+					lastDiscoverCountRef.current = discoverCount;
+				} catch (error) {
+					console.error('Error refetching discover products:', error);
+				}
+			};
+			fetchDiscoverOnly();
+		}
+	}, [discoverCount, hasFetched]);
+
 	const handleSearch = (query: string) => {
 		if (query.trim()) {
 			navigate(`/search?q=${encodeURIComponent(query.trim())}`);
@@ -132,7 +206,9 @@ export function LandingScreen() {
 
 	const refreshDiscover = async () => {
 		try {
-			const discoverRes = await productsApi.getDiscoverProducts(6);
+			const discoverRes = await productsApi.getDiscoverProducts(
+				discoverCount
+			);
 			setDiscoverProducts(discoverRes.products);
 		} catch (error) {
 			console.error('Error refreshing discover products:', error);
@@ -291,7 +367,9 @@ export function LandingScreen() {
 							</div>
 						</div>
 
-						<div className='products-grid discover-grid'>
+						<div
+							ref={discoverContainerRef}
+							className='products-grid discover-grid'>
 							{discoverProducts.map((product) => (
 								<ProductCard
 									key={product.id}
