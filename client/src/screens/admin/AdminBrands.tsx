@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import {
 	adminApi,
 	AdminBrand,
-	AdminBrandsResponse,
 	BrandRef,
 } from '../../api/adminApi';
 import { AdminLayout } from './AdminLayout';
