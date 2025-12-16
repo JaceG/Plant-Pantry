@@ -2,29 +2,31 @@
 
 ## Important: Ensuring Correct Domain in Sitemap
 
-The sitemap **must** use your canonical domain (`www.theveganaisle.com` or `theveganaisle.com`) and **never** use Render URLs. This ensures Google indexes your actual website, not the Render deployment URL.
+The sitemap **must** use your canonical domain (`theveganaisle.com` - without www) and **never** use Render URLs. This ensures Google indexes your actual website, not the Render deployment URL.
+
+**Note:** Your hosting is configured to redirect `www.theveganaisle.com` → `theveganaisle.com`, so the sitemap must use non-www URLs to avoid redirect issues with Google.
 
 ## How It Works
 
 1. **Backend Sitemap Generator** (`server/src/routes/sitemap.ts`):
-   - Uses `CLIENT_URL` environment variable from your backend
+   - Uses `CANONICAL_URL` or `CLIENT_URL` environment variable from your backend
    - Has a safety check that prevents Render URLs from being used
-   - Defaults to `https://www.theveganaisle.com` if CLIENT_URL is not set or contains Render URL
+   - Defaults to `https://theveganaisle.com` if not set or contains Render URL
 
 2. **Frontend Build Script** (`client/scripts/generate-sitemap.js`):
    - Fetches the sitemap from your backend during build
    - The URLs in the sitemap are whatever the backend generates
-   - Since backend uses CLIENT_URL, the sitemap will have correct URLs
+   - Since backend uses the canonical domain, the sitemap will have correct URLs
 
 ## Required Configuration
 
 ### Backend Environment Variable
 
-Make sure your **backend** has the correct `CLIENT_URL` environment variable set in Render:
+Make sure your **backend** has the correct environment variable set in Render:
 
 **In Render Dashboard → Your Backend Service → Environment:**
-- **Key**: `CLIENT_URL`
-- **Value**: `https://www.theveganaisle.com` (or `https://theveganaisle.com` if you prefer non-www)
+- **Key**: `CANONICAL_URL` (or `CLIENT_URL`)
+- **Value**: `https://theveganaisle.com` (no www - matches your redirect configuration)
 
 ### Verify It's Working
 
@@ -34,7 +36,8 @@ Make sure your **backend** has the correct `CLIENT_URL` environment variable set
    ```
    
    Look for URLs like:
-   - ✅ `https://www.theveganaisle.com/products/...`
+   - ✅ `https://theveganaisle.com/products/...`
+   - ❌ NOT `https://www.theveganaisle.com/products/...` (would cause redirect issues)
    - ❌ NOT `https://plant-pantry-frontend.onrender.com/products/...`
 
 2. **After frontend build, check the static sitemap:**
@@ -47,22 +50,20 @@ Make sure your **backend** has the correct `CLIENT_URL` environment variable set
 ## Safety Features
 
 The sitemap generator has built-in protection:
-- If `CLIENT_URL` contains "onrender.com" or "render.com", it automatically uses `https://www.theveganaisle.com`
+- If `CLIENT_URL` contains "onrender.com" or "render.com", it automatically uses `https://theveganaisle.com`
 - This prevents accidental use of Render URLs in the sitemap
 
-## Choosing www vs non-www
+## Why Non-www?
 
-**Recommendation: Use `www.theveganaisle.com`**
-- More professional appearance
-- Better for email addresses (www@theveganaisle.com)
-- Easier to set up cookies for subdomains
-- More common convention
+Your hosting is configured to redirect www → non-www. This means:
+- `theveganaisle.com` = canonical (indexed by Google)
+- `www.theveganaisle.com` = redirects to non-www (won't be indexed directly)
 
-If you prefer non-www, set `CLIENT_URL=https://theveganaisle.com` in your backend.
+**The sitemap must match the canonical URL** to avoid "Page with redirect" issues in Google Search Console.
 
 ## Important Notes
 
 - The Render frontend URL (`plant-pantry-frontend.onrender.com`) should **never** appear in your sitemap
-- Google should only index your canonical domain
+- Google should only index your canonical domain (`theveganaisle.com`)
 - Make sure your domain is properly configured in Render to point to your frontend service
-- Set up redirects so both www and non-www work (choose one as canonical)
+- The www redirect is handled at the hosting/DNS level

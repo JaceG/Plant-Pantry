@@ -10,20 +10,19 @@ import {
 
 const router = Router();
 
-// Use CLIENT_URL from env, but ensure it's always the canonical domain (not Render URL)
-// This ensures sitemap URLs point to the actual domain, not the Render deployment URL
-// Prefer www.theveganaisle.com for SEO, but allow non-www if that's what's configured
+// Use the canonical domain (non-www) since that's what the hosting is configured for
+// The www version redirects to non-www, so sitemap must use non-www to avoid redirect issues
 let BASE_URL =
-	process.env.CLIENT_URL ||
 	process.env.CANONICAL_URL ||
-	'https://www.theveganaisle.com';
+	process.env.CLIENT_URL ||
+	'https://theveganaisle.com';
 
 // Safety check: Never use Render URLs in sitemap - always use the canonical domain
 if (BASE_URL.includes('onrender.com') || BASE_URL.includes('render.com')) {
 	console.warn(
 		'⚠️  CLIENT_URL contains Render URL. Using canonical domain instead.'
 	);
-	BASE_URL = 'https://www.theveganaisle.com';
+	BASE_URL = 'https://theveganaisle.com';
 }
 
 /**
