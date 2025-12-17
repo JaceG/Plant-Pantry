@@ -29,7 +29,7 @@ export function ProductDetailScreen() {
 	const navigate = useNavigate();
 	const { product, loading, error, refresh } = useProductDetail(id);
 	const { getOrCreateDefaultList, addItem, addingItem } = useShoppingList();
-	const { isAdmin, isAuthenticated, user } = useAuth();
+	const { isAdmin, isAuthenticated } = useAuth();
 
 	const [toast, setToast] = useState<{
 		message: string;
