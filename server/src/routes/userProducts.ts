@@ -178,7 +178,67 @@ router.delete(
 	}
 );
 
-// POST /api/user-products/edit-api-product - Edit an API product (admin only)
+// POST /api/user-products/suggest-edit - Suggest an edit to any product (all authenticated users)
+// Creates a pending edit that admins will review
+router.post(
+	'/suggest-edit',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const userId = req.userId;
+			if (!userId) {
+				throw new HttpError('User not authenticated', 401);
+			}
+
+			const {
+				sourceProductId,
+				name,
+				brand,
+				description,
+				sizeOrVariant,
+				categories,
+				tags,
+				isStrictVegan,
+				imageUrl,
+				nutritionSummary,
+				ingredientSummary,
+				storeAvailabilities,
+				chainAvailabilities,
+			} = req.body;
+
+			// Validation
+			if (!sourceProductId) {
+				throw new HttpError('sourceProductId is required', 400);
+			}
+			if (!name || !brand) {
+				throw new HttpError('Name and brand are required', 400);
+			}
+
+			// Create as a suggested edit - will be pending for non-trusted users
+			const product = await userProductService.createProduct({
+				userId,
+				name,
+				brand,
+				description,
+				sizeOrVariant,
+				categories: categories || [],
+				tags: tags || ['vegan'],
+				isStrictVegan: isStrictVegan !== false,
+				imageUrl,
+				nutritionSummary,
+				ingredientSummary,
+				storeAvailabilities: storeAvailabilities || [],
+				chainAvailabilities: chainAvailabilities || [],
+				sourceProductId, // This marks it as an edit of the source product
+			});
+
+			res.status(201).json({ product });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+// POST /api/user-products/edit-api-product - Edit an API product (admin only, immediate approval)
 router.post(
 	'/edit-api-product',
 	authMiddleware,

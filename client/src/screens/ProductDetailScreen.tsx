@@ -614,10 +614,7 @@ export function ProductDetailScreen() {
 					<Link to={`/brands/${encodeURIComponent(product.brand)}`}>
 						{product.brand}
 					</Link>
-					{(isAdmin ||
-						(isAuthenticated &&
-							product._source === 'user_contribution' &&
-							product._userId === user?.id)) && (
+					{isAuthenticated && (
 						<>
 							<span className='separator'>/</span>
 							<button
@@ -729,10 +726,7 @@ export function ProductDetailScreen() {
 						)}
 
 						<div className='detail-actions'>
-							{(isAdmin ||
-								(isAuthenticated &&
-									product._source === 'user_contribution' &&
-									product._userId === user?.id)) && (
+							{isAuthenticated && (
 								<Button
 									onClick={() => setIsEditMode(true)}
 									variant='secondary'

@@ -13,6 +13,7 @@ import { useToast } from '../Common/useToast';
 import { AutocompleteInput } from './AutocompleteInput';
 import { StoreAvailabilitySelector } from './StoreAvailabilitySelector';
 import { productEvents } from '../../utils/productEvents';
+import { useAuth } from '../../context/AuthContext';
 import './AddProductForm.css';
 
 // Standard dietary tags that should always be available
@@ -49,7 +50,11 @@ export function EditProductForm({
 	onCancel,
 }: EditProductFormProps) {
 	const { showToast, toast, hideToast } = useToast();
+	const { isAdmin, user } = useAuth();
 	const [loading, setLoading] = useState(false);
+
+	// Check if user owns this product
+	const isOwner = user?.id === product._userId;
 	const [formData, setFormData] = useState<
 		CreateUserProductInput & { sourceProductId?: string }
 	>({
@@ -215,13 +220,51 @@ export function EditProductForm({
 		setLoading(true);
 		try {
 			let response;
+			let isPendingEdit = false;
 
-			// If this is an API product (has sourceProductId), use edit-api-product endpoint
-			// Otherwise, it's a user product, so use the regular update endpoint
-			if (formData.sourceProductId && product._source === 'api') {
-				// Editing an API product - use the edit endpoint
-				response = await userProductsApi.editApiProduct({
-					sourceProductId: formData.sourceProductId,
+			// Determine which API to use based on permissions:
+			// 1. Admin editing API product → editApiProduct (immediate)
+			// 2. Admin editing user product → updateProduct (immediate)
+			// 3. Owner editing their own product → updateProduct (immediate)
+			// 4. Regular user editing any product → suggestEdit (pending review)
+
+			if (isAdmin) {
+				// Admins can edit anything directly
+				if (product._source === 'api') {
+					response = await userProductsApi.editApiProduct({
+						sourceProductId: product.id,
+						name: formData.name,
+						brand: formData.brand,
+						description: formData.description,
+						sizeOrVariant: formData.sizeOrVariant,
+						categories: formData.categories,
+						tags: formData.tags,
+						isStrictVegan: formData.isStrictVegan,
+						imageUrl: formData.imageUrl,
+						nutritionSummary: formData.nutritionSummary,
+						ingredientSummary: formData.ingredientSummary,
+						storeAvailabilities: formData.storeAvailabilities,
+						chainAvailabilities: formData.chainAvailabilities,
+					});
+				} else {
+					const { sourceProductId, ...updateData } = formData;
+					response = await userProductsApi.updateProduct(
+						product.id,
+						updateData
+					);
+				}
+			} else if (isOwner && product._source === 'user_contribution') {
+				// Owner editing their own user-contributed product
+				const { sourceProductId, ...updateData } = formData;
+				response = await userProductsApi.updateProduct(
+					product.id,
+					updateData
+				);
+			} else {
+				// Regular user suggesting an edit (goes to pending review)
+				isPendingEdit = true;
+				response = await userProductsApi.suggestEdit({
+					sourceProductId: product.id,
 					name: formData.name,
 					brand: formData.brand,
 					description: formData.description,
@@ -235,17 +278,16 @@ export function EditProductForm({
 					storeAvailabilities: formData.storeAvailabilities,
 					chainAvailabilities: formData.chainAvailabilities,
 				});
-			} else {
-				// Editing a user product - use update endpoint
-				// Remove sourceProductId from the update payload for user products
-				const { sourceProductId, ...updateData } = formData;
-				response = await userProductsApi.updateProduct(
-					product.id,
-					updateData
-				);
 			}
 
-			showToast('Product updated successfully!', 'success');
+			if (isPendingEdit) {
+				showToast(
+					'Your edit has been submitted for review. It will be visible after admin approval.',
+					'success'
+				);
+			} else {
+				showToast('Product updated successfully!', 'success');
+			}
 			// Emit event so other pages can refresh their product data
 			console.log(
 				'[EditProductForm] About to emit product:updated for:',
@@ -261,12 +303,17 @@ export function EditProductForm({
 		}
 	};
 
+	// Determine if this edit will need review
+	const willNeedReview = !isAdmin && !isOwner;
+
 	return (
 		<div className='add-product-form-container'>
 			<div className='add-product-form-header'>
-				<h1>Edit Product</h1>
+				<h1>{willNeedReview ? 'Suggest Edit' : 'Edit Product'}</h1>
 				<p className='form-subtitle'>
-					{product._source === 'api'
+					{willNeedReview
+						? 'Your suggested changes will be submitted for admin review.'
+						: product._source === 'api'
 						? 'Editing API-sourced product. Changes will override the original.'
 						: 'Edit product details'}
 				</p>
@@ -494,7 +541,11 @@ export function EditProductForm({
 						Cancel
 					</Button>
 					<Button type='submit' variant='primary' disabled={loading}>
-						{loading ? 'Saving...' : 'Save Changes'}
+						{loading
+							? 'Saving...'
+							: willNeedReview
+							? 'Submit for Review'
+							: 'Save Changes'}
 					</Button>
 				</div>
 			</form>

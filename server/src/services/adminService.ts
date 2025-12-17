@@ -54,11 +54,27 @@ export interface PendingProduct {
 	id: string;
 	name: string;
 	brand: string;
+	description?: string;
+	sizeOrVariant?: string;
 	categories: string[];
+	tags?: string[];
 	imageUrl?: string;
 	userId: string;
 	userEmail?: string;
 	createdAt: Date;
+	// For edit suggestions - reference to the original product being edited
+	sourceProductId?: string;
+	isEditSuggestion: boolean;
+	originalProduct?: {
+		id: string;
+		name: string;
+		brand: string;
+		description?: string;
+		sizeOrVariant?: string;
+		categories: string[];
+		tags?: string[];
+		imageUrl?: string;
+	};
 }
 
 export interface AdminUser {
@@ -233,30 +249,153 @@ export const adminService = {
 			.lean();
 		const userMap = new Map(users.map((u) => [u._id.toString(), u.email]));
 
-		const items: PendingProduct[] = products.map((p) => ({
-			id: p._id.toString(),
-			name: p.name,
-			brand: p.brand,
-			categories: p.categories,
-			imageUrl: p.imageUrl,
-			userId: p.userId.toString(),
-			userEmail: userMap.get(p.userId.toString()),
-			createdAt: p.createdAt,
-		}));
+		// Get original products for edit suggestions
+		const sourceProductIds = products
+			.filter((p) => p.sourceProductId)
+			.map((p) => p.sourceProductId);
+
+		// Fetch from both API products and user products
+		const [apiProducts, userProducts] = await Promise.all([
+			sourceProductIds.length > 0
+				? Product.find({ _id: { $in: sourceProductIds } })
+						.select(
+							'_id name brand description sizeOrVariant categories tags imageUrl'
+						)
+						.lean()
+				: Promise.resolve([]),
+			sourceProductIds.length > 0
+				? UserProduct.find({
+						_id: { $in: sourceProductIds },
+						status: 'approved',
+				  })
+						.select(
+							'_id name brand description sizeOrVariant categories tags imageUrl'
+						)
+						.lean()
+				: Promise.resolve([]),
+		]);
+
+		// Create a map of original products
+		const originalProductMap = new Map<
+			string,
+			{
+				id: string;
+				name: string;
+				brand: string;
+				description?: string;
+				sizeOrVariant?: string;
+				categories: string[];
+				tags?: string[];
+				imageUrl?: string;
+			}
+		>();
+
+		[...apiProducts, ...userProducts].forEach((p) => {
+			originalProductMap.set(p._id.toString(), {
+				id: p._id.toString(),
+				name: p.name,
+				brand: p.brand,
+				description: p.description,
+				sizeOrVariant: p.sizeOrVariant,
+				categories: p.categories || [],
+				tags: p.tags,
+				imageUrl: p.imageUrl,
+			});
+		});
+
+		const items: PendingProduct[] = products.map((p) => {
+			const sourceId = p.sourceProductId?.toString();
+			const originalProduct = sourceId
+				? originalProductMap.get(sourceId)
+				: undefined;
+
+			return {
+				id: p._id.toString(),
+				name: p.name,
+				brand: p.brand,
+				description: p.description,
+				sizeOrVariant: p.sizeOrVariant,
+				categories: p.categories,
+				tags: p.tags,
+				imageUrl: p.imageUrl,
+				userId: p.userId.toString(),
+				userEmail: userMap.get(p.userId.toString()),
+				createdAt: p.createdAt,
+				sourceProductId: sourceId,
+				isEditSuggestion: !!sourceId,
+				originalProduct,
+			};
+		});
 
 		return { items, total, page, pageSize };
 	},
 
 	/**
 	 * Approve a pending product
+	 * For edit suggestions (products with sourceProductId), this applies the changes
 	 */
 	async approveProduct(productId: string): Promise<boolean> {
-		const result = await UserProduct.findByIdAndUpdate(
-			productId,
-			{ status: 'approved' },
-			{ new: true }
-		);
-		return !!result;
+		// First, get the pending product to check if it's an edit suggestion
+		const pendingProduct = await UserProduct.findById(productId).lean();
+		if (!pendingProduct) {
+			return false;
+		}
+
+		// Check if this is an edit suggestion (has sourceProductId)
+		if (pendingProduct.sourceProductId) {
+			const sourceId = pendingProduct.sourceProductId.toString();
+
+			// Check if the source is a UserProduct (user-contributed product)
+			const sourceUserProduct = await UserProduct.findById(
+				sourceId
+			).lean();
+
+			if (sourceUserProduct) {
+				// Source is a user product - apply changes to the original
+				// Use $set to explicitly set all fields, including empty values
+				// This ensures deletions (field cleared to empty) are applied
+				await UserProduct.findByIdAndUpdate(sourceId, {
+					$set: {
+						name: pendingProduct.name,
+						brand: pendingProduct.brand,
+						// Use empty string for optional text fields if undefined/null
+						description: pendingProduct.description ?? '',
+						sizeOrVariant: pendingProduct.sizeOrVariant ?? '',
+						categories: pendingProduct.categories || [],
+						tags: pendingProduct.tags || [],
+						isStrictVegan: pendingProduct.isStrictVegan ?? true,
+						imageUrl: pendingProduct.imageUrl ?? '',
+						nutritionSummary: pendingProduct.nutritionSummary ?? '',
+						ingredientSummary:
+							pendingProduct.ingredientSummary ?? '',
+						chainAvailabilities:
+							pendingProduct.chainAvailabilities || [],
+						updatedAt: new Date(),
+					},
+				});
+
+				// Delete the suggestion since changes are applied to original
+				await UserProduct.findByIdAndDelete(productId);
+				return true;
+			} else {
+				// Source is an API product - approve the edit as an override
+				// The system will use this UserProduct instead of the API product
+				// Make sure sourceProductId is stored as ObjectId for proper lookup
+				await UserProduct.findByIdAndUpdate(productId, {
+					status: 'approved',
+					sourceProductId: new mongoose.Types.ObjectId(sourceId),
+				});
+				return true;
+			}
+		} else {
+			// Not an edit suggestion - just approve the new product
+			const result = await UserProduct.findByIdAndUpdate(
+				productId,
+				{ status: 'approved' },
+				{ new: true }
+			);
+			return !!result;
+		}
 	},
 
 	/**
@@ -268,6 +407,7 @@ export const adminService = {
 			{
 				status: 'rejected',
 				rejectionReason: reason,
+				rejectedAt: new Date(),
 			},
 			{ new: true }
 		);

@@ -1,10 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import {
-	adminApi,
-	AdminBrand,
-	BrandRef,
-} from '../../api/adminApi';
+import { adminApi, AdminBrand, BrandRef } from '../../api/adminApi';
 import { AdminLayout } from './AdminLayout';
 import { Button } from '../../components/Common/Button';
 import { Toast } from '../../components/Common/Toast';

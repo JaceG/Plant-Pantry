@@ -761,8 +761,12 @@ export const productService = {
 
 		// First, check if there's an edited version (UserProduct with sourceProductId matching this ID)
 		// Also check for pending products owned by the current user
+		// Convert productId to ObjectId for proper comparison (sourceProductId is stored as ObjectId)
+		const sourceProductIdQuery = mongoose.Types.ObjectId.isValid(productId)
+			? new mongoose.Types.ObjectId(productId)
+			: productId;
 		const editedProductQuery: any = {
-			sourceProductId: productId,
+			sourceProductId: sourceProductIdQuery,
 			...archivedCondition,
 			$or: [
 				{ status: 'approved' },
@@ -982,7 +986,7 @@ export const productService = {
 			name: product.name || '',
 			brand: product.brand || '',
 			description: product.description,
-			sizeOrVariant: product.sizeOrVariant || 'Standard',
+			sizeOrVariant: product.sizeOrVariant ?? '',
 			categories: product.categories || [],
 			tags: product.tags || [],
 			isStrictVegan: product.isStrictVegan ?? true,
@@ -1479,13 +1483,14 @@ export const productService = {
 					// Merge the override data with the original, keeping the original ID
 					return {
 						...product,
-						name: override.name || product.name,
-						brand: override.brand || product.brand,
+						// Use ?? to preserve empty strings from overrides
+						name: override.name ?? product.name,
+						brand: override.brand ?? product.brand,
 						sizeOrVariant:
-							override.sizeOrVariant || product.sizeOrVariant,
-						imageUrl: override.imageUrl || product.imageUrl,
-						categories: override.categories || product.categories,
-						tags: override.tags || product.tags,
+							override.sizeOrVariant ?? product.sizeOrVariant,
+						imageUrl: override.imageUrl ?? product.imageUrl,
+						categories: override.categories ?? product.categories,
+						tags: override.tags ?? product.tags,
 					};
 				}
 				return product;

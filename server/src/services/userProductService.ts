@@ -170,18 +170,20 @@ export const userProductService = {
 			});
 		}
 
+		// Explicitly set empty strings for optional fields to preserve deletions
+		// This ensures that when a user clears a field, the empty value is saved
 		const productData: any = {
 			userId: new mongoose.Types.ObjectId(input.userId),
 			name: input.name,
 			brand: input.brand,
-			description: input.description,
-			sizeOrVariant: input.sizeOrVariant || 'Standard',
+			description: input.description ?? '', // Preserve empty string
+			sizeOrVariant: input.sizeOrVariant ?? '',
 			categories: input.categories || [],
 			tags: input.tags || ['vegan'],
 			isStrictVegan: input.isStrictVegan !== false,
-			imageUrl: input.imageUrl,
-			nutritionSummary: input.nutritionSummary,
-			ingredientSummary: input.ingredientSummary,
+			imageUrl: input.imageUrl ?? '', // Preserve empty string
+			nutritionSummary: input.nutritionSummary ?? '', // Preserve empty string
+			ingredientSummary: input.ingredientSummary ?? '', // Preserve empty string
 			chainAvailabilities: (input.chainAvailabilities || []).map((c) => ({
 				chainId: new mongoose.Types.ObjectId(c.chainId),
 				includeRelatedCompany: c.includeRelatedCompany !== false,

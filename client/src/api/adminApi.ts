@@ -45,11 +45,27 @@ export interface PendingProduct {
 	id: string;
 	name: string;
 	brand: string;
+	description?: string;
+	sizeOrVariant?: string;
 	categories: string[];
+	tags?: string[];
 	imageUrl?: string;
 	userId: string;
 	userEmail?: string;
 	createdAt: string;
+	// For edit suggestions - reference to the original product being edited
+	sourceProductId?: string;
+	isEditSuggestion: boolean;
+	originalProduct?: {
+		id: string;
+		name: string;
+		brand: string;
+		description?: string;
+		sizeOrVariant?: string;
+		categories: string[];
+		tags?: string[];
+		imageUrl?: string;
+	};
 }
 
 export interface AdminProduct {

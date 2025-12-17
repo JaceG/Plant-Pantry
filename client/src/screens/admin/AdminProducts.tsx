@@ -119,18 +119,20 @@ export function AdminProducts() {
 	};
 
 	const handleReject = async (productId: string) => {
-		const reason = window.prompt('Rejection reason (optional):');
-
 		setActionLoading(productId);
 		try {
-			await adminApi.rejectProduct(productId, reason || undefined);
+			await adminApi.rejectProduct(productId);
 			setPendingProducts(
 				pendingProducts.filter((p) => p.id !== productId)
 			);
 			setPendingTotal(pendingTotal - 1);
 			setToast({ message: 'Product rejected', type: 'success' });
-		} catch (err) {
-			setToast({ message: 'Failed to reject product', type: 'error' });
+		} catch (err: any) {
+			console.error('Failed to reject product:', err);
+			setToast({
+				message: err?.message || 'Failed to reject product',
+				type: 'error',
+			});
 		} finally {
 			setActionLoading(null);
 		}
@@ -303,7 +305,25 @@ export function AdminProducts() {
 							  pendingProducts.map((product) => (
 									<div
 										key={product.id}
-										className='product-card'>
+										className={`product-card ${
+											product.isEditSuggestion
+												? 'edit-suggestion'
+												: ''
+										}`}>
+										{product.isEditSuggestion && (
+											<div className='edit-suggestion-badge'>
+												✏️ Edit Suggestion
+												{product.originalProduct && (
+													<Link
+														to={`/products/${product.sourceProductId}`}
+														target='_blank'
+														className='view-original-link'>
+														View Original →
+													</Link>
+												)}
+											</div>
+										)}
+
 										<div className='product-image'>
 											{product.imageUrl ? (
 												<img
@@ -320,10 +340,271 @@ export function AdminProducts() {
 										<div className='product-info'>
 											<h3 className='product-name'>
 												{product.name}
+												{product.isEditSuggestion &&
+													product.originalProduct &&
+													product.name !==
+														product.originalProduct
+															.name && (
+														<span className='changed-indicator'>
+															(was:{' '}
+															{
+																product
+																	.originalProduct
+																	.name
+															}
+															)
+														</span>
+													)}
 											</h3>
 											<p className='product-brand'>
 												{product.brand}
+												{product.isEditSuggestion &&
+													product.originalProduct &&
+													product.brand !==
+														product.originalProduct
+															.brand && (
+														<span className='changed-indicator'>
+															(was:{' '}
+															{
+																product
+																	.originalProduct
+																	.brand
+															}
+															)
+														</span>
+													)}
 											</p>
+
+											{product.isEditSuggestion &&
+												product.originalProduct && (
+													<div className='edit-changes-summary'>
+														<strong>
+															Changes:
+														</strong>
+														<div className='changes-diff'>
+															{product.name !==
+																product
+																	.originalProduct
+																	.name && (
+																<div className='diff-row'>
+																	<span className='diff-label'>
+																		Name:
+																	</span>
+																	<span className='diff-original'>
+																		{product
+																			.originalProduct
+																			.name ||
+																			'(empty)'}
+																	</span>
+																	<span className='diff-arrow'>
+																		→
+																	</span>
+																	<span className='diff-new'>
+																		{product.name ||
+																			'(empty)'}
+																	</span>
+																</div>
+															)}
+															{product.brand !==
+																product
+																	.originalProduct
+																	.brand && (
+																<div className='diff-row'>
+																	<span className='diff-label'>
+																		Brand:
+																	</span>
+																	<span className='diff-original'>
+																		{product
+																			.originalProduct
+																			.brand ||
+																			'(empty)'}
+																	</span>
+																	<span className='diff-arrow'>
+																		→
+																	</span>
+																	<span className='diff-new'>
+																		{product.brand ||
+																			'(empty)'}
+																	</span>
+																</div>
+															)}
+															{product.description !==
+																product
+																	.originalProduct
+																	.description && (
+																<div className='diff-row'>
+																	<span className='diff-label'>
+																		Description:
+																	</span>
+																	<span className='diff-original'>
+																		{product
+																			.originalProduct
+																			.description ||
+																			'(empty)'}
+																	</span>
+																	<span className='diff-arrow'>
+																		→
+																	</span>
+																	<span className='diff-new'>
+																		{product.description ||
+																			'(deleted)'}
+																	</span>
+																</div>
+															)}
+															{product.sizeOrVariant !==
+																product
+																	.originalProduct
+																	.sizeOrVariant && (
+																<div className='diff-row'>
+																	<span className='diff-label'>
+																		Size/Variant:
+																	</span>
+																	<span className='diff-original'>
+																		{product
+																			.originalProduct
+																			.sizeOrVariant ||
+																			'(empty)'}
+																	</span>
+																	<span className='diff-arrow'>
+																		→
+																	</span>
+																	<span className='diff-new'>
+																		{product.sizeOrVariant ||
+																			'(deleted)'}
+																	</span>
+																</div>
+															)}
+															{JSON.stringify(
+																product.categories
+															) !==
+																JSON.stringify(
+																	product
+																		.originalProduct
+																		.categories
+																) && (
+																<div className='diff-row'>
+																	<span className='diff-label'>
+																		Categories:
+																	</span>
+																	<span className='diff-original'>
+																		{product
+																			.originalProduct
+																			.categories
+																			?.length
+																			? product.originalProduct.categories.join(
+																					', '
+																			  )
+																			: '(none)'}
+																	</span>
+																	<span className='diff-arrow'>
+																		→
+																	</span>
+																	<span className='diff-new'>
+																		{product
+																			.categories
+																			?.length
+																			? product.categories.join(
+																					', '
+																			  )
+																			: '(none)'}
+																	</span>
+																</div>
+															)}
+															{JSON.stringify(
+																product.tags
+															) !==
+																JSON.stringify(
+																	product
+																		.originalProduct
+																		.tags
+																) && (
+																<div className='diff-row'>
+																	<span className='diff-label'>
+																		Tags:
+																	</span>
+																	<span className='diff-original'>
+																		{product
+																			.originalProduct
+																			.tags
+																			?.length
+																			? product.originalProduct.tags.join(
+																					', '
+																			  )
+																			: '(none)'}
+																	</span>
+																	<span className='diff-arrow'>
+																		→
+																	</span>
+																	<span className='diff-new'>
+																		{product
+																			.tags
+																			?.length
+																			? product.tags.join(
+																					', '
+																			  )
+																			: '(none)'}
+																	</span>
+																</div>
+															)}
+															{product.imageUrl !==
+																product
+																	.originalProduct
+																	.imageUrl && (
+																<div className='diff-row diff-row-image'>
+																	<span className='diff-label'>
+																		Image:
+																	</span>
+																	<div className='diff-images'>
+																		<div className='diff-image-box'>
+																			<span className='diff-image-label'>
+																				Before:
+																			</span>
+																			{product
+																				.originalProduct
+																				.imageUrl ? (
+																				<img
+																					src={
+																						product
+																							.originalProduct
+																							.imageUrl
+																					}
+																					alt='Original'
+																					className='diff-image-preview'
+																				/>
+																			) : (
+																				<span className='diff-no-image'>
+																					(no
+																					image)
+																				</span>
+																			)}
+																		</div>
+																		<span className='diff-arrow'>
+																			→
+																		</span>
+																		<div className='diff-image-box'>
+																			<span className='diff-image-label'>
+																				After:
+																			</span>
+																			{product.imageUrl ? (
+																				<img
+																					src={
+																						product.imageUrl
+																					}
+																					alt='New'
+																					className='diff-image-preview'
+																				/>
+																			) : (
+																				<span className='diff-no-image'>
+																					(removed)
+																				</span>
+																			)}
+																		</div>
+																	</div>
+																</div>
+															)}
+														</div>
+													</div>
+												)}
 
 											{product.categories.length > 0 && (
 												<div className='product-categories'>

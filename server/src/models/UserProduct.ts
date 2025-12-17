@@ -32,6 +32,8 @@ export interface IUserProduct extends Document {
 	// Metadata
 	source: 'user_contribution';
 	status: 'pending' | 'approved' | 'rejected'; // For moderation if needed
+	rejectionReason?: string; // Reason for rejection
+	rejectedAt?: Date; // When the product was rejected
 	// Review tracking (separate from status for trusted contributors)
 	needsReview: boolean; // True if content needs admin review
 	trustedContribution: boolean; // True if submitted by a trusted contributor
@@ -73,7 +75,6 @@ const userProductSchema = new Schema<IUserProduct>(
 		},
 		sizeOrVariant: {
 			type: String,
-			required: true,
 			trim: true,
 			default: 'Standard',
 		},
@@ -122,6 +123,13 @@ const userProductSchema = new Schema<IUserProduct>(
 			type: String,
 			enum: ['pending', 'approved', 'rejected'],
 			default: 'pending', // Require moderation for all user contributions
+		},
+		rejectionReason: {
+			type: String,
+			trim: true,
+		},
+		rejectedAt: {
+			type: Date,
 		},
 		// Review tracking (separate from status for trusted contributors)
 		needsReview: {
