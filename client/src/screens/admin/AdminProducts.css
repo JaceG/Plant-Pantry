@@ -305,6 +305,28 @@
   background: linear-gradient(135deg, var(--color-white) 0%, var(--color-mint) 100%);
 }
 
+/* New Product Styles */
+.admin-products .product-card.new-product {
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, var(--color-white) 0%, #eff6ff 100%);
+}
+
+.new-product-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #3b82f6;
+  color: var(--color-white);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  position: absolute;
+  top: -0.5rem;
+  left: 1rem;
+  z-index: 10;
+}
+
 .edit-suggestion-badge {
   display: flex;
   align-items: center;

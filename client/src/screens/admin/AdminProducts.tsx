@@ -308,9 +308,9 @@ export function AdminProducts() {
 										className={`product-card ${
 											product.isEditSuggestion
 												? 'edit-suggestion'
-												: ''
+												: 'new-product'
 										}`}>
-										{product.isEditSuggestion && (
+										{product.isEditSuggestion ? (
 											<div className='edit-suggestion-badge'>
 												✏️ Edit Suggestion
 												{product.originalProduct && (
@@ -321,6 +321,10 @@ export function AdminProducts() {
 														View Original →
 													</Link>
 												)}
+											</div>
+										) : (
+											<div className='new-product-badge'>
+												✨ New Product
 											</div>
 										)}
 
