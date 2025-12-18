@@ -185,6 +185,14 @@
 	align-items: center;
 	margin-bottom: 1rem;
 	min-height: 2rem;
+	position: sticky;
+	top: 0;
+	background: var(--color-white);
+	padding: 0.75rem 1rem;
+	margin: -0.5rem -1rem 1rem -1rem;
+	border-bottom: 1px solid var(--color-sage-light);
+	z-index: 100;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .selection-count {
