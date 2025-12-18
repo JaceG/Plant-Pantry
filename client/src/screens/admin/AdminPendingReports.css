@@ -1,23 +1,6 @@
 .admin-pending-reports {
 	max-width: 1100px;
-	height: calc(100vh - 4rem);
-	display: flex;
-	flex-direction: column;
-	overflow: hidden;
-}
-
-.admin-pending-reports .page-header {
-	flex-shrink: 0;
-}
-
-.admin-pending-reports .bulk-actions {
-	flex-shrink: 0;
-}
-
-.admin-pending-reports .cities-list {
-	flex: 1;
-	overflow-y: auto;
-	min-height: 0;
+	padding-bottom: 2rem;
 }
 
 /* Header */
