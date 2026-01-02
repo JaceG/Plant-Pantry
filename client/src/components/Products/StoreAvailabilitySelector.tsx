@@ -680,12 +680,6 @@ export function StoreAvailabilitySelector({
 		setter(cleaned);
 	};
 
-	// Helper function to format price for display (adds $ prefix)
-	const formatPriceDisplay = (value: string): string => {
-		if (!value) return '';
-		return '$' + value;
-	};
-
 	// Count stores by type for display
 	const physicalStoreCount = stores.filter(
 		(s) => s.type === 'brick_and_mortar'
