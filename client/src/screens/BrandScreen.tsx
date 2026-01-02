@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
 	productsApi,
 	brandsApi,
@@ -20,6 +20,7 @@ export function BrandScreen() {
 	const { brandName } = useParams<{ brandName: string }>();
 	const decodedBrandName = brandName ? decodeURIComponent(brandName) : '';
 	const { isAuthenticated } = useAuth();
+	const navigate = useNavigate();
 
 	// Products state
 	const [products, setProducts] = useState<ProductSummary[]>([]);
@@ -125,6 +126,13 @@ export function BrandScreen() {
 		}
 	}, [decodedBrandName]);
 
+	// Reset state when brand name changes to prevent stale data display
+	useEffect(() => {
+		setBrandPageData(null);
+		setProducts([]);
+		setStoresData(null);
+	}, [decodedBrandName]);
+
 	useEffect(() => {
 		fetchProducts();
 	}, [fetchProducts]);
@@ -136,6 +144,16 @@ export function BrandScreen() {
 	useEffect(() => {
 		fetchBrandPage();
 	}, [fetchBrandPage]);
+
+	// Redirect sub-brand pages to the official brand page
+	useEffect(() => {
+		if (brandPageData?.parentBrand?.slug) {
+			// This is a sub-brand - redirect to the official brand page
+			navigate(`/brands/${encodeURIComponent(brandPageData.parentBrand.slug)}`, {
+				replace: true,
+			});
+		}
+	}, [brandPageData, navigate]);
 
 	// Listen for product update events and refetch
 	const lastFetchTimeRef = useRef<number>(Date.now());
@@ -312,20 +330,19 @@ export function BrandScreen() {
 					<nav className='breadcrumb'>
 						<Link to='/'>Products</Link>
 						<span className='separator'>/</span>
-						{brandPageData?.parentBrand && (
-							<>
-								<Link
-									to={`/brands/${encodeURIComponent(
-										brandPageData.parentBrand.slug
-									)}`}>
-									{brandPageData.parentBrand.displayName}
-								</Link>
-								<span className='separator'>/</span>
-							</>
+						{/* If this is a sub-brand with a parent, show linked parent brand (stop at official) */}
+						{brandPageData?.parentBrand ? (
+							<Link
+								to={`/brands/${encodeURIComponent(
+									brandPageData.parentBrand.slug
+								)}`}>
+								{brandPageData.parentBrand.displayName}
+							</Link>
+						) : (
+							<span>
+								{brandPageData?.displayName || decodedBrandName}
+							</span>
 						)}
-						<span>
-							{brandPageData?.displayName || decodedBrandName}
-						</span>
 						{isAuthenticated && (
 							<button
 								className='edit-page-toggle'

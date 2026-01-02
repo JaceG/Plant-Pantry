@@ -278,8 +278,13 @@ export const productService = {
 			// Filter by brand (case-insensitive exact match)
 			// If brand is an official brand with child brands, include products from all child brands
 			if (brand) {
-				// First, check if this brand is an official brand with children
-				const brandPage = await BrandPage.findOne({
+				const brandSlug = brand
+					.toLowerCase()
+					.replace(/[^a-z0-9]+/g, '-')
+					.replace(/^-|-$/g, '');
+
+				// First, try to find the brand page by name or slug
+				let brandPage = await BrandPage.findOne({
 					$or: [
 						{
 							brandName: {
@@ -292,17 +297,23 @@ export const productService = {
 								),
 							},
 						},
-						{
-							slug: brand
-								.toLowerCase()
-								.replace(/[^a-z0-9]+/g, '-')
-								.replace(/^-|-$/g, ''),
-						},
+						{ slug: brandSlug },
 					],
-					isOfficial: true,
 				}).lean();
 
-				if (brandPage) {
+				// If found and it has a parent, get the parent (official) brand instead
+				// This ensures sub-brand pages show products from the official brand family
+				if (brandPage && brandPage.parentBrandId) {
+					const parentBrand = await BrandPage.findOne({
+						_id: brandPage.parentBrandId,
+						isOfficial: true,
+					}).lean();
+					if (parentBrand) {
+						brandPage = parentBrand;
+					}
+				}
+
+				if (brandPage && brandPage.isOfficial) {
 					// This is an official brand - get all child brands
 					const childBrands = await BrandPage.find({
 						parentBrandId: brandPage._id,
@@ -317,8 +328,29 @@ export const productService = {
 						...childBrands.map((c) => c.brandName),
 					];
 
+					// Also add the original brand name in case it has different casing
+					if (
+						!brandNames.some(
+							(n) => n.toLowerCase() === brand.toLowerCase()
+						)
+					) {
+						brandNames.push(brand);
+					}
+
+					// Normalize brand names: collapse multiple spaces, add variants with single space
+					// This handles data inconsistencies where brand names may have extra whitespace
+					const normalizedNames = new Set<string>();
+					brandNames.forEach((name) => {
+						normalizedNames.add(name);
+						// Also add normalized version with single spaces
+						const normalized = name.replace(/\s+/g, ' ').trim();
+						if (normalized !== name) {
+							normalizedNames.add(normalized);
+						}
+					});
+
 					// Create OR query for all brand names
-					const brandRegexes = brandNames.map(
+					const brandRegexes = Array.from(normalizedNames).map(
 						(name) =>
 							new RegExp(
 								`^${name.replace(

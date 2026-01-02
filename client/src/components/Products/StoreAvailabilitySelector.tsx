@@ -667,16 +667,16 @@ export function StoreAvailabilitySelector({
 	) => {
 		// Remove $ if user tries to type it (we'll add it automatically)
 		let cleaned = value.replace(/\$/g, '');
-		
+
 		// Only allow numbers and decimal point
 		cleaned = cleaned.replace(/[^0-9.]/g, '');
-		
+
 		// Ensure only one decimal point
 		const parts = cleaned.split('.');
 		if (parts.length > 2) {
 			cleaned = parts[0] + '.' + parts.slice(1).join('');
 		}
-		
+
 		setter(cleaned);
 	};
 
@@ -1744,11 +1744,26 @@ export function StoreAvailabilitySelector({
 										<input
 											type='text'
 											placeholder='Price range'
-											value={avail.priceRange?.replace(/\$/g, '') || ''}
+											value={
+												avail.priceRange?.replace(
+													/\$/g,
+													''
+												) || ''
+											}
 											onChange={(e) => {
-												const cleaned = e.target.value.replace(/\$/g, '').replace(/[^0-9.]/g, '');
-												const parts = cleaned.split('.');
-												const validValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : cleaned;
+												const cleaned = e.target.value
+													.replace(/\$/g, '')
+													.replace(/[^0-9.]/g, '');
+												const parts =
+													cleaned.split('.');
+												const validValue =
+													parts.length > 2
+														? parts[0] +
+														  '.' +
+														  parts
+																.slice(1)
+																.join('')
+														: cleaned;
 												handleUpdatePriceRange(
 													avail.storeId,
 													validValue
@@ -1796,17 +1811,33 @@ export function StoreAvailabilitySelector({
 										<input
 											type='text'
 											placeholder='Price range'
-											value={c.priceRange?.replace(/\$/g, '') || ''}
+											value={
+												c.priceRange?.replace(
+													/\$/g,
+													''
+												) || ''
+											}
 											onChange={(e) => {
-												const cleaned = e.target.value.replace(/\$/g, '').replace(/[^0-9.]/g, '');
-												const parts = cleaned.split('.');
-												const validValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : cleaned;
+												const cleaned = e.target.value
+													.replace(/\$/g, '')
+													.replace(/[^0-9.]/g, '');
+												const parts =
+													cleaned.split('.');
+												const validValue =
+													parts.length > 2
+														? parts[0] +
+														  '.' +
+														  parts
+																.slice(1)
+																.join('')
+														: cleaned;
 												onChainChange(
 													chainValue.map((x) =>
 														x.chainId === c.chainId
 															? {
 																	...x,
-																	priceRange: validValue,
+																	priceRange:
+																		validValue,
 															  }
 															: x
 													)

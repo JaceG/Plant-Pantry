@@ -149,9 +149,14 @@ router.get(
 		try {
 			const { brandName } = req.params;
 			const decodedBrandName = decodeURIComponent(brandName);
+			const brandSlug = decodedBrandName
+				.toLowerCase()
+				.replace(/[^a-z0-9]+/g, '-')
+				.replace(/^-|-$/g, '');
 
 			// Check if this is an official brand with child brands
-			const brandPage = await BrandPage.findOne({
+			// First, try to find the brand page by name or slug
+			let brandPage = await BrandPage.findOne({
 				$or: [
 					{
 						brandName: {
@@ -164,20 +169,26 @@ router.get(
 							),
 						},
 					},
-					{
-						slug: decodedBrandName
-							.toLowerCase()
-							.replace(/[^a-z0-9]+/g, '-')
-							.replace(/^-|-$/g, ''),
-					},
+					{ slug: brandSlug },
 				],
-				isOfficial: true,
 			}).lean();
+
+			// If found and it has a parent, get the parent (official) brand instead
+			// This ensures sub-brand pages aggregate data from the official brand
+			if (brandPage && brandPage.parentBrandId) {
+				const parentBrand = await BrandPage.findOne({
+					_id: brandPage.parentBrandId,
+					isOfficial: true,
+				}).lean();
+				if (parentBrand) {
+					brandPage = parentBrand;
+				}
+			}
 
 			// Build brand query - either just this brand, or include child brands
 			let brandQuery: any;
-			if (brandPage) {
-				// Get child brands
+			if (brandPage && brandPage.isOfficial) {
+				// Get child brands for official brands
 				const childBrands = await BrandPage.find({
 					parentBrandId: brandPage._id,
 					isActive: true,
@@ -190,7 +201,29 @@ router.get(
 					...childBrands.map((c) => c.brandName),
 				];
 
-				const brandRegexes = brandNames.map(
+				// Also add the decoded brand name in case it has different casing
+				// This handles cases where the URL has different casing than stored brand names
+				if (
+					!brandNames.some(
+						(n) => n.toLowerCase() === decodedBrandName.toLowerCase()
+					)
+				) {
+					brandNames.push(decodedBrandName);
+				}
+
+				// Normalize brand names: collapse multiple spaces, add variants with single space
+				// This handles data inconsistencies where brand names may have extra whitespace
+				const normalizedNames = new Set<string>();
+				brandNames.forEach((name) => {
+					normalizedNames.add(name);
+					// Also add normalized version with single spaces
+					const normalized = name.replace(/\s+/g, ' ').trim();
+					if (normalized !== name) {
+						normalizedNames.add(normalized);
+					}
+				});
+
+				const brandRegexes = Array.from(normalizedNames).map(
 					(name) =>
 						new RegExp(
 							`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
