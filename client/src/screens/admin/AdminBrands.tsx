@@ -680,6 +680,9 @@ export function AdminBrands() {
 								</option>
 								{officialBrandRefs
 									.filter((ob) => ob.id !== assigningBrand.id)
+									.sort((a, b) =>
+										a.displayName.localeCompare(b.displayName)
+									)
 									.map((ob) => (
 										<option key={ob.id} value={ob.id}>
 											{ob.displayName}
@@ -732,11 +735,15 @@ export function AdminBrands() {
 								<option value=''>
 									-- Select official brand --
 								</option>
-								{officialBrandRefs.map((ob) => (
-									<option key={ob.id} value={ob.id}>
-										{ob.displayName}
-									</option>
-								))}
+								{[...officialBrandRefs]
+									.sort((a, b) =>
+										a.displayName.localeCompare(b.displayName)
+									)
+									.map((ob) => (
+										<option key={ob.id} value={ob.id}>
+											{ob.displayName}
+										</option>
+									))}
 							</select>
 
 							<div className='modal-actions'>

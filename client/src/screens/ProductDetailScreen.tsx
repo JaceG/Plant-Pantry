@@ -27,7 +27,7 @@ import './ProductDetailScreen.css';
 export function ProductDetailScreen() {
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
-	const { product, loading, error, refresh } = useProductDetail(id);
+	const { product, loading, error, refresh, setProduct } = useProductDetail(id);
 	const { getOrCreateDefaultList, addItem, addingItem } = useShoppingList();
 	const { isAdmin, isAuthenticated } = useAuth();
 
@@ -485,15 +485,16 @@ export function ProductDetailScreen() {
 	}, [product, getOrCreateDefaultList, addItem]);
 
 	const handleEditSave = useCallback(
-		async (_updatedProduct: ProductDetail) => {
+		async (updatedProduct: ProductDetail) => {
 			setIsEditMode(false);
-			await refresh();
+			// Directly set the updated product to avoid cache issues with refetching
+			setProduct(updatedProduct);
 			setToast({
 				message: 'Product updated successfully!',
 				type: 'success',
 			});
 		},
-		[refresh]
+		[setProduct]
 	);
 
 	const handleEditCancel = useCallback(() => {

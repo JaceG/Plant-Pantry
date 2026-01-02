@@ -28,16 +28,21 @@ function buildQueryString(filters: ProductFilters): string {
 }
 
 export const productsApi = {
-	getProducts(filters: ProductFilters = {}): Promise<ProductListResponse> {
-		const query = buildQueryString(filters);
+	getProducts(filters: ProductFilters = {}, bustCache?: boolean): Promise<ProductListResponse> {
+		const params = new URLSearchParams(buildQueryString(filters).replace('?', ''));
+		if (bustCache) params.set('_t', Date.now().toString());
+		const query = params.toString() ? `?${params.toString()}` : '';
 		return httpClient.get<ProductListResponse>(`/products${query}`);
 	},
 
 	getProductById(
 		id: string,
-		refreshAvailability?: boolean
+		options?: { refreshAvailability?: boolean; bustCache?: boolean }
 	): Promise<{ product: ProductDetail }> {
-		const query = refreshAvailability ? '?refresh=true' : '';
+		const params = new URLSearchParams();
+		if (options?.refreshAvailability) params.set('refresh', 'true');
+		if (options?.bustCache) params.set('_t', Date.now().toString());
+		const query = params.toString() ? `?${params.toString()}` : '';
 		return httpClient.get<{ product: ProductDetail }>(
 			`/products/${id}${query}`
 		);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
 	productsApi,
@@ -13,6 +13,7 @@ import { ProductSummary } from '../types';
 import { Store } from '../types/store';
 import { ProductCard, Pagination, StoreMap } from '../components';
 import { useAuth } from '../context/AuthContext';
+import { productEvents } from '../utils/productEvents';
 import './BrandScreen.css';
 
 export function BrandScreen() {
@@ -61,7 +62,7 @@ export function BrandScreen() {
 		text: string;
 	} | null>(null);
 
-	const fetchProducts = useCallback(async () => {
+	const fetchProducts = useCallback(async (bustCache: boolean = false) => {
 		if (!decodedBrandName) return;
 
 		setLoadingProducts(true);
@@ -70,7 +71,7 @@ export function BrandScreen() {
 				brand: decodedBrandName,
 				page,
 				pageSize,
-			});
+			}, bustCache);
 			setProducts(res.items);
 			setTotalCount(res.totalCount);
 		} catch (err) {
@@ -129,6 +130,20 @@ export function BrandScreen() {
 	useEffect(() => {
 		fetchBrandPage();
 	}, [fetchBrandPage]);
+
+	// Listen for product update events and refetch
+	const lastFetchTimeRef = useRef<number>(Date.now());
+	useEffect(() => {
+		const unsubscribe = productEvents.on('product:updated', (detail) => {
+			// Refetch products if update happened after our last fetch
+			if (detail.timestamp > lastFetchTimeRef.current) {
+				fetchProducts(true); // Bust cache when refetching after update
+				lastFetchTimeRef.current = Date.now();
+			}
+		});
+
+		return unsubscribe;
+	}, [fetchProducts]);
 
 	const totalPages = Math.ceil(totalCount / pageSize);
 
