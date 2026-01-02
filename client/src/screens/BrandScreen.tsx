@@ -62,25 +62,31 @@ export function BrandScreen() {
 		text: string;
 	} | null>(null);
 
-	const fetchProducts = useCallback(async (bustCache: boolean = false) => {
-		if (!decodedBrandName) return;
+	const fetchProducts = useCallback(
+		async (bustCache: boolean = false) => {
+			if (!decodedBrandName) return;
 
-		setLoadingProducts(true);
-		try {
-			const res = await productsApi.getProducts({
-				brand: decodedBrandName,
-				page,
-				pageSize,
-			}, bustCache);
-			setProducts(res.items);
-			setTotalCount(res.totalCount);
-		} catch (err) {
-			console.error('Error fetching brand products:', err);
-			setError('Failed to load products');
-		} finally {
-			setLoadingProducts(false);
-		}
-	}, [decodedBrandName, page]);
+			setLoadingProducts(true);
+			try {
+				const res = await productsApi.getProducts(
+					{
+						brand: decodedBrandName,
+						page,
+						pageSize,
+					},
+					bustCache
+				);
+				setProducts(res.items);
+				setTotalCount(res.totalCount);
+			} catch (err) {
+				console.error('Error fetching brand products:', err);
+				setError('Failed to load products');
+			} finally {
+				setLoadingProducts(false);
+			}
+		},
+		[decodedBrandName, page]
+	);
 
 	const fetchStores = useCallback(async () => {
 		if (!decodedBrandName) return;
