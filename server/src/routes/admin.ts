@@ -3377,6 +3377,45 @@ router.get(
 				}
 			}
 
+			// Also include official BrandPages that don't have any products
+			// (e.g., parent brands like "Amazon" created from scratch)
+			const processedBrandPageIds = new Set(
+				officialItems.map((item) => item.id).filter(Boolean)
+			);
+
+			for (const brandPage of existingBrandPages) {
+				if (
+					brandPage.isOfficial &&
+					!processedBrandPageIds.has(brandPage._id.toString())
+				) {
+					// This official brand has no products, add it
+					officialItems.push({
+						id: brandPage._id.toString(),
+						brandName: brandPage.brandName,
+						slug: brandPage.slug,
+						displayName: brandPage.displayName,
+						isOfficial: true,
+						isActive: brandPage.isActive,
+						productCount: 0,
+						parentBrand: brandPage.parentBrandId
+							? {
+									id: (
+										brandPage.parentBrandId as any
+									)._id?.toString(),
+									brandName: (brandPage.parentBrandId as any)
+										.brandName,
+									slug: (brandPage.parentBrandId as any).slug,
+									displayName: (
+										brandPage.parentBrandId as any
+									).displayName,
+							  }
+							: null,
+						childCount:
+							childCountMap.get(brandPage._id.toString()) || 0,
+					});
+				}
+			}
+
 			// Sort both lists alphabetically
 			officialItems.sort((a, b) =>
 				a.displayName.localeCompare(b.displayName)
@@ -3398,6 +3437,78 @@ router.get(
 					letterCounts,
 				});
 			}
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/admin/brands
+ * Create a new brand from scratch
+ * Used for creating official parent brands that don't exist in products yet
+ */
+router.post(
+	'/brands',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { brandName, isOfficial = false } = req.body;
+
+			if (!brandName || typeof brandName !== 'string') {
+				throw new HttpError('brandName is required', 400);
+			}
+
+			const trimmedName = brandName.trim();
+			if (!trimmedName) {
+				throw new HttpError('brandName cannot be empty', 400);
+			}
+
+			const slug = generateBrandSlug(trimmedName);
+
+			// Check if brand already exists (by name or slug)
+			const existing = await BrandPage.findOne({
+				$or: [
+					{
+						brandName: {
+							$regex: new RegExp(
+								`^${trimmedName.replace(
+									/[.*+?^${}()|[\]\\]/g,
+									'\\$&'
+								)}$`,
+								'i'
+							),
+						},
+					},
+					{ slug: slug },
+				],
+			});
+
+			if (existing) {
+				throw new HttpError(
+					`A brand with this name or slug already exists: "${existing.displayName}"`,
+					400
+				);
+			}
+
+			// Create the new brand
+			const newBrand = await BrandPage.create({
+				brandName: trimmedName,
+				slug: slug,
+				displayName: trimmedName,
+				isOfficial: isOfficial,
+				isActive: true,
+			});
+
+			res.status(201).json({
+				message: `Brand "${trimmedName}" created successfully`,
+				brand: {
+					id: newBrand._id.toString(),
+					brandName: newBrand.brandName,
+					slug: newBrand.slug,
+					displayName: newBrand.displayName,
+					isOfficial: newBrand.isOfficial,
+				},
+			});
 		} catch (error) {
 			next(error);
 		}

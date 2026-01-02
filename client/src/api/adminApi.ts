@@ -1089,6 +1089,20 @@ export const adminApi = {
 	},
 
 	/**
+	 * Create a new official brand from scratch
+	 * Used for creating parent brands that don't exist in products yet
+	 */
+	createOfficialBrand(brandName: string): Promise<{
+		message: string;
+		brand: { id: string; brandName: string; displayName: string };
+	}> {
+		return httpClient.post<{
+			message: string;
+			brand: { id: string; brandName: string; displayName: string };
+		}>('/admin/brands', { brandName, isOfficial: true });
+	},
+
+	/**
 	 * Assign a brand to a parent official brand
 	 * @param brandId - The brand ID or 'new' if brand has no BrandPage yet
 	 * @param parentBrandId - The parent brand ID to assign to, or null to unassign

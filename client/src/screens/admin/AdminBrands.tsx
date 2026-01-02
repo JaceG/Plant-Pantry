@@ -50,6 +50,11 @@ export function AdminBrands() {
 		new Set()
 	);
 
+	// Create new official brand modal
+	const [showCreateBrandModal, setShowCreateBrandModal] = useState(false);
+	const [newBrandName, setNewBrandName] = useState('');
+	const [createBrandLoading, setCreateBrandLoading] = useState(false);
+
 	// Fetch brands
 	const fetchBrands = useCallback(async () => {
 		try {
@@ -265,6 +270,33 @@ export function AdminBrands() {
 		});
 	};
 
+	// Create new official brand from scratch
+	const handleCreateBrand = async () => {
+		if (!newBrandName.trim()) return;
+
+		setCreateBrandLoading(true);
+		try {
+			await adminApi.createOfficialBrand(newBrandName.trim());
+			setToast({
+				message: `"${newBrandName}" created as an official brand`,
+				type: 'success',
+			});
+			setShowCreateBrandModal(false);
+			setNewBrandName('');
+			fetchBrands();
+		} catch (err) {
+			setToast({
+				message:
+					err instanceof Error
+						? err.message
+						: 'Failed to create brand',
+				type: 'error',
+			});
+		} finally {
+			setCreateBrandLoading(false);
+		}
+	};
+
 	// Calculate totals
 	const totalUnassigned = Object.values(letterCounts).reduce(
 		(sum, count) => sum + count,
@@ -307,6 +339,13 @@ export function AdminBrands() {
 						<p className='header-subtitle'>
 							Consolidate brand variations under official brands
 						</p>
+					</div>
+					<div className='header-actions'>
+						<Button
+							variant='primary'
+							onClick={() => setShowCreateBrandModal(true)}>
+							+ Create Official Brand
+						</Button>
 					</div>
 				</header>
 
@@ -708,6 +747,59 @@ export function AdminBrands() {
 									{bulkAssignLoading
 										? 'Assigning...'
 										: 'Assign'}
+								</Button>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{/* Create Official Brand Modal */}
+				{showCreateBrandModal && (
+					<div
+						className='modal-overlay'
+						onClick={() => setShowCreateBrandModal(false)}>
+						<div
+							className='modal-content'
+							onClick={(e) => e.stopPropagation()}>
+							<h3>Create New Official Brand</h3>
+							<p className='modal-description'>
+								Create a brand that doesn't currently exist in
+								the product database. This is useful for parent
+								brands like "Amazon" to group sub-brands.
+							</p>
+
+							<input
+								type='text'
+								className='brand-name-input'
+								placeholder='Enter brand name (e.g. Amazon)'
+								value={newBrandName}
+								onChange={(e) => setNewBrandName(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === 'Enter' && newBrandName.trim()) {
+										handleCreateBrand();
+									}
+								}}
+								autoFocus
+							/>
+
+							<div className='modal-actions'>
+								<Button
+									variant='secondary'
+									onClick={() => {
+										setShowCreateBrandModal(false);
+										setNewBrandName('');
+									}}>
+									Cancel
+								</Button>
+								<Button
+									variant='primary'
+									onClick={handleCreateBrand}
+									disabled={
+										createBrandLoading || !newBrandName.trim()
+									}>
+									{createBrandLoading
+										? 'Creating...'
+										: 'Create Official Brand'}
 								</Button>
 							</div>
 						</div>
