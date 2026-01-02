@@ -8,6 +8,11 @@ export {
 	ModerationStatus,
 	AvailabilitySource,
 } from './Availability';
+export {
+	AvailabilityReport,
+	IAvailabilityReport,
+	ReportedStockStatus,
+} from './AvailabilityReport';
 export { User, IUser } from './User';
 export { ShoppingList, IShoppingList } from './ShoppingList';
 export { ShoppingListItem, IShoppingListItem } from './ShoppingListItem';

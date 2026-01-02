@@ -7,6 +7,7 @@ import { EditProductForm } from '../components/Products/EditProductForm';
 import { ReportAvailability } from '../components/Products/ReportAvailability';
 import { ChainAvailabilityCard } from '../components/Products/ChainAvailabilityCard';
 import { IndependentStoresCard } from '../components/Products/IndependentStoresCard';
+import { StockStatusButton } from '../components/Products/StockStatusButton';
 import { ReviewStats, ReviewList, ReviewForm } from '../components/Reviews';
 import { useProductDetail, useShoppingList } from '../hooks';
 import { useAuth } from '../context/AuthContext';
@@ -861,6 +862,35 @@ export function ProductDetailScreen() {
 													{avail.priceRange}
 												</span>
 											)}
+											{/* Stock status reporting */}
+											<div className='store-stock-status'>
+												<StockStatusButton
+													productId={product.id}
+													storeId={avail.storeId}
+													storeName={avail.storeName}
+													currentStatus={
+														avail.stockStatus
+													}
+													lastReportAt={
+														avail.lastStockReportAt
+													}
+													recentInStockCount={
+														avail.recentInStockCount
+													}
+													recentOutOfStockCount={
+														avail.recentOutOfStockCount
+													}
+													compact
+													onReportSuccess={() =>
+														refresh()
+													}
+													onAuthRequired={() =>
+														setShowRegistrationModal(
+															true
+														)
+													}
+												/>
+											</div>
 										</div>
 									)
 								)}

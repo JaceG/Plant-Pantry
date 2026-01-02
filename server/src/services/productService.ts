@@ -83,6 +83,11 @@ export interface AvailabilityInfo {
 	chainId?: string;
 	locationIdentifier?: string;
 	chain?: AvailabilityChainInfo;
+	// Crowd-sourced stock status (GasBuddy-style)
+	stockStatus?: 'in_stock' | 'out_of_stock' | 'unknown';
+	lastStockReportAt?: Date;
+	recentInStockCount?: number;
+	recentOutOfStockCount?: number;
 }
 
 export interface ProductDetail {
@@ -919,6 +924,47 @@ export const productService = {
 			}
 		}
 
+		// Fetch stock status data from Availability records
+		let stockStatusMap = new Map<
+			string,
+			{
+				stockStatus: 'in_stock' | 'out_of_stock' | 'unknown';
+				lastStockReportAt?: Date;
+				recentInStockCount: number;
+				recentOutOfStockCount: number;
+			}
+		>();
+
+		if (storeAvailabilities.length > 0) {
+			const storeIdsForStock = storeAvailabilities
+				.map((a) => a.storeId)
+				.filter((id) => id && mongoose.Types.ObjectId.isValid(id));
+
+			if (storeIdsForStock.length > 0) {
+				const stockData = await Availability.find({
+					productId: new mongoose.Types.ObjectId(product._id),
+					storeId: {
+						$in: storeIdsForStock.map(
+							(id) => new mongoose.Types.ObjectId(id)
+						),
+					},
+				})
+					.select(
+						'storeId stockStatus lastStockReportAt recentInStockCount recentOutOfStockCount'
+					)
+					.lean();
+
+				stockData.forEach((sd) => {
+					stockStatusMap.set(sd.storeId.toString(), {
+						stockStatus: sd.stockStatus || 'unknown',
+						lastStockReportAt: sd.lastStockReportAt,
+						recentInStockCount: sd.recentInStockCount || 0,
+						recentOutOfStockCount: sd.recentOutOfStockCount || 0,
+					});
+				});
+			}
+		}
+
 		// Convert to AvailabilityInfo format
 		const availabilityInfo: AvailabilityInfo[] = storeAvailabilities.map(
 			(avail) => {
@@ -926,6 +972,7 @@ export const productService = {
 				const chainInfo = store?.chainId
 					? chainMap.get(store.chainId.toString())
 					: undefined;
+				const stockInfo = stockStatusMap.get(avail.storeId);
 
 				return {
 					storeId: avail.storeId,
@@ -946,6 +993,11 @@ export const productService = {
 					chainId: store?.chainId?.toString(),
 					locationIdentifier: store?.locationIdentifier,
 					chain: chainInfo,
+					// Stock status (crowd-sourced)
+					stockStatus: stockInfo?.stockStatus || 'unknown',
+					lastStockReportAt: stockInfo?.lastStockReportAt,
+					recentInStockCount: stockInfo?.recentInStockCount || 0,
+					recentOutOfStockCount: stockInfo?.recentOutOfStockCount || 0,
 				};
 			}
 		);

@@ -26,6 +26,9 @@ export interface AvailabilityChainInfo {
 	slug: string;
 }
 
+// Crowd-sourced stock status (GasBuddy-style)
+export type StockStatus = 'in_stock' | 'out_of_stock' | 'unknown';
+
 export interface AvailabilityInfo {
 	storeId: string;
 	storeName: string;
@@ -44,6 +47,30 @@ export interface AvailabilityInfo {
 	chainId?: string;
 	locationIdentifier?: string;
 	chain?: AvailabilityChainInfo;
+	// Crowd-sourced stock status
+	stockStatus?: StockStatus;
+	lastStockReportAt?: string;
+	recentInStockCount?: number;
+	recentOutOfStockCount?: number;
+}
+
+// Individual stock status report from a user
+export interface StockStatusReport {
+	id: string;
+	status: 'in_stock' | 'out_of_stock';
+	reportedAt: string;
+	reportedBy: string;
+	notes?: string;
+}
+
+// Response from the stock status endpoint
+export interface StockStatusResponse {
+	stockStatus: StockStatus;
+	lastStockReportAt?: string;
+	lastConfirmedAt?: string;
+	recentInStockCount: number;
+	recentOutOfStockCount: number;
+	recentReports: StockStatusReport[];
 }
 
 export interface ProductDetail {

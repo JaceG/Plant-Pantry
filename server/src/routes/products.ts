@@ -9,6 +9,7 @@ import {
 } from '../middleware/auth';
 import {
 	Availability,
+	AvailabilityReport,
 	Store,
 	Product,
 	UserProduct,
@@ -687,6 +688,204 @@ router.post(
 			res.json({
 				message: 'Thanks for confirming! This helps other shoppers.',
 				status: 'known',
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * POST /api/products/:id/report-stock-status
+ * Report whether a product is in stock or out of stock at a specific store
+ * This is the GasBuddy-style crowd-sourced availability feature
+ * Requires authentication
+ */
+router.post(
+	'/:id/report-stock-status',
+	authMiddleware,
+	async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const { storeId, status, notes } = req.body;
+			const userId = req.user?.userId;
+
+			if (!storeId) {
+				throw new HttpError('storeId is required', 400);
+			}
+
+			if (!status || !['in_stock', 'out_of_stock'].includes(status)) {
+				throw new HttpError(
+					'status must be "in_stock" or "out_of_stock"',
+					400
+				);
+			}
+
+			// Validate IDs
+			if (!mongoose.Types.ObjectId.isValid(id)) {
+				throw new HttpError('Invalid product ID', 400);
+			}
+			if (!mongoose.Types.ObjectId.isValid(storeId)) {
+				throw new HttpError('Invalid store ID', 400);
+			}
+
+			// Check if product exists
+			let product = await Product.findById(id).lean();
+			if (!product) {
+				product = (await UserProduct.findById(id).lean()) as any;
+			}
+			if (!product) {
+				throw new HttpError('Product not found', 404);
+			}
+
+			// Check if store exists
+			const store = await Store.findById(storeId).lean();
+			if (!store) {
+				throw new HttpError('Store not found', 404);
+			}
+
+			// Check if user already reported today (rate limiting)
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+
+			const existingReportToday = await AvailabilityReport.findOne({
+				productId: new mongoose.Types.ObjectId(id),
+				storeId: new mongoose.Types.ObjectId(storeId),
+				userId: new mongoose.Types.ObjectId(userId),
+				reportedAt: { $gte: today },
+			});
+
+			if (existingReportToday) {
+				// Update existing report instead of creating new one
+				existingReportToday.status = status;
+				existingReportToday.notes = notes;
+				existingReportToday.reportedAt = new Date();
+				await existingReportToday.save();
+			} else {
+				// Create new report
+				await AvailabilityReport.create({
+					productId: new mongoose.Types.ObjectId(id),
+					storeId: new mongoose.Types.ObjectId(storeId),
+					userId: new mongoose.Types.ObjectId(userId),
+					status,
+					notes: notes || undefined,
+					reportedAt: new Date(),
+				});
+			}
+
+			// The stock status is simply the latest report - not a vote
+			// This makes sense because stock fluctuates daily
+			const newStockStatus: 'in_stock' | 'out_of_stock' = status;
+
+			// Get counts for the last 7 days (for display/context only)
+			const sevenDaysAgo = new Date();
+			sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+			const [inStockCount, outOfStockCount] = await Promise.all([
+				AvailabilityReport.countDocuments({
+					productId: new mongoose.Types.ObjectId(id),
+					storeId: new mongoose.Types.ObjectId(storeId),
+					status: 'in_stock',
+					reportedAt: { $gte: sevenDaysAgo },
+				}),
+				AvailabilityReport.countDocuments({
+					productId: new mongoose.Types.ObjectId(id),
+					storeId: new mongoose.Types.ObjectId(storeId),
+					status: 'out_of_stock',
+					reportedAt: { $gte: sevenDaysAgo },
+				}),
+			]);
+
+			// Update or create the Availability record
+			// Stock status = the latest report (not a vote)
+			await Availability.findOneAndUpdate(
+				{
+					productId: new mongoose.Types.ObjectId(id),
+					storeId: new mongoose.Types.ObjectId(storeId),
+				},
+				{
+					$set: {
+						stockStatus: newStockStatus,
+						lastStockReportAt: new Date(),
+						recentInStockCount: inStockCount,
+						recentOutOfStockCount: outOfStockCount,
+					},
+				},
+				{ upsert: false } // Don't create if doesn't exist
+			);
+
+			const message =
+				status === 'in_stock'
+					? 'Thanks for reporting! You found it in stock. 🎉'
+					: 'Thanks for the heads up! We\'ll let others know it\'s out of stock.';
+
+			res.json({
+				message,
+				stockStatus: newStockStatus,
+				recentInStockCount: inStockCount,
+				recentOutOfStockCount: outOfStockCount,
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
+/**
+ * GET /api/products/:id/stock-status/:storeId
+ * Get recent stock status reports for a product at a specific store
+ * Public endpoint (no auth required)
+ */
+router.get(
+	'/:id/stock-status/:storeId',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id, storeId } = req.params;
+
+			// Validate IDs
+			if (!mongoose.Types.ObjectId.isValid(id)) {
+				throw new HttpError('Invalid product ID', 400);
+			}
+			if (!mongoose.Types.ObjectId.isValid(storeId)) {
+				throw new HttpError('Invalid store ID', 400);
+			}
+
+			// Get the availability record for aggregated status
+			const availability = await Availability.findOne({
+				productId: new mongoose.Types.ObjectId(id),
+				storeId: new mongoose.Types.ObjectId(storeId),
+			})
+				.select(
+					'stockStatus lastStockReportAt recentInStockCount recentOutOfStockCount lastConfirmedAt'
+				)
+				.lean();
+
+			// Get recent reports (last 5)
+			const recentReports = await AvailabilityReport.find({
+				productId: new mongoose.Types.ObjectId(id),
+				storeId: new mongoose.Types.ObjectId(storeId),
+			})
+				.sort({ reportedAt: -1 })
+				.limit(5)
+				.populate('userId', 'displayName')
+				.lean();
+
+			// Format reports for response
+			const formattedReports = recentReports.map((report: any) => ({
+				id: report._id.toString(),
+				status: report.status,
+				reportedAt: report.reportedAt.toISOString(),
+				reportedBy: report.userId?.displayName || 'Anonymous',
+				notes: report.notes,
+			}));
+
+			res.json({
+				stockStatus: availability?.stockStatus || 'unknown',
+				lastStockReportAt: availability?.lastStockReportAt?.toISOString(),
+				lastConfirmedAt: availability?.lastConfirmedAt?.toISOString(),
+				recentInStockCount: availability?.recentInStockCount || 0,
+				recentOutOfStockCount: availability?.recentOutOfStockCount || 0,
+				recentReports: formattedReports,
 			});
 		} catch (error) {
 			next(error);

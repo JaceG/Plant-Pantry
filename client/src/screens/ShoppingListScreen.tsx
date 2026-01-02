@@ -7,6 +7,7 @@ import {
 	ProductPreviewModal,
 	ProductPreviewData,
 } from '../components';
+import { RegistrationModal } from '../components/Common/RegistrationModal';
 import { useShoppingList } from '../hooks';
 import './ShoppingListScreen.css';
 
@@ -29,6 +30,7 @@ export function ShoppingListScreen() {
 	} | null>(null);
 	const [previewProduct, setPreviewProduct] =
 		useState<ProductPreviewData | null>(null);
+	const [showRegistrationModal, setShowRegistrationModal] = useState(false);
 
 	useEffect(() => {
 		const loadData = async () => {
@@ -140,6 +142,9 @@ export function ShoppingListScreen() {
 									onRemove={handleRemoveItem}
 									isRemoving={removingItemId === item.itemId}
 									onPreview={setPreviewProduct}
+									onAuthRequired={() =>
+										setShowRegistrationModal(true)
+									}
 								/>
 							</div>
 						))}
@@ -190,10 +195,16 @@ export function ShoppingListScreen() {
 				/>
 			)}
 
-			<ProductPreviewModal
-				isOpen={!!previewProduct}
-				onClose={() => setPreviewProduct(null)}
-				product={previewProduct}
+<ProductPreviewModal
+			isOpen={!!previewProduct}
+			onClose={() => setPreviewProduct(null)}
+			product={previewProduct}
+		/>
+
+			<RegistrationModal
+				isOpen={showRegistrationModal}
+				onClose={() => setShowRegistrationModal(false)}
+				onSuccess={() => setShowRegistrationModal(false)}
 			/>
 		</div>
 	);

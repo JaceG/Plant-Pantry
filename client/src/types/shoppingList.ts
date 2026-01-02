@@ -15,7 +15,12 @@ export interface ProductSummaryForList {
 
 export interface AvailabilityHint {
   storeName: string;
+  storeId: string;
   storeType: string;
+  stockStatus?: 'in_stock' | 'out_of_stock' | 'unknown';
+  lastStockReportAt?: string;
+  recentInStockCount?: number;
+  recentOutOfStockCount?: number;
 }
 
 export interface ShoppingListItem {

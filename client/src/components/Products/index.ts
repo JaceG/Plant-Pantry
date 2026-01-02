@@ -11,3 +11,4 @@ export { StoreAvailabilitySelector } from './StoreAvailabilitySelector';
 export { StoreMap } from './StoreMap';
 export { ReportAvailability } from './ReportAvailability';
 export { ChainLocationPicker } from './ChainLocationPicker';
+export { StockStatusButton } from './StockStatusButton';

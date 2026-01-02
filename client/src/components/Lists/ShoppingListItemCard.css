@@ -148,6 +148,119 @@
   font-style: italic;
 }
 
+/* Stock status styles */
+.availability-stores-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.availability-store-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--color-sage-light);
+  border-radius: var(--radius-md);
+  gap: 8px;
+}
+
+.store-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.stock-badge {
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.stock-badge.stock-in {
+  color: #22c55e;
+}
+
+.stock-badge.stock-out {
+  color: #ef4444;
+}
+
+.stock-badge.stock-unknown {
+  color: #9ca3af;
+}
+
+.store-info .store-name {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-charcoal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.store-info .last-report {
+  font-size: 0.65rem;
+  color: var(--color-stone);
+  white-space: nowrap;
+}
+
+.stock-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.stock-action-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  background: var(--color-white);
+}
+
+.stock-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.stock-action-btn.in-stock:hover:not(:disabled) {
+  background: #dcfce7;
+  transform: scale(1.1);
+}
+
+.stock-action-btn.out-of-stock:hover:not(:disabled) {
+  background: #fee2e2;
+  transform: scale(1.1);
+}
+
+.stock-message {
+  font-size: 0.7rem;
+  color: #166534;
+  background: #dcfce7;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .list-item-remove {
   flex-shrink: 0;
   padding: var(--spacing-sm);

@@ -6,6 +6,7 @@ import {
 	CategoriesResponse,
 	TagsResponse,
 	ProductSummary,
+	StockStatusResponse,
 } from '../types';
 
 function buildQueryString(filters: ProductFilters): string {
@@ -132,6 +133,36 @@ export const productsApi = {
 	getBrandStores(brandName: string): Promise<BrandStoresResponse> {
 		return httpClient.get<BrandStoresResponse>(
 			`/products/brand/${encodeURIComponent(brandName)}/stores`
+		);
+	},
+
+	// Report stock status (GasBuddy-style crowd-sourced availability)
+	reportStockStatus(
+		productId: string,
+		storeId: string,
+		status: 'in_stock' | 'out_of_stock',
+		notes?: string
+	): Promise<{
+		message: string;
+		stockStatus: 'in_stock' | 'out_of_stock' | 'unknown';
+		recentInStockCount: number;
+		recentOutOfStockCount: number;
+	}> {
+		return httpClient.post<{
+			message: string;
+			stockStatus: 'in_stock' | 'out_of_stock' | 'unknown';
+			recentInStockCount: number;
+			recentOutOfStockCount: number;
+		}>(`/products/${productId}/report-stock-status`, { storeId, status, notes });
+	},
+
+	// Get stock status for a product at a specific store
+	getStockStatus(
+		productId: string,
+		storeId: string
+	): Promise<StockStatusResponse> {
+		return httpClient.get<StockStatusResponse>(
+			`/products/${productId}/stock-status/${storeId}`
 		);
 	},
 };

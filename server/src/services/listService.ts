@@ -25,7 +25,12 @@ export interface ProductSummaryForList {
 
 export interface AvailabilityHint {
 	storeName: string;
+	storeId: string;
 	storeType: string;
+	stockStatus?: 'in_stock' | 'out_of_stock' | 'unknown';
+	lastStockReportAt?: Date;
+	recentInStockCount?: number;
+	recentOutOfStockCount?: number;
 }
 
 export interface ShoppingListItemDetail {
@@ -144,10 +149,15 @@ export const listService = {
 		products.forEach((p) => productMap.set(p._id.toString(), p));
 		userProducts.forEach((p) => productMap.set(p._id.toString(), p));
 
-		// Get availability hints for all products
+		// Get availability hints for all products (include stock status fields)
 		const availabilities = await Availability.find({
 			productId: { $in: productIds },
-		}).lean();
+			moderationStatus: 'confirmed',
+		})
+			.select(
+				'productId storeId stockStatus lastStockReportAt recentInStockCount recentOutOfStockCount'
+			)
+			.lean();
 		const storeIds = [
 			...new Set(availabilities.map((a) => a.storeId.toString())),
 		];
@@ -163,12 +173,17 @@ export const listService = {
 				const hints = availabilityByProduct.get(productIdStr) || [];
 				// Only add if this store isn't already in the hints
 				const alreadyExists = hints.some(
-					(h) => h.storeName === store.name
+					(h) => h.storeId === store._id.toString()
 				);
 				if (!alreadyExists) {
 					hints.push({
 						storeName: store.name,
+						storeId: store._id.toString(),
 						storeType: store.type,
+						stockStatus: avail.stockStatus || 'unknown',
+						lastStockReportAt: avail.lastStockReportAt,
+						recentInStockCount: avail.recentInStockCount || 0,
+						recentOutOfStockCount: avail.recentOutOfStockCount || 0,
 					});
 				}
 				availabilityByProduct.set(productIdStr, hints);
