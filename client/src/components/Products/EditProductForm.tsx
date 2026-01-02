@@ -16,8 +16,8 @@ import { productEvents } from '../../utils/productEvents';
 import { useAuth } from '../../context/AuthContext';
 import './AddProductForm.css';
 
-// Standard dietary tags that should always be available
-const STANDARD_TAGS = [
+// Fallback tags if API fails to load
+const FALLBACK_TAGS = [
 	'vegan',
 	'organic',
 	'gluten-free',
@@ -36,6 +36,11 @@ function formatTagLabel(tag: string): string {
 		.split('-')
 		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
 		.join(' ');
+}
+
+// Normalize tag for comparison (lowercase, spaces to dashes)
+function normalizeTag(tag: string): string {
+	return tag.toLowerCase().trim().replace(/\s+/g, '-');
 }
 
 interface EditProductFormProps {
@@ -89,17 +94,24 @@ export function EditProductForm({
 	const [availableCategories, setAvailableCategories] = useState<string[]>(
 		[]
 	);
+	const [availableTags, setAvailableTags] = useState<string[]>(FALLBACK_TAGS);
 	const [loadingOptions, setLoadingOptions] = useState(true);
 
-	// Fetch available categories on mount
+	// Fetch available categories and tags on mount
 	useEffect(() => {
 		const fetchOptions = async () => {
 			try {
-				const categoriesRes = await productsApi.getAllCategories();
+				const [categoriesRes, tagsRes] = await Promise.all([
+					productsApi.getAllCategories(),
+					productsApi.getAllTags(),
+				]);
 				setAvailableCategories(categoriesRes.categories);
+				if (tagsRes.tags && tagsRes.tags.length > 0) {
+					setAvailableTags(tagsRes.tags);
+				}
 			} catch (error) {
-				console.error('Failed to fetch categories:', error);
-				showToast('Failed to load categories', 'error');
+				console.error('Failed to fetch options:', error);
+				showToast('Failed to load options', 'error');
 			} finally {
 				setLoadingOptions(false);
 			}
@@ -108,24 +120,17 @@ export function EditProductForm({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []); // Only run once on mount
 
-	// Combine standard tags with any additional tags from the product
-	// Always show all standard tags, plus any additional tags the product has
+	// Combine available tags with any additional tags from the product
 	const allTags = useMemo(() => {
 		const productTags = product.tags || [];
-		const combined = new Set(STANDARD_TAGS);
-		// Add any product tags that aren't in the standard list
+		const combined = new Set(availableTags.map(normalizeTag));
+		// Add any product tags that aren't in the available list
 		productTags.forEach((tag) => {
-			combined.add(tag);
+			combined.add(normalizeTag(tag));
 		});
-		// Sort: standard tags first (in their defined order), then others alphabetically
-		const standardSet = new Set(STANDARD_TAGS);
-		return [
-			...STANDARD_TAGS,
-			...Array.from(combined)
-				.filter((tag) => !standardSet.has(tag))
-				.sort(),
-		];
-	}, [product.tags]);
+		// Return unique normalized tags
+		return Array.from(combined);
+	}, [product.tags, availableTags]);
 
 	const handleChange = (
 		e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>

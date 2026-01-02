@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { RatingFilter } from '../Reviews';
+import { productsApi } from '../../api/productsApi';
 import './FilterSidebar.css';
 
 interface FilterSidebarProps {
@@ -27,19 +28,28 @@ function cleanCategoryName(category: string): string {
 	return cleaned;
 }
 
-// Most useful tags (shown first)
-const PRIORITY_TAGS = [
+// Fallback tags if API fails
+const FALLBACK_TAGS = [
 	{ value: 'organic', label: 'Organic' },
 	{ value: 'gluten-free', label: 'Gluten Free' },
-];
-
-// Other tags (shown after priority)
-const OTHER_TAGS = [
 	{ value: 'no-sugar-added', label: 'No Sugar Added' },
 	{ value: 'fair-trade', label: 'Fair Trade' },
 	{ value: 'palm-oil-free', label: 'Palm Oil Free' },
 	{ value: 'raw', label: 'Raw' },
 ];
+
+// Format tag for display (e.g., "gluten-free" -> "Gluten Free")
+function formatTagLabel(tag: string): string {
+	return tag
+		.split('-')
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(' ');
+}
+
+// Normalize tag for comparison (lowercase, spaces to dashes)
+function normalizeTag(tag: string): string {
+	return tag.toLowerCase().trim().replace(/\s+/g, '-');
+}
 
 // Organize and clean categories into groups with priority sorting
 function organizeCategories(
@@ -242,6 +252,33 @@ export function FilterSidebar({
 	loading,
 }: FilterSidebarProps) {
 	const [isOpen, setIsOpen] = useState(false);
+	const [availableTags, setAvailableTags] = useState<
+		Array<{ value: string; label: string }>
+	>(FALLBACK_TAGS);
+
+	// Fetch available tags on mount
+	useEffect(() => {
+		const fetchTags = async () => {
+			try {
+				const response = await productsApi.getAllTags();
+				if (response.tags && response.tags.length > 0) {
+					const formattedTags = response.tags.map((tag) => {
+						const normalized = normalizeTag(tag);
+						return {
+							value: normalized,
+							label: formatTagLabel(normalized),
+						};
+					});
+					setAvailableTags(formattedTags);
+				}
+			} catch (error) {
+				console.error('Failed to fetch tags:', error);
+				// Keep fallback tags on error
+			}
+		};
+		fetchTags();
+	}, []);
+
 	const organizedCategories = useMemo(
 		() => organizeCategories(categories),
 		[categories]
@@ -340,7 +377,7 @@ export function FilterSidebar({
 							</button>
 						</div>
 						<ExpandableFilterList
-							items={[...PRIORITY_TAGS, ...OTHER_TAGS]}
+							items={availableTags}
 							selectedValue={selectedTag}
 							onSelect={onTagSelect}
 							initialShow={10}

@@ -9,6 +9,7 @@ import {
 	FilterDisplayName,
 	Review,
 	BrandPage,
+	CustomFilter,
 } from '../models';
 import { availabilityService } from './availabilityService';
 // Temporarily comment out to test
@@ -1735,14 +1736,15 @@ export const productService = {
 	 * This is used when creating/editing products so users can use any tag
 	 */
 	async getAllAvailableTags(): Promise<string[]> {
-		// Get tags from both Product and approved, non-archived UserProduct collections
-		const [apiTags, userTags, archivedFilters, displayNames] =
+		// Get tags from Product, UserProduct, and CustomFilter collections
+		const [apiTags, userTags, customTags, archivedFilters, displayNames] =
 			await Promise.all([
 				Product.distinct('tags', { archived: { $ne: true } }),
 				UserProduct.distinct('tags', {
 					status: 'approved',
 					archived: { $ne: true },
 				}),
+				CustomFilter.distinct('value', { type: 'tag' }),
 				ArchivedFilter.distinct('value', { type: 'tag' }),
 				FilterDisplayName.find({ type: 'tag' }).lean(),
 			]);
@@ -1750,8 +1752,8 @@ export const productService = {
 		// Language prefixes to filter out (non-English)
 		const nonEnglishPrefixes = /^(de|el|es|fr|nl|pt|zh):/i;
 
-		// Combine and deduplicate
-		let allTags = [...new Set([...apiTags, ...userTags])];
+		// Combine and deduplicate (including custom tags)
+		let allTags = [...new Set([...apiTags, ...userTags, ...customTags])];
 
 		// Filter out non-English language prefixes
 		allTags = allTags.filter((tag) => !nonEnglishPrefixes.test(tag));

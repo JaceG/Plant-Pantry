@@ -11,8 +11,8 @@ import { StoreAvailabilitySelector } from './StoreAvailabilitySelector';
 import { productEvents } from '../../utils/productEvents';
 import './AddProductForm.css';
 
-// Standard dietary tags that should always be available
-const STANDARD_TAGS = [
+// Fallback tags if API fails to load
+const FALLBACK_TAGS = [
 	'vegan',
 	'organic',
 	'gluten-free',
@@ -31,6 +31,11 @@ function formatTagLabel(tag: string): string {
 		.split('-')
 		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
 		.join(' ');
+}
+
+// Normalize tag for comparison (lowercase, spaces to dashes)
+function normalizeTag(tag: string): string {
+	return tag.toLowerCase().trim().replace(/\s+/g, '-');
 }
 
 // Template data interface for navigation state
@@ -116,17 +121,25 @@ export function AddProductForm() {
 	const [availableCategories, setAvailableCategories] = useState<string[]>(
 		[]
 	);
+	const [availableTags, setAvailableTags] = useState<string[]>(FALLBACK_TAGS);
 	const [loadingOptions, setLoadingOptions] = useState(true);
 
-	// Fetch available categories on mount
+	// Fetch available categories and tags on mount
 	useEffect(() => {
 		const fetchOptions = async () => {
 			try {
-				const categoriesRes = await productsApi.getAllCategories();
+				const [categoriesRes, tagsRes] = await Promise.all([
+					productsApi.getAllCategories(),
+					productsApi.getAllTags(),
+				]);
 				setAvailableCategories(categoriesRes.categories);
+				if (tagsRes.tags && tagsRes.tags.length > 0) {
+					// Normalize tags to use dashes (for consistency)
+					setAvailableTags(tagsRes.tags.map(normalizeTag));
+				}
 			} catch (error) {
-				console.error('Failed to fetch categories:', error);
-				showToast('Failed to load categories', 'error');
+				console.error('Failed to fetch options:', error);
+				showToast('Failed to load options', 'error');
 			} finally {
 				setLoadingOptions(false);
 			}
@@ -545,7 +558,7 @@ export function AddProductForm() {
 					<div className='form-group'>
 						<label>Select Tags</label>
 						<div className='tag-selection-list'>
-							{STANDARD_TAGS.map((tag) => {
+							{availableTags.map((tag) => {
 								const isSelected =
 									formData.tags?.includes(tag) || false;
 								return (

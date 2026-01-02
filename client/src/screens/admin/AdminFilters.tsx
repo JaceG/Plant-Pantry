@@ -142,7 +142,9 @@ export function AdminFilters() {
 				newFilterDisplayName.trim() || undefined
 			);
 			setToast({
-				message: `${activeTab === 'category' ? 'Category' : 'Tag'} added successfully`,
+				message: `${
+					activeTab === 'category' ? 'Category' : 'Tag'
+				} added successfully`,
 				type: 'success',
 			});
 			setShowAddForm(false);
@@ -207,7 +209,8 @@ export function AdminFilters() {
 							variant='primary'
 							size='sm'
 							disabled={showAddForm}>
-							+ Add {activeTab === 'category' ? 'Category' : 'Tag'}
+							+ Add{' '}
+							{activeTab === 'category' ? 'Category' : 'Tag'}
 						</Button>
 					</div>
 				</header>
@@ -246,8 +249,7 @@ export function AdminFilters() {
 						<div className='form-fields'>
 							<div className='form-field'>
 								<label htmlFor='filter-value'>
-									Value{' '}
-									<span className='required'>*</span>
+									Value <span className='required'>*</span>
 								</label>
 								<input
 									id='filter-value'
@@ -256,7 +258,11 @@ export function AdminFilters() {
 									onChange={(e) =>
 										setNewFilterValue(e.target.value)
 									}
-									placeholder={`e.g., ${activeTab === 'category' ? 'chocolate bars' : 'organic'}`}
+									placeholder={`e.g., ${
+										activeTab === 'category'
+											? 'chocolate bars'
+											: 'organic'
+									}`}
 									className='filter-input'
 									autoFocus
 								/>
@@ -277,7 +283,11 @@ export function AdminFilters() {
 									onChange={(e) =>
 										setNewFilterDisplayName(e.target.value)
 									}
-									placeholder={`e.g., ${activeTab === 'category' ? 'Chocolate Bars' : 'Organic'}`}
+									placeholder={`e.g., ${
+										activeTab === 'category'
+											? 'Chocolate Bars'
+											: 'Organic'
+									}`}
 									className='filter-input'
 								/>
 								<span className='form-hint'>
@@ -292,9 +302,7 @@ export function AdminFilters() {
 								variant='primary'
 								size='sm'
 								isLoading={addLoading}
-								disabled={
-									addLoading || !newFilterValue.trim()
-								}>
+								disabled={addLoading || !newFilterValue.trim()}>
 								Add{' '}
 								{activeTab === 'category' ? 'Category' : 'Tag'}
 							</Button>

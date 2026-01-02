@@ -675,7 +675,9 @@ router.post(
 			);
 
 			res.status(201).json({
-				message: `${type === 'category' ? 'Category' : 'Tag'} created successfully`,
+				message: `${
+					type === 'category' ? 'Category' : 'Tag'
+				} created successfully`,
 				filter: result,
 			});
 		} catch (error: any) {
@@ -3688,7 +3690,11 @@ router.put(
 				// Check if a BrandPage already exists with this brandName or slug
 				const existing = await BrandPage.findOne({
 					$or: [
-						{ brandName: { $regex: new RegExp(`^${brandName}$`, 'i') } },
+						{
+							brandName: {
+								$regex: new RegExp(`^${brandName}$`, 'i'),
+							},
+						},
 						{ slug: slug },
 					],
 				});
@@ -3776,7 +3782,11 @@ router.put(
 				// Exclude the target parent from search if provided
 				const searchQuery: any = {
 					$or: [
-						{ brandName: { $regex: new RegExp(`^${brandName}$`, 'i') } },
+						{
+							brandName: {
+								$regex: new RegExp(`^${brandName}$`, 'i'),
+							},
+						},
 						{ slug: slug },
 					],
 				};
@@ -3791,7 +3801,9 @@ router.put(
 					// Check if slug conflicts with parent
 					let finalSlug = slug;
 					if (parentBrandId) {
-						const parentBrand = await BrandPage.findById(parentBrandId);
+						const parentBrand = await BrandPage.findById(
+							parentBrandId
+						);
 						if (parentBrand && parentBrand.slug === slug) {
 							// Generate unique slug
 							let suffix = 1;
@@ -3913,7 +3925,11 @@ router.post(
 				const existing = await BrandPage.findOne({
 					_id: { $ne: parentBrand._id },
 					$or: [
-						{ brandName: { $regex: new RegExp(`^${brandName}$`, 'i') } },
+						{
+							brandName: {
+								$regex: new RegExp(`^${brandName}$`, 'i'),
+							},
+						},
 						{ slug: slug },
 					],
 				});
@@ -3980,7 +3996,8 @@ router.post(
 			let message: string;
 			if (totalAssigned === 0) {
 				if (childBrandIds.length === 1) {
-					message = 'Brand was already assigned or could not be assigned';
+					message =
+						'Brand was already assigned or could not be assigned';
 				} else {
 					message = `No new brands were assigned (${childBrandIds.length} were already assigned or could not be assigned)`;
 				}
