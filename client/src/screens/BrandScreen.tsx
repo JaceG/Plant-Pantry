@@ -650,7 +650,7 @@ export function BrandScreen() {
 								<h2>Error</h2>
 								<p>{error}</p>
 								<button
-									onClick={fetchProducts}
+									onClick={() => fetchProducts()}
 									className='retry-btn'>
 									Try Again
 								</button>
