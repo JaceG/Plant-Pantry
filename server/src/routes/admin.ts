@@ -3524,15 +3524,41 @@ router.put(
 				brand = await BrandPage.findById(id);
 			}
 
-			// If not found by ID and brandName provided, create new BrandPage
+			// If not found by ID and brandName provided, find or create BrandPage
 			if (!brand && brandName) {
-				brand = await BrandPage.create({
-					brandName: brandName,
-					slug: generateBrandSlug(brandName),
-					displayName: brandName,
-					isOfficial: isOfficial,
-					isActive: true,
+				const slug = generateBrandSlug(brandName);
+				// Check if a BrandPage already exists with this brandName or slug
+				const existing = await BrandPage.findOne({
+					$or: [
+						{ brandName: { $regex: new RegExp(`^${brandName}$`, 'i') } },
+						{ slug: slug },
+					],
 				});
+
+				if (existing) {
+					brand = existing;
+					// Update the existing brand's official status
+					if (isOfficial) {
+						brand.isOfficial = true;
+						brand.parentBrandId = undefined;
+					} else {
+						// If unmarking as official, first unassign all child brands
+						await BrandPage.updateMany(
+							{ parentBrandId: brand._id },
+							{ $unset: { parentBrandId: 1 } }
+						);
+						brand.isOfficial = false;
+					}
+					await brand.save();
+				} else {
+					brand = await BrandPage.create({
+						brandName: brandName,
+						slug: slug,
+						displayName: brandName,
+						isOfficial: isOfficial,
+						isActive: true,
+					});
+				}
 			} else if (!brand) {
 				throw new HttpError('Brand not found', 404);
 			} else {
@@ -3585,15 +3611,50 @@ router.put(
 				brand = await BrandPage.findById(id);
 			}
 
-			// If not found by ID and brandName provided, create new BrandPage
+			// If not found by ID and brandName provided, find or create BrandPage
 			if (!brand && brandName) {
-				brand = await BrandPage.create({
-					brandName: brandName,
-					slug: generateBrandSlug(brandName),
-					displayName: brandName,
-					isOfficial: false,
-					isActive: true,
-				});
+				const slug = generateBrandSlug(brandName);
+				// Check if a BrandPage already exists with this brandName or slug
+				// Exclude the target parent from search if provided
+				const searchQuery: any = {
+					$or: [
+						{ brandName: { $regex: new RegExp(`^${brandName}$`, 'i') } },
+						{ slug: slug },
+					],
+				};
+				if (parentBrandId) {
+					searchQuery._id = { $ne: parentBrandId };
+				}
+				const existing = await BrandPage.findOne(searchQuery);
+
+				if (existing) {
+					brand = existing;
+				} else {
+					// Check if slug conflicts with parent
+					let finalSlug = slug;
+					if (parentBrandId) {
+						const parentBrand = await BrandPage.findById(parentBrandId);
+						if (parentBrand && parentBrand.slug === slug) {
+							// Generate unique slug
+							let suffix = 1;
+							while (true) {
+								finalSlug = `${slug}-${suffix}`;
+								const slugExists = await BrandPage.findOne({
+									slug: finalSlug,
+								});
+								if (!slugExists) break;
+								suffix++;
+							}
+						}
+					}
+					brand = await BrandPage.create({
+						brandName: brandName,
+						slug: finalSlug,
+						displayName: brandName,
+						isOfficial: false,
+						isActive: true,
+					});
+				}
 			} else if (!brand) {
 				throw new HttpError('Brand not found', 404);
 			}
@@ -3684,29 +3745,62 @@ router.post(
 
 			let createdCount = 0;
 			const newBrandPageIds: string[] = [];
+			const skippedBrands: string[] = [];
 
 			// Create BrandPages for brands that don't have one yet
 			for (const brandName of brandNames) {
-				// Check if a BrandPage already exists for this brand name
+				const slug = generateBrandSlug(brandName);
+				// Check if a BrandPage already exists for this brand name or slug
+				// Exclude the parent brand from this search
 				const existing = await BrandPage.findOne({
-					brandName: { $regex: new RegExp(`^${brandName}$`, 'i') },
+					_id: { $ne: parentBrand._id },
+					$or: [
+						{ brandName: { $regex: new RegExp(`^${brandName}$`, 'i') } },
+						{ slug: slug },
+					],
 				});
 
 				if (existing) {
-					// Already exists, just add to the list
+					// Already exists (and it's not the parent), just add to the list
 					newBrandPageIds.push(existing._id.toString());
 				} else {
-					// Create new BrandPage
-					const newBrandPage = await BrandPage.create({
-						brandName: brandName,
-						slug: generateBrandSlug(brandName),
-						displayName: brandName,
-						isOfficial: false,
-						isActive: true,
-						parentBrandId: parentBrand._id,
-					});
-					newBrandPageIds.push(newBrandPage._id.toString());
-					createdCount++;
+					// Check if the slug conflicts with the parent brand
+					if (parentBrand.slug === slug) {
+						// Generate a unique slug by appending a suffix
+						let uniqueSlug = slug;
+						let suffix = 1;
+						while (true) {
+							uniqueSlug = `${slug}-${suffix}`;
+							const slugExists = await BrandPage.findOne({
+								slug: uniqueSlug,
+							});
+							if (!slugExists) break;
+							suffix++;
+						}
+						// Create new BrandPage with unique slug
+						const newBrandPage = await BrandPage.create({
+							brandName: brandName,
+							slug: uniqueSlug,
+							displayName: brandName,
+							isOfficial: false,
+							isActive: true,
+							parentBrandId: parentBrand._id,
+						});
+						newBrandPageIds.push(newBrandPage._id.toString());
+						createdCount++;
+					} else {
+						// Create new BrandPage with original slug
+						const newBrandPage = await BrandPage.create({
+							brandName: brandName,
+							slug: slug,
+							displayName: brandName,
+							isOfficial: false,
+							isActive: true,
+							parentBrandId: parentBrand._id,
+						});
+						newBrandPageIds.push(newBrandPage._id.toString());
+						createdCount++;
+					}
 				}
 			}
 
@@ -3724,9 +3818,24 @@ router.post(
 
 			const totalAssigned = result.modifiedCount + createdCount;
 
+			// Provide more informative response
+			let message: string;
+			if (totalAssigned === 0) {
+				if (childBrandIds.length === 1) {
+					message = 'Brand was already assigned or could not be assigned';
+				} else {
+					message = `No new brands were assigned (${childBrandIds.length} were already assigned or could not be assigned)`;
+				}
+			} else if (totalAssigned === 1) {
+				message = `1 brand assigned to ${parentBrand.displayName}`;
+			} else {
+				message = `${totalAssigned} brands assigned to ${parentBrand.displayName}`;
+			}
+
 			res.json({
-				message: `${totalAssigned} brand(s) assigned to ${parentBrand.displayName}`,
+				message,
 				modifiedCount: totalAssigned,
+				requestedCount: childBrandIds.length,
 			});
 		} catch (error) {
 			next(error);

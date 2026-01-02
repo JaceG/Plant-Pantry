@@ -20,7 +20,7 @@ export function AdminBrands() {
 	const [selectedLetter, setSelectedLetter] = useState<string>('A');
 	const [toast, setToast] = useState<{
 		message: string;
-		type: 'success' | 'error';
+		type: 'success' | 'error' | 'info';
 	} | null>(null);
 
 	// Search state
@@ -206,7 +206,7 @@ export function AdminBrands() {
 			);
 			setToast({
 				message: result.message,
-				type: 'success',
+				type: result.modifiedCount > 0 ? 'success' : 'info',
 			});
 			setShowBulkAssignModal(false);
 			setSelectedBrandIds(new Set());
@@ -703,7 +703,10 @@ function ChildBrandsList({
 }: {
 	parentId: string;
 	onUnassign: () => void;
-	setToast: (toast: { message: string; type: 'success' | 'error' }) => void;
+	setToast: (toast: {
+		message: string;
+		type: 'success' | 'error' | 'info';
+	}) => void;
 }) {
 	const [children, setChildren] = useState<AdminBrand[]>([]);
 	const [loading, setLoading] = useState(true);

@@ -1115,11 +1115,18 @@ export const adminApi = {
 	bulkAssignBrandChildren(
 		parentBrandId: string,
 		childBrandIds: string[]
-	): Promise<{ message: string; modifiedCount: number }> {
-		return httpClient.post<{ message: string; modifiedCount: number }>(
-			`/admin/brands/${parentBrandId}/bulk-assign-children`,
-			{ childBrandIds }
-		);
+	): Promise<{
+		message: string;
+		modifiedCount: number;
+		requestedCount: number;
+	}> {
+		return httpClient.post<{
+			message: string;
+			modifiedCount: number;
+			requestedCount: number;
+		}>(`/admin/brands/${parentBrandId}/bulk-assign-children`, {
+			childBrandIds,
+		});
 	},
 
 	/**
