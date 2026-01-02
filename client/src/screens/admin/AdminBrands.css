@@ -364,8 +364,28 @@
 	border-radius: 4px;
 }
 
+.child-info {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
 .child-name {
 	font-size: 0.9rem;
+}
+
+.child-product-count {
+	font-size: 0.7rem;
+	color: var(--text-secondary);
+	background: var(--bg-tertiary, #e8e8e8);
+	padding: 0.15rem 0.4rem;
+	border-radius: 4px;
+}
+
+.product-count.total-count {
+	background: var(--primary-light, #e8f5e9);
+	color: var(--primary, #4caf50);
+	font-weight: 500;
 }
 
 .unassign-btn {

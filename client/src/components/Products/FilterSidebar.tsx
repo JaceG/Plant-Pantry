@@ -252,9 +252,8 @@ export function FilterSidebar({
 	loading,
 }: FilterSidebarProps) {
 	const [isOpen, setIsOpen] = useState(false);
-	const [availableTags, setAvailableTags] = useState<
-		Array<{ value: string; label: string }>
-	>(FALLBACK_TAGS);
+	const [availableTags, setAvailableTags] =
+		useState<Array<{ value: string; label: string }>>(FALLBACK_TAGS);
 
 	// Fetch available tags on mount
 	useEffect(() => {

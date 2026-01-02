@@ -427,7 +427,7 @@ export function AdminBrands() {
 													{brand.displayName}
 												</Link>
 												<span className='official-badge'>
-													Official
+													OFFICIAL
 												</span>
 												<span className='product-count'>
 													{brand.productCount} product
@@ -436,13 +436,22 @@ export function AdminBrands() {
 														: ''}
 												</span>
 												{brand.childCount > 0 && (
-													<span className='child-count'>
-														+{brand.childCount}{' '}
-														sub-brand
-														{brand.childCount !== 1
-															? 's'
-															: ''}
-													</span>
+													<>
+														<span className='product-count total-count'>
+															{
+																brand.totalProductCount
+															}{' '}
+															total
+														</span>
+														<span className='child-count'>
+															+{brand.childCount}{' '}
+															sub-brand
+															{brand.childCount !==
+															1
+																? 's'
+																: ''}
+														</span>
+													</>
 												)}
 											</div>
 											{brand.brandName !==
@@ -875,7 +884,13 @@ function ChildBrandsList({
 		<ul className='children-list'>
 			{children.map((child) => (
 				<li key={child.id || child.brandName} className='child-item'>
-					<span className='child-name'>{child.displayName}</span>
+					<div className='child-info'>
+						<span className='child-name'>{child.displayName}</span>
+						<span className='child-product-count'>
+							{child.productCount} product
+							{child.productCount !== 1 ? 's' : ''}
+						</span>
+					</div>
 					{child.id && (
 						<button
 							className='unassign-btn'

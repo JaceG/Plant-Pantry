@@ -3328,6 +3328,35 @@ router.get(
 				childCounts.map((c) => [c._id.toString(), c.count])
 			);
 
+			// Get child brands and their product counts for calculating totalProductCount
+			const childBrands = await BrandPage.find({
+				parentBrandId: { $in: officialBrandIds },
+			})
+				.select('brandName parentBrandId')
+				.lean();
+
+			// Create a map of parent ID -> array of child brand names
+			const parentChildBrandsMap = new Map<string, string[]>();
+			for (const child of childBrands) {
+				const parentId = child.parentBrandId?.toString();
+				if (parentId) {
+					const existing = parentChildBrandsMap.get(parentId) || [];
+					existing.push(child.brandName.toLowerCase());
+					parentChildBrandsMap.set(parentId, existing);
+				}
+			}
+
+			// Calculate total product counts for each official brand (own + children's products)
+			const childProductCountsMap = new Map<string, number>();
+			for (const [parentId, childNames] of parentChildBrandsMap.entries()) {
+				let totalChildProducts = 0;
+				for (const childName of childNames) {
+					totalChildProducts +=
+						brandCountMap.get(childName)?.count || 0;
+				}
+				childProductCountsMap.set(parentId, totalChildProducts);
+			}
+
 			// Helper to check if brand starts with a letter or # (non-letter)
 			const getFirstLetter = (name: string): string => {
 				const firstChar = name.trim().charAt(0).toUpperCase();
@@ -3357,14 +3386,18 @@ router.get(
 
 				if (existingPage) {
 					// Brand has a BrandPage entry
+					const brandId = existingPage._id.toString();
+					const childProductsTotal =
+						childProductCountsMap.get(brandId) || 0;
 					const item = {
-						id: existingPage._id.toString(),
+						id: brandId,
 						brandName: existingPage.brandName,
 						slug: existingPage.slug,
 						displayName: existingPage.displayName,
 						isOfficial: existingPage.isOfficial || false,
 						isActive: existingPage.isActive,
 						productCount,
+						totalProductCount: productCount + childProductsTotal,
 						parentBrand: existingPage.parentBrandId
 							? {
 									id: (
@@ -3380,8 +3413,7 @@ router.get(
 									).displayName,
 							  }
 							: null,
-						childCount:
-							childCountMap.get(existingPage._id.toString()) || 0,
+						childCount: childCountMap.get(brandId) || 0,
 					};
 
 					// Track letter counts for unassigned brands
@@ -3410,6 +3442,7 @@ router.get(
 						isOfficial: false,
 						isActive: true,
 						productCount,
+						totalProductCount: productCount, // No children, so same as productCount
 						parentBrand: null,
 						childCount: 0,
 					};
@@ -3438,14 +3471,18 @@ router.get(
 					!processedBrandPageIds.has(brandPage._id.toString())
 				) {
 					// This official brand has no products, add it
+					const brandId = brandPage._id.toString();
+					const childProductsTotal =
+						childProductCountsMap.get(brandId) || 0;
 					officialItems.push({
-						id: brandPage._id.toString(),
+						id: brandId,
 						brandName: brandPage.brandName,
 						slug: brandPage.slug,
 						displayName: brandPage.displayName,
 						isOfficial: true,
 						isActive: brandPage.isActive,
 						productCount: 0,
+						totalProductCount: childProductsTotal,
 						parentBrand: brandPage.parentBrandId
 							? {
 									id: (
@@ -3459,8 +3496,7 @@ router.get(
 									).displayName,
 							  }
 							: null,
-						childCount:
-							childCountMap.get(brandPage._id.toString()) || 0,
+						childCount: childCountMap.get(brandId) || 0,
 					});
 				}
 			}
@@ -4040,6 +4076,29 @@ router.get(
 				.sort({ brandName: 1 })
 				.lean();
 
+			// Get product counts for each child brand
+			const childBrandNames = children.map((c) => c.brandName);
+			const productCounts = await Product.aggregate([
+				{
+					$match: {
+						brand: { $in: childBrandNames },
+						archived: { $ne: true },
+					},
+				},
+				{
+					$group: {
+						_id: { $toLower: '$brand' },
+						count: { $sum: 1 },
+					},
+				},
+			]);
+
+			// Create a map for quick lookup (normalized brand name -> count)
+			const countMap = new Map<string, number>();
+			for (const pc of productCounts) {
+				countMap.set(pc._id, pc.count);
+			}
+
 			res.json({
 				parentBrand: {
 					id: brand._id.toString(),
@@ -4052,6 +4111,7 @@ router.get(
 					slug: c.slug,
 					displayName: c.displayName,
 					isActive: c.isActive,
+					productCount: countMap.get(c.brandName.toLowerCase()) || 0,
 				})),
 			});
 		} catch (error) {

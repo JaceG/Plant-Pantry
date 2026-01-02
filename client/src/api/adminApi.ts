@@ -1318,7 +1318,8 @@ export interface AdminBrand {
 	displayName: string;
 	isOfficial: boolean;
 	isActive: boolean;
-	productCount: number; // number of products with this brand
+	productCount: number; // number of products with this brand directly
+	totalProductCount: number; // productCount + all children's products
 	parentBrand: BrandRef | null;
 	childCount: number;
 }
