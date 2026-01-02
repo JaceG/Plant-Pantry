@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { adminApi, AdminBrand, BrandRef } from '../../api/adminApi';
 import { AdminLayout } from './AdminLayout';
@@ -25,6 +25,7 @@ export function AdminBrands() {
 
 	// Search state
 	const [searchQuery, setSearchQuery] = useState('');
+	const prevSearchQueryRef = useRef<string>('');
 
 	// Official brands section collapse state
 	const [officialCollapsed, setOfficialCollapsed] = useState(false);
@@ -53,8 +54,14 @@ export function AdminBrands() {
 	const fetchBrands = useCallback(async () => {
 		try {
 			setLoading(true);
+			// When searching, fetch all brands (don't filter by letter)
+			// Otherwise, filter by selected letter
 			const [brandsRes, officialRes] = await Promise.all([
-				adminApi.getBrands({ letter: selectedLetter }),
+				adminApi.getBrands(
+					searchQuery.trim()
+						? {} // No letter filter when searching
+						: { letter: selectedLetter }
+				),
 				adminApi.getOfficialBrands(),
 			]);
 
@@ -82,11 +89,31 @@ export function AdminBrands() {
 		} finally {
 			setLoading(false);
 		}
+	}, [selectedLetter, searchQuery]);
+
+	// Refetch when letter changes (only if search is empty)
+	useEffect(() => {
+		if (!searchQuery.trim()) {
+			fetchBrands();
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [selectedLetter]);
 
+	// Refetch when search transitions between empty and non-empty
 	useEffect(() => {
-		fetchBrands();
-	}, [fetchBrands]);
+		const searchWasEmpty = !prevSearchQueryRef.current.trim();
+		const searchIsEmpty = !searchQuery.trim();
+		const searchTransitioned =
+			(searchWasEmpty && !searchIsEmpty) ||
+			(!searchWasEmpty && searchIsEmpty);
+
+		if (searchTransitioned || prevSearchQueryRef.current === '') {
+			fetchBrands();
+		}
+
+		prevSearchQueryRef.current = searchQuery;
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [searchQuery]);
 
 	// Filter brands by search query
 	const filteredOfficialBrands = officialBrands.filter(
@@ -431,7 +458,10 @@ export function AdminBrands() {
 					<div className='section-header'>
 						<h2>
 							Unassigned Brands (
-							{letterCounts[selectedLetter] || 0})
+							{searchQuery.trim()
+								? filteredUnassignedBrands.length
+								: letterCounts[selectedLetter] || 0}
+							)
 						</h2>
 					</div>
 
@@ -500,8 +530,9 @@ export function AdminBrands() {
 						{filteredUnassignedBrands.length === 0 ? (
 							<div className='empty-state'>
 								<p>
-									No unassigned brands starting with "
-									{selectedLetter}"
+									{searchQuery.trim()
+										? `No unassigned brands found matching "${searchQuery}"`
+										: `No unassigned brands starting with "${selectedLetter}"`}
 								</p>
 							</div>
 						) : (
