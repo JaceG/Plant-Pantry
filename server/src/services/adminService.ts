@@ -8,6 +8,7 @@ import {
 	ArchivedFilter,
 	FilterDisplayName,
 	FilterType,
+	CustomFilter,
 } from '../models';
 import { StoreModerationStatus } from '../models/Store';
 
@@ -1118,15 +1119,21 @@ export const adminService = {
 			'vegan',
 		];
 
-		// Get all unique filter values from both Product and UserProduct collections
+		// Get all unique filter values from Product, UserProduct, and CustomFilter collections
 		const field = type === 'category' ? 'categories' : 'tags';
-		const [productFilters, userProductFilters] = await Promise.all([
-			Product.distinct(field, { archived: { $ne: true } }),
-			UserProduct.distinct(field, { archived: { $ne: true } }),
-		]);
+		const [productFilters, userProductFilters, customFilters] =
+			await Promise.all([
+				Product.distinct(field, { archived: { $ne: true } }),
+				UserProduct.distinct(field, { archived: { $ne: true } }),
+				CustomFilter.find({ type }).distinct('value'),
+			]);
 
-		// Combine filters from both collections, plus system tags for tags type
-		const baseFilters = [...productFilters, ...userProductFilters];
+		// Combine filters from all collections, plus system tags for tags type
+		const baseFilters = [
+			...productFilters,
+			...userProductFilters,
+			...customFilters,
+		];
 		const allFilters =
 			type === 'tag'
 				? [...new Set([...baseFilters, ...SYSTEM_TAGS])]
@@ -1330,5 +1337,67 @@ export const adminService = {
 			value: normalizedValue,
 		});
 		return result.deletedCount > 0;
+	},
+
+	/**
+	 * Create a new custom filter (category or tag)
+	 * This allows admins to add filters that don't exist in any products yet
+	 */
+	async createFilter(
+		type: FilterType,
+		value: string,
+		displayName: string | undefined,
+		createdBy: string
+	): Promise<{ value: string; displayName?: string }> {
+		const createdById = new mongoose.Types.ObjectId(createdBy);
+
+		// Normalize the value: lowercase, trim, replace dashes with spaces
+		const normalizedValue = value
+			.toLowerCase()
+			.trim()
+			.replace(/-/g, ' ')
+			.replace(/^en:/, '');
+
+		// Check if this filter already exists in products or custom filters
+		const field = type === 'category' ? 'categories' : 'tags';
+		const [existsInProducts, existsInUserProducts, existsInCustom] =
+			await Promise.all([
+				Product.findOne({ [field]: { $regex: new RegExp(`^${normalizedValue}$`, 'i') } }),
+				UserProduct.findOne({ [field]: { $regex: new RegExp(`^${normalizedValue}$`, 'i') } }),
+				CustomFilter.findOne({ type, value: normalizedValue }),
+			]);
+
+		if (existsInProducts || existsInUserProducts || existsInCustom) {
+			throw new Error(
+				`A ${type} with value "${normalizedValue}" already exists`
+			);
+		}
+
+		// Create the custom filter
+		const customFilter = await CustomFilter.create({
+			type,
+			value: normalizedValue,
+			displayName: displayName?.trim() || undefined,
+			createdBy: createdById,
+		});
+
+		// If a display name was provided, also create a FilterDisplayName entry
+		if (displayName?.trim()) {
+			await FilterDisplayName.findOneAndUpdate(
+				{ type, value: normalizedValue },
+				{
+					type,
+					value: normalizedValue,
+					displayName: displayName.trim(),
+					updatedBy: createdById,
+				},
+				{ upsert: true, new: true }
+			);
+		}
+
+		return {
+			value: customFilter.value,
+			displayName: customFilter.displayName,
+		};
 	},
 };

@@ -642,6 +642,53 @@ router.get(
 );
 
 /**
+ * POST /api/admin/filters
+ * Create a new filter (category or tag)
+ */
+router.post(
+	'/filters',
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { type, value, displayName } = req.body;
+			const userId = req.userId;
+
+			if (!userId) {
+				throw new HttpError('User not authenticated', 401);
+			}
+
+			if (!type || !['category', 'tag'].includes(type)) {
+				throw new HttpError(
+					'Invalid filter type. Must be "category" or "tag"',
+					400
+				);
+			}
+
+			if (!value || typeof value !== 'string' || !value.trim()) {
+				throw new HttpError('Filter value is required', 400);
+			}
+
+			const result = await adminService.createFilter(
+				type,
+				value,
+				displayName,
+				userId
+			);
+
+			res.status(201).json({
+				message: `${type === 'category' ? 'Category' : 'Tag'} created successfully`,
+				filter: result,
+			});
+		} catch (error: any) {
+			if (error.message?.includes('already exists')) {
+				next(new HttpError(error.message, 409));
+			} else {
+				next(error);
+			}
+		}
+	}
+);
+
+/**
  * POST /api/admin/filters/archive
  * Archive a filter
  */

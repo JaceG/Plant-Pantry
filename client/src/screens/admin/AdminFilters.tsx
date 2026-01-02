@@ -29,6 +29,11 @@ export function AdminFilters() {
 	const [showArchived, setShowArchived] = useState(false);
 	const [editingFilter, setEditingFilter] = useState<string | null>(null);
 	const [editDisplayName, setEditDisplayName] = useState('');
+	// Add filter form state
+	const [showAddForm, setShowAddForm] = useState(false);
+	const [newFilterValue, setNewFilterValue] = useState('');
+	const [newFilterDisplayName, setNewFilterDisplayName] = useState('');
+	const [addLoading, setAddLoading] = useState(false);
 
 	const fetchFilters = useCallback(async () => {
 		try {
@@ -123,6 +128,44 @@ export function AdminFilters() {
 		setEditDisplayName('');
 	};
 
+	const handleAddFilter = async () => {
+		if (!newFilterValue.trim()) {
+			setToast({ message: 'Filter value is required', type: 'error' });
+			return;
+		}
+
+		setAddLoading(true);
+		try {
+			await adminApi.createFilter(
+				activeTab,
+				newFilterValue.trim(),
+				newFilterDisplayName.trim() || undefined
+			);
+			setToast({
+				message: `${activeTab === 'category' ? 'Category' : 'Tag'} added successfully`,
+				type: 'success',
+			});
+			setShowAddForm(false);
+			setNewFilterValue('');
+			setNewFilterDisplayName('');
+			fetchFilters(); // Refresh list
+		} catch (err: any) {
+			const message =
+				err?.response?.data?.message ||
+				err?.message ||
+				`Failed to add ${activeTab}`;
+			setToast({ message, type: 'error' });
+		} finally {
+			setAddLoading(false);
+		}
+	};
+
+	const handleCancelAdd = () => {
+		setShowAddForm(false);
+		setNewFilterValue('');
+		setNewFilterDisplayName('');
+	};
+
 	const displayedFilters = showArchived
 		? filters
 		: filters.filter((f) => !f.archived);
@@ -159,6 +202,13 @@ export function AdminFilters() {
 							/>
 							<span>Show archived</span>
 						</label>
+						<Button
+							onClick={() => setShowAddForm(true)}
+							variant='primary'
+							size='sm'
+							disabled={showAddForm}>
+							+ Add {activeTab === 'category' ? 'Category' : 'Tag'}
+						</Button>
 					</div>
 				</header>
 
@@ -170,6 +220,7 @@ export function AdminFilters() {
 						onClick={() => {
 							setActiveTab('category');
 							setPage(1);
+							handleCancelAdd();
 						}}>
 						Categories
 					</button>
@@ -180,10 +231,83 @@ export function AdminFilters() {
 						onClick={() => {
 							setActiveTab('tag');
 							setPage(1);
+							handleCancelAdd();
 						}}>
 						Tags
 					</button>
 				</div>
+
+				{showAddForm && (
+					<div className='add-filter-form'>
+						<h3>
+							Add New{' '}
+							{activeTab === 'category' ? 'Category' : 'Tag'}
+						</h3>
+						<div className='form-fields'>
+							<div className='form-field'>
+								<label htmlFor='filter-value'>
+									Value{' '}
+									<span className='required'>*</span>
+								</label>
+								<input
+									id='filter-value'
+									type='text'
+									value={newFilterValue}
+									onChange={(e) =>
+										setNewFilterValue(e.target.value)
+									}
+									placeholder={`e.g., ${activeTab === 'category' ? 'chocolate bars' : 'organic'}`}
+									className='filter-input'
+									autoFocus
+								/>
+								<span className='form-hint'>
+									This is the internal value stored in the
+									database
+								</span>
+							</div>
+							<div className='form-field'>
+								<label htmlFor='filter-display-name'>
+									Display Name{' '}
+									<span className='optional'>(optional)</span>
+								</label>
+								<input
+									id='filter-display-name'
+									type='text'
+									value={newFilterDisplayName}
+									onChange={(e) =>
+										setNewFilterDisplayName(e.target.value)
+									}
+									placeholder={`e.g., ${activeTab === 'category' ? 'Chocolate Bars' : 'Organic'}`}
+									className='filter-input'
+								/>
+								<span className='form-hint'>
+									How the filter appears to users (defaults to
+									value if empty)
+								</span>
+							</div>
+						</div>
+						<div className='form-actions'>
+							<Button
+								onClick={handleAddFilter}
+								variant='primary'
+								size='sm'
+								isLoading={addLoading}
+								disabled={
+									addLoading || !newFilterValue.trim()
+								}>
+								Add{' '}
+								{activeTab === 'category' ? 'Category' : 'Tag'}
+							</Button>
+							<Button
+								onClick={handleCancelAdd}
+								variant='secondary'
+								size='sm'
+								disabled={addLoading}>
+								Cancel
+							</Button>
+						</div>
+					</div>
+				)}
 
 				{error && (
 					<div className='error-banner'>

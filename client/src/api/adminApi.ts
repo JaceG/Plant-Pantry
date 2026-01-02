@@ -569,6 +569,20 @@ export const adminApi = {
 		>(`/admin/filters?type=${type}&page=${page}&pageSize=${pageSize}`);
 	},
 
+	createFilter(
+		type: 'category' | 'tag',
+		value: string,
+		displayName?: string
+	): Promise<{
+		message: string;
+		filter: { value: string; displayName?: string };
+	}> {
+		return httpClient.post<{
+			message: string;
+			filter: { value: string; displayName?: string };
+		}>('/admin/filters', { type, value, displayName });
+	},
+
 	archiveFilter(
 		type: 'category' | 'tag',
 		value: string
