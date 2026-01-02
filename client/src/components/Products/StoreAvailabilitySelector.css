@@ -492,9 +492,26 @@
   overflow: hidden;
 }
 
-.store-price-input input {
+.price-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.price-prefix {
+  position: absolute;
+  left: 0.5rem;
+  color: var(--color-charcoal);
+  font-size: 0.875rem;
+  font-weight: 500;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.store-price-input input,
+.store-item-price input {
   width: 100%;
-  padding: 0.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 1.5rem;
   border: 1px solid var(--color-sage-light);
   border-radius: 4px;
   font-size: 0.875rem;
@@ -502,9 +519,14 @@
   background: var(--color-white);
 }
 
-.store-price-input input:focus {
+.store-price-input input:focus,
+.store-item-price input:focus {
   outline: none;
   border-color: var(--color-forest);
+}
+
+.store-item-price .price-input-wrapper {
+  width: 100%;
 }
 
 .selected-stores-list {
@@ -556,21 +578,6 @@
 
 .store-item-price {
   flex: 0 0 150px;
-}
-
-.store-item-price input {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid var(--color-sage-light);
-  border-radius: 4px;
-  font-size: 0.875rem;
-  color: var(--color-charcoal);
-  background: var(--color-white);
-}
-
-.store-item-price input:focus {
-  outline: none;
-  border-color: var(--color-forest);
 }
 
 .store-item-remove {

@@ -660,6 +660,32 @@ export function StoreAvailabilitySelector({
 		);
 	};
 
+	// Helper function to format price input with $ prefix and validate numeric input
+	const handlePriceInputChange = (
+		value: string,
+		setter: (value: string) => void
+	) => {
+		// Remove $ if user tries to type it (we'll add it automatically)
+		let cleaned = value.replace(/\$/g, '');
+		
+		// Only allow numbers and decimal point
+		cleaned = cleaned.replace(/[^0-9.]/g, '');
+		
+		// Ensure only one decimal point
+		const parts = cleaned.split('.');
+		if (parts.length > 2) {
+			cleaned = parts[0] + '.' + parts.slice(1).join('');
+		}
+		
+		setter(cleaned);
+	};
+
+	// Helper function to format price for display (adds $ prefix)
+	const formatPriceDisplay = (value: string): string => {
+		if (!value) return '';
+		return '$' + value;
+	};
+
 	// Count stores by type for display
 	const physicalStoreCount = stores.filter(
 		(s) => s.type === 'brick_and_mortar'
@@ -783,14 +809,20 @@ export function StoreAvailabilitySelector({
 							</label>
 
 							<div className='store-price-input'>
-								<input
-									type='text'
-									placeholder='Price range (optional)'
-									value={priceRange}
-									onChange={(e) =>
-										setPriceRange(e.target.value)
-									}
-								/>
+								<div className='price-input-wrapper'>
+									<span className='price-prefix'>$</span>
+									<input
+										type='text'
+										placeholder='Price range (optional)'
+										value={priceRange}
+										onChange={(e) =>
+											handlePriceInputChange(
+												e.target.value,
+												setPriceRange
+											)
+										}
+									/>
+								</div>
 							</div>
 
 							<div className='chain-picker-buttons'>
@@ -1647,12 +1679,20 @@ export function StoreAvailabilitySelector({
 							</div>
 						)}
 						<div className='store-price-input'>
-							<input
-								type='text'
-								placeholder='Price range (e.g., $5.99-$7.99)'
-								value={priceRange}
-								onChange={(e) => setPriceRange(e.target.value)}
-							/>
+							<div className='price-input-wrapper'>
+								<span className='price-prefix'>$</span>
+								<input
+									type='text'
+									placeholder='Price range (optional)'
+									value={priceRange}
+									onChange={(e) =>
+										handlePriceInputChange(
+											e.target.value,
+											setPriceRange
+										)
+									}
+								/>
+							</div>
 						</div>
 						<Button
 							type='button'
@@ -1705,17 +1745,23 @@ export function StoreAvailabilitySelector({
 									)}
 								</div>
 								<div className='store-item-price'>
-									<input
-										type='text'
-										placeholder='Price range'
-										value={avail.priceRange || ''}
-										onChange={(e) =>
-											handleUpdatePriceRange(
-												avail.storeId,
-												e.target.value
-											)
-										}
-									/>
+									<div className='price-input-wrapper'>
+										<span className='price-prefix'>$</span>
+										<input
+											type='text'
+											placeholder='Price range'
+											value={avail.priceRange?.replace(/\$/g, '') || ''}
+											onChange={(e) => {
+												const cleaned = e.target.value.replace(/\$/g, '').replace(/[^0-9.]/g, '');
+												const parts = cleaned.split('.');
+												const validValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : cleaned;
+												handleUpdatePriceRange(
+													avail.storeId,
+													validValue
+												);
+											}}
+										/>
+									</div>
 								</div>
 								<button
 									type='button'
@@ -1751,25 +1797,29 @@ export function StoreAvailabilitySelector({
 									</span>
 								</div>
 								<div className='store-item-price'>
-									<input
-										type='text'
-										placeholder='Price range'
-										value={c.priceRange || ''}
-										onChange={(e) => {
-											onChainChange(
-												chainValue.map((x) =>
-													x.chainId === c.chainId
-														? {
-																...x,
-																priceRange:
-																	e.target
-																		.value,
-														  }
-														: x
-												)
-											);
-										}}
-									/>
+									<div className='price-input-wrapper'>
+										<span className='price-prefix'>$</span>
+										<input
+											type='text'
+											placeholder='Price range'
+											value={c.priceRange?.replace(/\$/g, '') || ''}
+											onChange={(e) => {
+												const cleaned = e.target.value.replace(/\$/g, '').replace(/[^0-9.]/g, '');
+												const parts = cleaned.split('.');
+												const validValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : cleaned;
+												onChainChange(
+													chainValue.map((x) =>
+														x.chainId === c.chainId
+															? {
+																	...x,
+																	priceRange: validValue,
+															  }
+															: x
+													)
+												);
+											}}
+										/>
+									</div>
 								</div>
 								<button
 									type='button'
