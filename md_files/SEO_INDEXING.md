@@ -231,9 +231,49 @@ const productSchema = {
 - Build quality backlinks from relevant sites
 - Create valuable, unique content
 
+## 🎨 Favicon Setup
+
+Google Search Console displays favicons in search results, but has specific requirements:
+
+### Requirements
+- File format: PNG, ICO, or SVG (PNG preferred for best compatibility)
+- Size: Must be a multiple of 48px (recommended: 48x48px, 96x96px, or 192x192px)
+- Location: Served from the root domain (e.g., `https://theveganaisle.com/favicon.svg`)
+- robots.txt: Must not block the favicon file
+
+### Current Setup
+The site now includes:
+1. **favicon.svg** - A plant-themed SVG icon in `/client/public/favicon.svg`
+2. **site.webmanifest** - A web app manifest in `/client/public/site.webmanifest`
+3. **HTML link tags** - Proper favicon references in the `<head>` section:
+   ```html
+   <link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any" />
+   <link rel="shortcut icon" href="/favicon.svg" />
+   <link rel="apple-touch-icon" sizes="180x180" href="/favicon.svg" />
+   <link rel="mask-icon" href="/favicon.svg" color="#588157" />
+   <link rel="manifest" href="/site.webmanifest" />
+   ```
+
+### Troubleshooting
+If your favicon isn't showing in Google Search Console:
+1. **Verify it's accessible**: Visit `https://theveganaisle.com/favicon.svg` in your browser
+2. **Check the HTML**: Use "View Page Source" to confirm the link tags are present
+3. **Wait for recrawl**: Google may take 1-2 weeks to update the favicon after changes
+4. **Request indexing**: Use URL Inspection tool in Search Console to request a recrawl
+5. **Consider PNG format**: If SVG isn't working, create PNG versions (48x48, 96x96, 192x192)
+
+### Creating PNG Favicons (Optional)
+For better compatibility, you can add PNG versions:
+1. Convert your SVG to PNG at different sizes using a tool like:
+   - [Favicon Generator](https://favicon.io/)
+   - [RealFaviconGenerator](https://realfavicongenerator.net/)
+2. Place the files in `/client/public/`
+3. Update the HTML link tags to reference the PNG files
+
 ## 🔗 Useful Resources
 
 - [Google Search Central](https://developers.google.com/search)
 - [Google Search Console Help](https://support.google.com/webmasters)
 - [SEO Starter Guide](https://developers.google.com/search/docs/beginner/seo-starter-guide)
 - [React SEO Best Practices](https://www.gatsbyjs.com/docs/how-to/adding-common-features/seo/)
+- [Google Favicon Guidelines](https://developers.google.com/search/docs/appearance/favicon-in-search)
