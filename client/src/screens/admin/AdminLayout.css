@@ -76,6 +76,62 @@
 
 .nav-item-label {
   font-weight: 500;
+  flex: 1;
+}
+
+/* Nav items with children */
+.nav-item-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-nav-item.has-children {
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.nav-item-chevron {
+  font-size: 0.625rem;
+  transition: transform 0.2s ease;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.nav-item-chevron.expanded {
+  transform: rotate(90deg);
+}
+
+.nav-item-children {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding-left: 2.5rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.admin-nav-subitem {
+  display: block;
+  padding: 0.625rem 1rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 400;
+  transition: all 0.2s ease;
+}
+
+.admin-nav-subitem:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.admin-nav-subitem.active {
+  background: rgba(168, 85, 247, 0.2);
+  color: #c4b5fd;
+  font-weight: 500;
 }
 
 /* Footer */
@@ -120,8 +176,19 @@
 
   .admin-sidebar-header h2,
   .nav-item-label,
-  .back-to-app {
+  .back-to-app,
+  .nav-item-chevron {
     display: none;
+  }
+
+  .nav-item-children {
+    padding-left: 0;
+  }
+
+  .admin-nav-subitem {
+    font-size: 0.75rem;
+    padding: 0.5rem;
+    text-align: center;
   }
 
   .admin-sidebar-header {

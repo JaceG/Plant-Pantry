@@ -1,318 +1,56 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { adminApi, AdminBrand, BrandRef } from '../../api/adminApi';
+import { adminApi } from '../../api/adminApi';
 import { AdminLayout } from './AdminLayout';
 import { Button } from '../../components/Common/Button';
-import { Toast } from '../../components/Common/Toast';
 import './AdminBrands.css';
 
-const LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
-
 export function AdminBrands() {
-	const [officialBrands, setOfficialBrands] = useState<AdminBrand[]>([]);
-	const [unassignedBrands, setUnassignedBrands] = useState<AdminBrand[]>([]);
-	const [officialBrandRefs, setOfficialBrandRefs] = useState<BrandRef[]>([]);
-	const [letterCounts, setLetterCounts] = useState<Record<string, number>>(
-		{}
-	);
+	const [stats, setStats] = useState({
+		officialBrands: 0,
+		unassignedBrands: 0,
+	});
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [selectedLetter, setSelectedLetter] = useState<string>('A');
-	const [toast, setToast] = useState<{
-		message: string;
-		type: 'success' | 'error' | 'info';
-	} | null>(null);
 
-	// Search state
-	const [searchQuery, setSearchQuery] = useState('');
-	const prevSearchQueryRef = useRef<string>('');
-
-	// Official brands section collapse state
-	const [officialCollapsed, setOfficialCollapsed] = useState(false);
-
-	// Selected brands for bulk assignment
-	const [selectedBrandIds, setSelectedBrandIds] = useState<Set<string>>(
-		new Set()
-	);
-	const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
-	const [bulkAssignParentId, setBulkAssignParentId] = useState('');
-	const [bulkAssignLoading, setBulkAssignLoading] = useState(false);
-
-	// Single brand assignment modal
-	const [assigningBrand, setAssigningBrand] = useState<AdminBrand | null>(
-		null
-	);
-	const [assignParentId, setAssignParentId] = useState('');
-	const [assignLoading, setAssignLoading] = useState(false);
-
-	// Expanded official brands to show children
-	const [expandedBrands, setExpandedBrands] = useState<Set<string>>(
-		new Set()
-	);
-
-	// Create new official brand modal
-	const [showCreateBrandModal, setShowCreateBrandModal] = useState(false);
-	const [newBrandName, setNewBrandName] = useState('');
-	const [createBrandLoading, setCreateBrandLoading] = useState(false);
-
-	// Fetch brands
-	const fetchBrands = useCallback(async () => {
-		try {
-			setLoading(true);
-			// When searching, fetch all brands (don't filter by letter)
-			// Otherwise, filter by selected letter
-			const [brandsRes, officialRes] = await Promise.all([
-				adminApi.getBrands(
-					searchQuery.trim()
-						? {} // No letter filter when searching
-						: { letter: selectedLetter }
-				),
-				adminApi.getOfficialBrands(),
-			]);
-
-			// Handle new response structure
-			if (brandsRes.officialBrands !== undefined) {
-				setOfficialBrands(brandsRes.officialBrands);
-				setUnassignedBrands(brandsRes.unassignedBrands || []);
-			} else {
-				// Legacy fallback
-				setOfficialBrands(
-					brandsRes.brands?.filter((b) => b.isOfficial) || []
-				);
-				setUnassignedBrands(
-					brandsRes.brands?.filter(
-						(b) => !b.isOfficial && !b.parentBrand
-					) || []
-				);
-			}
-			setLetterCounts(brandsRes.letterCounts || {});
-			setOfficialBrandRefs(officialRes.brands);
-		} catch (err) {
-			setError(
-				err instanceof Error ? err.message : 'Failed to load brands'
-			);
-		} finally {
-			setLoading(false);
-		}
-	}, [selectedLetter, searchQuery]);
-
-	// Refetch when letter changes (only if search is empty)
 	useEffect(() => {
-		if (!searchQuery.trim()) {
-			fetchBrands();
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [selectedLetter]);
-
-	// Refetch when search transitions between empty and non-empty
-	useEffect(() => {
-		const searchWasEmpty = !prevSearchQueryRef.current.trim();
-		const searchIsEmpty = !searchQuery.trim();
-		const searchTransitioned =
-			(searchWasEmpty && !searchIsEmpty) ||
-			(!searchWasEmpty && searchIsEmpty);
-
-		if (searchTransitioned || prevSearchQueryRef.current === '') {
-			fetchBrands();
-		}
-
-		prevSearchQueryRef.current = searchQuery;
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [searchQuery]);
-
-	// Filter brands by search query
-	const filteredOfficialBrands = officialBrands.filter(
-		(brand) =>
-			brand.brandName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			brand.displayName.toLowerCase().includes(searchQuery.toLowerCase())
-	);
-
-	const filteredUnassignedBrands = unassignedBrands.filter(
-		(brand) =>
-			brand.brandName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			brand.displayName.toLowerCase().includes(searchQuery.toLowerCase())
-	);
-
-	// Get unique key for a brand (use id if available, otherwise brandName)
-	const getBrandKey = (brand: AdminBrand) => brand.id || brand.brandName;
-
-	// Toggle brand selection
-	const toggleBrandSelection = (brand: AdminBrand) => {
-		const key = getBrandKey(brand);
-		setSelectedBrandIds((prev) => {
-			const next = new Set(prev);
-			if (next.has(key)) {
-				next.delete(key);
-			} else {
-				next.add(key);
+		const fetchStats = async () => {
+			try {
+				setLoading(true);
+				// Fetch brands to get counts
+				const brandsRes = await adminApi.getBrands({});
+				
+				// Calculate totals from letter counts
+				const totalUnassigned = Object.values(brandsRes.letterCounts || {}).reduce(
+					(sum, count) => sum + count,
+					0
+				);
+				
+				// Get official brands count
+				const officialRes = await adminApi.getOfficialBrands();
+				
+				setStats({
+					officialBrands: officialRes.brands?.length || 0,
+					unassignedBrands: totalUnassigned,
+				});
+			} catch (err) {
+				setError(
+					err instanceof Error ? err.message : 'Failed to load brand stats'
+				);
+			} finally {
+				setLoading(false);
 			}
-			return next;
-		});
-	};
+		};
 
-	// Select all unassigned brands on current page
-	const selectAllUnassigned = () => {
-		setSelectedBrandIds(
-			new Set(filteredUnassignedBrands.map((b) => getBrandKey(b)))
-		);
-	};
+		fetchStats();
+	}, []);
 
-	// Clear selection
-	const clearSelection = () => {
-		setSelectedBrandIds(new Set());
-	};
-
-	// Toggle official status
-	const handleToggleOfficial = async (brand: AdminBrand) => {
-		try {
-			await adminApi.setBrandOfficial(
-				brand.id,
-				!brand.isOfficial,
-				brand.id ? undefined : brand.brandName
-			);
-			setToast({
-				message: brand.isOfficial
-					? `"${brand.displayName}" is no longer an official brand`
-					: `"${brand.displayName}" is now an official brand`,
-				type: 'success',
-			});
-			fetchBrands();
-		} catch (err) {
-			setToast({
-				message:
-					err instanceof Error
-						? err.message
-						: 'Failed to update brand',
-				type: 'error',
-			});
-		}
-	};
-
-	// Open assign parent modal
-	const openAssignModal = (brand: AdminBrand) => {
-		setAssigningBrand(brand);
-		setAssignParentId(brand.parentBrand?.id || '');
-	};
-
-	// Assign parent brand
-	const handleAssignParent = async () => {
-		if (!assigningBrand) return;
-
-		setAssignLoading(true);
-		try {
-			await adminApi.assignBrandParent(
-				assigningBrand.id,
-				assignParentId || null,
-				assigningBrand.id ? undefined : assigningBrand.brandName
-			);
-			setToast({
-				message: assignParentId
-					? `"${assigningBrand.displayName}" assigned to parent brand`
-					: `"${assigningBrand.displayName}" unassigned from parent`,
-				type: 'success',
-			});
-			setAssigningBrand(null);
-			fetchBrands();
-		} catch (err) {
-			setToast({
-				message:
-					err instanceof Error
-						? err.message
-						: 'Failed to assign brand',
-				type: 'error',
-			});
-		} finally {
-			setAssignLoading(false);
-		}
-	};
-
-	// Bulk assign brands
-	const handleBulkAssign = async () => {
-		if (!bulkAssignParentId || selectedBrandIds.size === 0) return;
-
-		setBulkAssignLoading(true);
-		try {
-			const result = await adminApi.bulkAssignBrandChildren(
-				bulkAssignParentId,
-				Array.from(selectedBrandIds)
-			);
-			setToast({
-				message: result.message,
-				type: result.modifiedCount > 0 ? 'success' : 'info',
-			});
-			setShowBulkAssignModal(false);
-			setSelectedBrandIds(new Set());
-			setBulkAssignParentId('');
-			fetchBrands();
-		} catch (err) {
-			setToast({
-				message:
-					err instanceof Error
-						? err.message
-						: 'Failed to assign brands',
-				type: 'error',
-			});
-		} finally {
-			setBulkAssignLoading(false);
-		}
-	};
-
-	// Toggle expanded brand
-	const toggleExpandBrand = (brandId: string) => {
-		setExpandedBrands((prev) => {
-			const next = new Set(prev);
-			if (next.has(brandId)) {
-				next.delete(brandId);
-			} else {
-				next.add(brandId);
-			}
-			return next;
-		});
-	};
-
-	// Create new official brand from scratch
-	const handleCreateBrand = async () => {
-		if (!newBrandName.trim()) return;
-
-		setCreateBrandLoading(true);
-		try {
-			await adminApi.createOfficialBrand(newBrandName.trim());
-			setToast({
-				message: `"${newBrandName}" created as an official brand`,
-				type: 'success',
-			});
-			setShowCreateBrandModal(false);
-			setNewBrandName('');
-			fetchBrands();
-		} catch (err) {
-			setToast({
-				message:
-					err instanceof Error
-						? err.message
-						: 'Failed to create brand',
-				type: 'error',
-			});
-		} finally {
-			setCreateBrandLoading(false);
-		}
-	};
-
-	// Calculate totals
-	const totalUnassigned = Object.values(letterCounts).reduce(
-		(sum, count) => sum + count,
-		0
-	);
-
-	if (
-		loading &&
-		officialBrands.length === 0 &&
-		unassignedBrands.length === 0
-	) {
+	if (loading) {
 		return (
 			<AdminLayout>
 				<div className='admin-loading'>
 					<div className='loading-spinner' />
-					<span>Loading brands...</span>
+					<span>Loading brand stats...</span>
 				</div>
 			</AdminLayout>
 		);
@@ -324,7 +62,7 @@ export function AdminBrands() {
 				<div className='admin-error'>
 					<h2>Error</h2>
 					<p>{error}</p>
-					<Button onClick={fetchBrands}>Retry</Button>
+					<Button onClick={() => window.location.reload()}>Retry</Button>
 				</div>
 			</AdminLayout>
 		);
@@ -340,575 +78,87 @@ export function AdminBrands() {
 							Consolidate brand variations under official brands
 						</p>
 					</div>
-					<div className='header-actions'>
-						<Button
-							variant='primary'
-							onClick={() => setShowCreateBrandModal(true)}>
-							+ Create Official Brand
-						</Button>
-					</div>
 				</header>
 
-				{/* Stats Row */}
-				<div className='brands-stats'>
-					<div className='stat-box official'>
-						<span className='stat-value'>
-							{officialBrands.length}
-						</span>
-						<span className='stat-label'>Official Brands</span>
-					</div>
-					<div className='stat-box warning'>
-						<span className='stat-value'>{totalUnassigned}</span>
-						<span className='stat-label'>Unassigned</span>
-					</div>
-				</div>
-
-				{/* Search */}
-				<div className='brands-search'>
-					<input
-						type='text'
-						className='search-input'
-						placeholder='Search brands...'
-						value={searchQuery}
-						onChange={(e) => setSearchQuery(e.target.value)}
-					/>
-				</div>
-
-				{/* Official Brands Section */}
-				<section className='brands-section official-section'>
-					<div
-						className='section-header'
-						onClick={() =>
-							setOfficialCollapsed(!officialCollapsed)
-						}>
-						<h2>
-							<span className='collapse-icon'>
-								{officialCollapsed ? '▶' : '▼'}
-							</span>
-							Official Brands ({filteredOfficialBrands.length})
-						</h2>
-					</div>
-
-					{!officialCollapsed && (
-						<div className='brands-list'>
-							{filteredOfficialBrands.length === 0 ? (
-								<div className='empty-state'>
-									<p>No official brands found</p>
-								</div>
-							) : (
-								filteredOfficialBrands.map((brand) => (
-									<div
-										key={getBrandKey(brand)}
-										className='brand-row official'>
-										<div className='brand-checkbox' />
-
-										<div className='brand-info'>
-											<div className='brand-name-row'>
-												{brand.id && (
-													<button
-														className='expand-btn'
-														onClick={() =>
-															toggleExpandBrand(
-																brand.id!
-															)
-														}>
-														{expandedBrands.has(
-															brand.id
-														)
-															? '▼'
-															: '▶'}
-													</button>
-												)}
-												<Link
-													to={`/brands/${encodeURIComponent(
-														brand.brandName
-													)}`}
-													className='brand-display-name brand-link'>
-													{brand.displayName}
-												</Link>
-												<span className='official-badge'>
-													OFFICIAL
-												</span>
-												<span className='product-count'>
-													{brand.productCount} product
-													{brand.productCount !== 1
-														? 's'
-														: ''}
-												</span>
-												{brand.childCount > 0 && (
-													<>
-														<span className='product-count total-count'>
-															{
-																brand.totalProductCount
-															}{' '}
-															total
-														</span>
-														<span className='child-count'>
-															+{brand.childCount}{' '}
-															sub-brand
-															{brand.childCount !==
-															1
-																? 's'
-																: ''}
-														</span>
-													</>
-												)}
-											</div>
-											{brand.brandName !==
-												brand.displayName && (
-												<span className='brand-name-raw'>
-													DB: {brand.brandName}
-												</span>
-											)}
-										</div>
-
-										<div className='brand-actions'>
-											<Button
-												variant='secondary'
-												size='sm'
-												className='btn-danger'
-												onClick={() =>
-													handleToggleOfficial(brand)
-												}>
-												Remove Official
-											</Button>
-										</div>
-
-										{/* Expanded children */}
-										{brand.id &&
-											expandedBrands.has(brand.id) && (
-												<div className='brand-children'>
-													{brand.childCount === 0 ? (
-														<p className='no-children'>
-															No sub-brands
-															assigned yet
-														</p>
-													) : (
-														<ChildBrandsList
-															parentId={brand.id}
-															onUnassign={
-																fetchBrands
-															}
-															setToast={setToast}
-														/>
-													)}
-												</div>
-											)}
-									</div>
-								))
-							)}
-						</div>
-					)}
-				</section>
-
-				{/* Unassigned Brands Section */}
-				<section className='brands-section unassigned-section'>
-					<div className='section-header'>
-						<h2>
-							Unassigned Brands (
-							{searchQuery.trim()
-								? filteredUnassignedBrands.length
-								: letterCounts[selectedLetter] || 0}
-							)
-						</h2>
-					</div>
-
-					{/* Letter Pagination */}
-					<div className='letter-pagination'>
-						{LETTERS.map((letter) => (
-							<button
-								key={letter}
-								className={`letter-tab ${
-									selectedLetter === letter ? 'active' : ''
-								} ${
-									(letterCounts[letter] || 0) === 0
-										? 'empty'
-										: ''
-								}`}
-								onClick={() => {
-									setSelectedLetter(letter);
-									setSelectedBrandIds(new Set());
-								}}>
-								<span className='letter-char'>{letter}</span>
-								{(letterCounts[letter] || 0) > 0 && (
-									<span className='letter-count'>
-										{letterCounts[letter]}
-									</span>
-								)}
-							</button>
-						))}
-					</div>
-
-					{/* Bulk Actions Toolbar */}
-					<div className='bulk-actions-toolbar'>
-						{selectedBrandIds.size > 0 ? (
-							<>
-								<span className='selection-count'>
-									{selectedBrandIds.size} selected
-								</span>
-								<Button
-									variant='secondary'
-									size='sm'
-									onClick={clearSelection}>
-									Clear
-								</Button>
-								<Button
-									variant='primary'
-									size='sm'
-									onClick={() =>
-										setShowBulkAssignModal(true)
-									}>
-									Assign to Official Brand
-								</Button>
-							</>
-						) : (
-							filteredUnassignedBrands.length > 0 && (
-								<Button
-									variant='secondary'
-									size='sm'
-									onClick={selectAllUnassigned}>
-									Select All on Page
-								</Button>
-							)
-						)}
-					</div>
-
-					{/* Unassigned Brands List */}
-					<div className='brands-list'>
-						{filteredUnassignedBrands.length === 0 ? (
-							<div className='empty-state'>
-								<p>
-									{searchQuery.trim()
-										? `No unassigned brands found matching "${searchQuery}"`
-										: `No unassigned brands starting with "${selectedLetter}"`}
-								</p>
+				{/* Overview Cards */}
+				<div className='brands-overview'>
+					<Link to='/admin/brands/official' className='overview-card official'>
+						<div className='overview-card-icon'>🏷️</div>
+						<div className='overview-card-content'>
+							<h2>Official Brands</h2>
+							<p className='overview-card-description'>
+								Manage official brand pages and their sub-brands
+							</p>
+							<div className='overview-card-stat'>
+								<span className='stat-number'>{stats.officialBrands}</span>
+								<span className='stat-label'>brands</span>
 							</div>
-						) : (
-							filteredUnassignedBrands.map((brand) => (
-								<div
-									key={getBrandKey(brand)}
-									className={`brand-row ${
-										selectedBrandIds.has(getBrandKey(brand))
-											? 'selected'
-											: ''
-									}`}>
-									<div className='brand-checkbox'>
-										<input
-											type='checkbox'
-											checked={selectedBrandIds.has(
-												getBrandKey(brand)
-											)}
-											onChange={() =>
-												toggleBrandSelection(brand)
-											}
-										/>
-									</div>
+						</div>
+						<div className='overview-card-arrow'>→</div>
+					</Link>
 
-									<div className='brand-info'>
-										<div className='brand-name-row'>
-											<Link
-												to={`/brands/${encodeURIComponent(
-													brand.brandName
-												)}`}
-												className='brand-display-name brand-link'>
-												{brand.displayName}
-											</Link>
-											<span className='product-count'>
-												{brand.productCount} product
-												{brand.productCount !== 1
-													? 's'
-													: ''}
-											</span>
-										</div>
-										{brand.brandName !==
-											brand.displayName && (
-											<span className='brand-name-raw'>
-												DB: {brand.brandName}
-											</span>
-										)}
-									</div>
+					<Link to='/admin/brands/unassigned' className='overview-card warning'>
+						<div className='overview-card-icon'>📋</div>
+						<div className='overview-card-content'>
+							<h2>Unassigned Brands</h2>
+							<p className='overview-card-description'>
+								Assign brand variations to official brands or make them official
+							</p>
+							<div className='overview-card-stat'>
+								<span className='stat-number warning'>{stats.unassignedBrands}</span>
+								<span className='stat-label'>to review</span>
+							</div>
+						</div>
+						<div className='overview-card-arrow'>→</div>
+					</Link>
+				</div>
 
-									<div className='brand-actions'>
-										<Button
-											variant='secondary'
-											size='sm'
-											onClick={() =>
-												openAssignModal(brand)
-											}>
-											Assign
-										</Button>
-										<Button
-											variant='primary'
-											size='sm'
-											onClick={() =>
-												handleToggleOfficial(brand)
-											}>
-											Make Official
-										</Button>
-									</div>
-								</div>
-							))
-						)}
+				{/* Quick Actions */}
+				<section className='quick-actions-section'>
+					<h2>Quick Actions</h2>
+					<div className='quick-actions'>
+						<Link to='/admin/brands/official' className='quick-action-btn'>
+							<span className='quick-action-icon'>✨</span>
+							Create Official Brand
+						</Link>
+						<Link to='/admin/brands/unassigned' className='quick-action-btn'>
+							<span className='quick-action-icon'>🔗</span>
+							Assign Brands
+						</Link>
 					</div>
 				</section>
 
-				{/* Assign Parent Modal */}
-				{assigningBrand && (
-					<div
-						className='modal-overlay'
-						onClick={() => setAssigningBrand(null)}>
-						<div
-							className='modal-content'
-							onClick={(e) => e.stopPropagation()}>
-							<h3>
-								Assign "{assigningBrand.displayName}" to
-								Official Brand
-							</h3>
-							<p className='modal-description'>
-								Products from this brand will appear on the
-								official brand's page.
+				{/* Info Section */}
+				<section className='info-section'>
+					<h2>About Brand Management</h2>
+					<div className='info-cards'>
+						<div className='info-card'>
+							<h3>🏷️ Official Brands</h3>
+							<p>
+								Official brands are the main brand pages that users see. 
+								They can have sub-brands assigned to them, consolidating 
+								all products under one brand page.
 							</p>
-
-							<select
-								value={assignParentId}
-								onChange={(e) =>
-									setAssignParentId(e.target.value)
-								}
-								className='parent-select'>
-								<option value=''>
-									-- No parent (unassign) --
-								</option>
-								{officialBrandRefs
-									.filter((ob) => ob.id !== assigningBrand.id)
-									.sort((a, b) =>
-										a.displayName.localeCompare(b.displayName)
-									)
-									.map((ob) => (
-										<option key={ob.id} value={ob.id}>
-											{ob.displayName}
-										</option>
-									))}
-							</select>
-
-							<div className='modal-actions'>
-								<Button
-									variant='secondary'
-									onClick={() => setAssigningBrand(null)}>
-									Cancel
-								</Button>
-								<Button
-									variant='primary'
-									onClick={handleAssignParent}
-									disabled={assignLoading}>
-									{assignLoading ? 'Saving...' : 'Save'}
-								</Button>
-							</div>
+						</div>
+						<div className='info-card'>
+							<h3>🔗 Sub-brands</h3>
+							<p>
+								Sub-brands are brand variations that get linked to an official 
+								brand. Products from sub-brands appear on the parent brand's 
+								page alongside the parent's own products.
+							</p>
+						</div>
+						<div className='info-card'>
+							<h3>📋 Unassigned Brands</h3>
+							<p>
+								Unassigned brands are brand names found in product data that 
+								haven't been organized yet. You can either make them official 
+								or assign them to an existing official brand.
+							</p>
 						</div>
 					</div>
-				)}
-
-				{/* Bulk Assign Modal */}
-				{showBulkAssignModal && (
-					<div
-						className='modal-overlay'
-						onClick={() => setShowBulkAssignModal(false)}>
-						<div
-							className='modal-content'
-							onClick={(e) => e.stopPropagation()}>
-							<h3>
-								Assign {selectedBrandIds.size} Brand
-								{selectedBrandIds.size !== 1 ? 's' : ''} to
-								Official Brand
-							</h3>
-							<p className='modal-description'>
-								All selected brands will be linked to the chosen
-								official brand. Their products will appear on
-								the official brand's page.
-							</p>
-
-							<select
-								value={bulkAssignParentId}
-								onChange={(e) =>
-									setBulkAssignParentId(e.target.value)
-								}
-								className='parent-select'>
-								<option value=''>
-									-- Select official brand --
-								</option>
-								{[...officialBrandRefs]
-									.sort((a, b) =>
-										a.displayName.localeCompare(b.displayName)
-									)
-									.map((ob) => (
-										<option key={ob.id} value={ob.id}>
-											{ob.displayName}
-										</option>
-									))}
-							</select>
-
-							<div className='modal-actions'>
-								<Button
-									variant='secondary'
-									onClick={() =>
-										setShowBulkAssignModal(false)
-									}>
-									Cancel
-								</Button>
-								<Button
-									variant='primary'
-									onClick={handleBulkAssign}
-									disabled={
-										bulkAssignLoading || !bulkAssignParentId
-									}>
-									{bulkAssignLoading
-										? 'Assigning...'
-										: 'Assign'}
-								</Button>
-							</div>
-						</div>
-					</div>
-				)}
-
-				{/* Create Official Brand Modal */}
-				{showCreateBrandModal && (
-					<div
-						className='modal-overlay'
-						onClick={() => setShowCreateBrandModal(false)}>
-						<div
-							className='modal-content'
-							onClick={(e) => e.stopPropagation()}>
-							<h3>Create New Official Brand</h3>
-							<p className='modal-description'>
-								Create a brand that doesn't currently exist in
-								the product database. This is useful for parent
-								brands like "Amazon" to group sub-brands.
-							</p>
-
-							<input
-								type='text'
-								className='brand-name-input'
-								placeholder='Enter brand name (e.g. Amazon)'
-								value={newBrandName}
-								onChange={(e) => setNewBrandName(e.target.value)}
-								onKeyDown={(e) => {
-									if (e.key === 'Enter' && newBrandName.trim()) {
-										handleCreateBrand();
-									}
-								}}
-								autoFocus
-							/>
-
-							<div className='modal-actions'>
-								<Button
-									variant='secondary'
-									onClick={() => {
-										setShowCreateBrandModal(false);
-										setNewBrandName('');
-									}}>
-									Cancel
-								</Button>
-								<Button
-									variant='primary'
-									onClick={handleCreateBrand}
-									disabled={
-										createBrandLoading || !newBrandName.trim()
-									}>
-									{createBrandLoading
-										? 'Creating...'
-										: 'Create Official Brand'}
-								</Button>
-							</div>
-						</div>
-					</div>
-				)}
-
-				{toast && (
-					<Toast
-						message={toast.message}
-						type={toast.type}
-						onClose={() => setToast(null)}
-					/>
-				)}
+				</section>
 			</div>
 		</AdminLayout>
-	);
-}
-
-// Sub-component to load and display child brands
-function ChildBrandsList({
-	parentId,
-	onUnassign,
-	setToast,
-}: {
-	parentId: string;
-	onUnassign: () => void;
-	setToast: (toast: {
-		message: string;
-		type: 'success' | 'error' | 'info';
-	}) => void;
-}) {
-	const [children, setChildren] = useState<AdminBrand[]>([]);
-	const [loading, setLoading] = useState(true);
-
-	useEffect(() => {
-		const fetchChildren = async () => {
-			try {
-				const result = await adminApi.getBrandChildren(parentId);
-				setChildren(result.children);
-			} catch (err) {
-				console.error('Failed to load children:', err);
-			} finally {
-				setLoading(false);
-			}
-		};
-		fetchChildren();
-	}, [parentId]);
-
-	const handleUnassign = async (childId: string, childName: string) => {
-		try {
-			await adminApi.assignBrandParent(childId, null);
-			setToast({
-				message: `"${childName}" unassigned from official brand`,
-				type: 'success',
-			});
-			onUnassign();
-		} catch (err) {
-			setToast({
-				message:
-					err instanceof Error
-						? err.message
-						: 'Failed to unassign brand',
-				type: 'error',
-			});
-		}
-	};
-
-	if (loading) {
-		return <p className='loading-children'>Loading sub-brands...</p>;
-	}
-
-	return (
-		<ul className='children-list'>
-			{children.map((child) => (
-				<li key={child.id || child.brandName} className='child-item'>
-					<div className='child-info'>
-						<span className='child-name'>{child.displayName}</span>
-						<span className='child-product-count'>
-							{child.productCount} product
-							{child.productCount !== 1 ? 's' : ''}
-						</span>
-					</div>
-					{child.id && (
-						<button
-							className='unassign-btn'
-							onClick={() =>
-								handleUnassign(child.id!, child.displayName)
-							}>
-							Unassign
-						</button>
-					)}
-				</li>
-			))}
-		</ul>
 	);
 }

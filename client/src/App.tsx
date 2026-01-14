@@ -30,6 +30,8 @@ import {
 	AdminDashboard,
 	AdminProducts,
 	AdminBrands,
+	AdminOfficialBrands,
+	AdminUnassignedBrands,
 	AdminStores,
 	AdminUsers,
 	AdminFilters,
@@ -120,6 +122,22 @@ function AppContent() {
 					element={
 						<ProtectedRoute requireAdmin>
 							<AdminBrands />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path='/admin/brands/official'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminOfficialBrands />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path='/admin/brands/unassigned'
+					element={
+						<ProtectedRoute requireAdmin>
+							<AdminUnassignedBrands />
 						</ProtectedRoute>
 					}
 				/>

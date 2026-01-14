@@ -2,6 +2,8 @@ export { AdminLayout } from './AdminLayout';
 export { AdminDashboard } from './AdminDashboard';
 export { AdminProducts } from './AdminProducts';
 export { AdminBrands } from './AdminBrands';
+export { AdminOfficialBrands } from './AdminOfficialBrands';
+export { AdminUnassignedBrands } from './AdminUnassignedBrands';
 export { AdminStores } from './AdminStores';
 export { AdminUsers } from './AdminUsers';
 export { AdminFilters } from './AdminFilters';

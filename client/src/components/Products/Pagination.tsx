@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import './Pagination.css';
 
 interface PaginationProps {
@@ -8,32 +9,46 @@ interface PaginationProps {
 }
 
 export function Pagination({ currentPage, totalPages, onPageChange, loading }: PaginationProps) {
+  const [goToPageValue, setGoToPageValue] = useState('');
+
   if (totalPages <= 1) return null;
+
+  const handleGoToPage = () => {
+    const pageNum = parseInt(goToPageValue, 10);
+    if (pageNum >= 1 && pageNum <= totalPages) {
+      onPageChange(pageNum);
+      setGoToPageValue('');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleGoToPage();
+    }
+  };
 
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
-    const maxVisible = 7; // Show up to 7 page numbers
+    const maxVisible = 8; // 1 + 5 visible + ellipsis + last
     
     if (totalPages <= maxVisible) {
-      // Show all pages if total is less than max visible
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
       }
     } else {
-      // Always show first page
       pages.push(1);
       
-      if (currentPage <= 3) {
-        // Near the start: 1, 2, 3, 4, ..., last
-        for (let i = 2; i <= 4; i++) {
+      if (currentPage <= 4) {
+        // Near the start: 1, 2, 3, 4, 5, ..., last
+        for (let i = 2; i <= 5; i++) {
           pages.push(i);
         }
         pages.push('ellipsis');
         pages.push(totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        // Near the end: 1, ..., n-3, n-2, n-1, n
+      } else if (currentPage >= totalPages - 3) {
+        // Near the end: 1, ..., n-4, n-3, n-2, n-1, n
         pages.push('ellipsis');
-        for (let i = totalPages - 3; i <= totalPages; i++) {
+        for (let i = totalPages - 4; i <= totalPages; i++) {
           pages.push(i);
         }
       } else {
@@ -52,16 +67,36 @@ export function Pagination({ currentPage, totalPages, onPageChange, loading }: P
 
   const pageNumbers = getPageNumbers();
 
+  const handlePrev5 = () => {
+    const newPage = Math.max(1, currentPage - 5);
+    onPageChange(newPage);
+  };
+
+  const handleNext5 = () => {
+    const newPage = Math.min(totalPages, currentPage + 5);
+    onPageChange(newPage);
+  };
+
   return (
     <div className="pagination">
-      <button
-        className="pagination-button pagination-prev"
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1 || loading}
-        aria-label="Previous page"
-      >
-        ← Previous
-      </button>
+      <div className="pagination-nav-group">
+        <button
+          className="pagination-button pagination-jump"
+          onClick={handlePrev5}
+          disabled={currentPage <= 1 || loading}
+          aria-label="Go back 5 pages"
+        >
+          «5
+        </button>
+        <button
+          className="pagination-button pagination-prev"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1 || loading}
+          aria-label="Previous page"
+        >
+          ← Prev
+        </button>
+      </div>
 
       <div className="pagination-numbers">
         {pageNumbers.map((page, index) => {
@@ -89,14 +124,48 @@ export function Pagination({ currentPage, totalPages, onPageChange, loading }: P
         })}
       </div>
 
-      <button
-        className="pagination-button pagination-next"
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages || loading}
-        aria-label="Next page"
-      >
-        Next →
-      </button>
+      <div className="pagination-nav-group">
+        <button
+          className="pagination-button pagination-next"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages || loading}
+          aria-label="Next page"
+        >
+          Next →
+        </button>
+        <button
+          className="pagination-button pagination-jump"
+          onClick={handleNext5}
+          disabled={currentPage >= totalPages || loading}
+          aria-label="Go forward 5 pages"
+        >
+          5»
+        </button>
+      </div>
+
+      <div className="pagination-goto">
+        <span className="pagination-goto-label">Page</span>
+        <input
+          type="number"
+          min={1}
+          max={totalPages}
+          value={goToPageValue}
+          onChange={(e) => setGoToPageValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="pagination-goto-input"
+          aria-label={`Go to page (1-${totalPages})`}
+          disabled={loading}
+        />
+        <span className="pagination-goto-label">of {totalPages}</span>
+        <button
+          className="pagination-goto-button"
+          onClick={handleGoToPage}
+          disabled={loading || !goToPageValue || parseInt(goToPageValue, 10) < 1 || parseInt(goToPageValue, 10) > totalPages}
+          aria-label="Go to page"
+        >
+          Go
+        </button>
+      </div>
     </div>
   );
 }
