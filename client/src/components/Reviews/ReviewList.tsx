@@ -1,8 +1,8 @@
-import React from 'react';
-import { Review } from '../../types/review';
-import ReviewCard from './ReviewCard';
-import { Pagination } from '../Products/Pagination';
-import './ReviewList.css';
+import React from "react";
+import { Review } from "../../types/review";
+import ReviewCard from "./ReviewCard";
+import { Pagination } from "../Products/Pagination";
+import "./ReviewList.css";
 
 interface ReviewListProps {
   reviews: Review[];
@@ -13,8 +13,8 @@ interface ReviewListProps {
   onEdit?: (review: Review) => void;
   onDelete?: (review: Review) => void;
   onVoteHelpful?: (review: Review) => void;
-  sortBy?: 'newest' | 'oldest' | 'helpful' | 'rating';
-  onSortChange?: (sortBy: 'newest' | 'oldest' | 'helpful' | 'rating') => void;
+  sortBy?: "newest" | "oldest" | "helpful" | "rating";
+  onSortChange?: (sortBy: "newest" | "oldest" | "helpful" | "rating") => void;
 }
 
 const ReviewList: React.FC<ReviewListProps> = ({
@@ -26,7 +26,7 @@ const ReviewList: React.FC<ReviewListProps> = ({
   onEdit,
   onDelete,
   onVoteHelpful,
-  sortBy = 'newest',
+  sortBy = "newest",
   onSortChange,
 }) => {
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -44,7 +44,7 @@ const ReviewList: React.FC<ReviewListProps> = ({
       {onSortChange && (
         <div className="review-list-header">
           <div className="review-count-info">
-            {totalCount} {totalCount === 1 ? 'review' : 'reviews'}
+            {totalCount} {totalCount === 1 ? "review" : "reviews"}
           </div>
           <div className="review-sort">
             <label htmlFor="sort-select">Sort by:</label>
@@ -70,7 +70,9 @@ const ReviewList: React.FC<ReviewListProps> = ({
             review={review}
             onEdit={onEdit ? () => onEdit(review) : undefined}
             onDelete={onDelete ? () => onDelete(review) : undefined}
-            onVoteHelpful={onVoteHelpful ? () => onVoteHelpful(review) : undefined}
+            onVoteHelpful={
+              onVoteHelpful ? () => onVoteHelpful(review) : undefined
+            }
           />
         ))}
       </div>
@@ -89,4 +91,3 @@ const ReviewList: React.FC<ReviewListProps> = ({
 };
 
 export default ReviewList;
-

@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import './AutocompleteInput.css';
+import { useState, useRef, useEffect } from "react";
+import "./AutocompleteInput.css";
 
 interface AutocompleteInputProps {
   value: string;
@@ -20,7 +20,7 @@ export function AutocompleteInput({
   placeholder,
   disabled,
   allowNew = false,
-  newItemLabel = 'Add new',
+  newItemLabel = "Add new",
 }: AutocompleteInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -29,7 +29,7 @@ export function AutocompleteInput({
 
   // Filter options based on input value
   const filteredOptions = options.filter((option) =>
-    option.toLowerCase().includes(value.toLowerCase())
+    option.toLowerCase().includes(value.toLowerCase()),
   );
 
   // Show "Add new" option at the top if allowNew is enabled and user has typed something
@@ -49,8 +49,8 @@ export function AutocompleteInput({
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,7 +66,7 @@ export function AutocompleteInput({
 
   const handleSelect = (option: string) => {
     onSelect(option);
-    onChange('');
+    onChange("");
     setIsOpen(false);
     setHighlightedIndex(-1);
   };
@@ -74,9 +74,9 @@ export function AutocompleteInput({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     // "Add new" is always at index 0, existing options start at index 1
     const totalOptions = (showAddNew ? 1 : 0) + filteredOptions.length;
-    
+
     if (!isOpen || totalOptions === 0) {
-      if (e.key === 'Enter' && showAddNew) {
+      if (e.key === "Enter" && showAddNew) {
         e.preventDefault();
         handleSelect(value.trim());
       }
@@ -84,17 +84,17 @@ export function AutocompleteInput({
     }
 
     switch (e.key) {
-      case 'ArrowDown':
+      case "ArrowDown":
         e.preventDefault();
         setHighlightedIndex((prev) =>
-          prev < totalOptions - 1 ? prev + 1 : prev
+          prev < totalOptions - 1 ? prev + 1 : prev,
         );
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         e.preventDefault();
         setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : -1));
         break;
-      case 'Enter':
+      case "Enter":
         e.preventDefault();
         if (highlightedIndex >= 0) {
           if (showAddNew && highlightedIndex === 0) {
@@ -114,7 +114,7 @@ export function AutocompleteInput({
           handleSelect(filteredOptions[0]);
         }
         break;
-      case 'Escape':
+      case "Escape":
         setIsOpen(false);
         setHighlightedIndex(-1);
         break;
@@ -139,7 +139,7 @@ export function AutocompleteInput({
           {showAddNew && (
             <div
               className={`autocomplete-option autocomplete-add-new ${
-                0 === highlightedIndex ? 'highlighted' : ''
+                0 === highlightedIndex ? "highlighted" : ""
               }`}
               onClick={() => handleSelect(value.trim())}
               onMouseEnter={() => setHighlightedIndex(0)}
@@ -158,7 +158,7 @@ export function AutocompleteInput({
               <div
                 key={`${option}-${index}`}
                 className={`autocomplete-option ${
-                  optionIndex === highlightedIndex ? 'highlighted' : ''
+                  optionIndex === highlightedIndex ? "highlighted" : ""
                 }`}
                 onClick={() => handleSelect(option)}
                 onMouseEnter={() => setHighlightedIndex(optionIndex)}
@@ -179,4 +179,3 @@ export function AutocompleteInput({
     </div>
   );
 }
-

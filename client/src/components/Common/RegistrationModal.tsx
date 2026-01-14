@@ -1,8 +1,8 @@
-import { useState, FormEvent } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { Button } from './Button';
-import { Toast } from './Toast';
-import './RegistrationModal.css';
+import { useState, FormEvent } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { Button } from "./Button";
+import { Toast } from "./Toast";
+import "./RegistrationModal.css";
 
 interface RegistrationModalProps {
   isOpen: boolean;
@@ -10,70 +10,74 @@ interface RegistrationModalProps {
   onSuccess?: () => void;
 }
 
-export function RegistrationModal({ isOpen, onClose, onSuccess }: RegistrationModalProps) {
+export function RegistrationModal({
+  isOpen,
+  onClose,
+  onSuccess,
+}: RegistrationModalProps) {
   const { signup, login } = useAuth();
   const [isLoginMode, setIsLoginMode] = useState(false);
-  const [displayName, setDisplayName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    
+
     if (isLoginMode) {
       // Login
       if (!email || !password) {
-        setError('Please fill in all fields');
+        setError("Please fill in all fields");
         return;
       }
 
       setLoading(true);
       const result = await login({ email, password });
-      
+
       if (result.success) {
         onSuccess?.();
         onClose();
         // Reset form
-        setEmail('');
-        setPassword('');
+        setEmail("");
+        setPassword("");
       } else {
-        setError(result.error || 'Login failed');
+        setError(result.error || "Login failed");
       }
       setLoading(false);
     } else {
       // Signup
       if (!displayName || !email || !password || !confirmPassword) {
-        setError('Please fill in all fields');
+        setError("Please fill in all fields");
         return;
       }
 
       if (password.length < 8) {
-        setError('Password must be at least 8 characters');
+        setError("Password must be at least 8 characters");
         return;
       }
 
       if (password !== confirmPassword) {
-        setError('Passwords do not match');
+        setError("Passwords do not match");
         return;
       }
 
       setLoading(true);
       const result = await signup({ email, password, displayName });
-      
+
       if (result.success) {
         onSuccess?.();
         onClose();
         // Reset form
-        setDisplayName('');
-        setEmail('');
-        setPassword('');
-        setConfirmPassword('');
+        setDisplayName("");
+        setEmail("");
+        setPassword("");
+        setConfirmPassword("");
       } else {
-        setError(result.error || 'Signup failed');
+        setError(result.error || "Signup failed");
       }
       setLoading(false);
     }
@@ -81,10 +85,10 @@ export function RegistrationModal({ isOpen, onClose, onSuccess }: RegistrationMo
 
   const handleClose = () => {
     setError(null);
-    setDisplayName('');
-    setEmail('');
-    setPassword('');
-    setConfirmPassword('');
+    setDisplayName("");
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
     setIsLoginMode(false);
     onClose();
   };
@@ -96,8 +100,12 @@ export function RegistrationModal({ isOpen, onClose, onSuccess }: RegistrationMo
       <div className="modal-overlay" onClick={handleClose} />
       <div className="modal-container">
         <div className="modal-header">
-          <h2>{isLoginMode ? 'Sign In' : 'Create Account'}</h2>
-          <button className="modal-close" onClick={handleClose} aria-label="Close">
+          <h2>{isLoginMode ? "Sign In" : "Create Account"}</h2>
+          <button
+            className="modal-close"
+            onClick={handleClose}
+            aria-label="Close"
+          >
             ×
           </button>
         </div>
@@ -106,7 +114,7 @@ export function RegistrationModal({ isOpen, onClose, onSuccess }: RegistrationMo
           <div className="auth-mode-toggle">
             <button
               type="button"
-              className={`mode-button ${!isLoginMode ? 'active' : ''}`}
+              className={`mode-button ${!isLoginMode ? "active" : ""}`}
               onClick={() => {
                 setIsLoginMode(false);
                 setError(null);
@@ -116,7 +124,7 @@ export function RegistrationModal({ isOpen, onClose, onSuccess }: RegistrationMo
             </button>
             <button
               type="button"
-              className={`mode-button ${isLoginMode ? 'active' : ''}`}
+              className={`mode-button ${isLoginMode ? "active" : ""}`}
               onClick={() => {
                 setIsLoginMode(true);
                 setError(null);
@@ -162,8 +170,10 @@ export function RegistrationModal({ isOpen, onClose, onSuccess }: RegistrationMo
                 id="modal-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={isLoginMode ? 'Your password' : 'At least 8 characters'}
-                autoComplete={isLoginMode ? 'current-password' : 'new-password'}
+                placeholder={
+                  isLoginMode ? "Your password" : "At least 8 characters"
+                }
+                autoComplete={isLoginMode ? "current-password" : "new-password"}
                 minLength={isLoginMode ? undefined : 8}
                 required
               />
@@ -184,14 +194,20 @@ export function RegistrationModal({ isOpen, onClose, onSuccess }: RegistrationMo
               </div>
             )}
 
-            <Button type="submit" variant="primary" isLoading={loading} size="lg" fullWidth>
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={loading}
+              size="lg"
+              fullWidth
+            >
               {loading
                 ? isLoginMode
-                  ? 'Signing in...'
-                  : 'Creating account...'
+                  ? "Signing in..."
+                  : "Creating account..."
                 : isLoginMode
-                  ? 'Sign In'
-                  : 'Create Account'}
+                  ? "Sign In"
+                  : "Create Account"}
             </Button>
           </form>
         </div>
@@ -203,4 +219,3 @@ export function RegistrationModal({ isOpen, onClose, onSuccess }: RegistrationMo
     </>
   );
 }
-

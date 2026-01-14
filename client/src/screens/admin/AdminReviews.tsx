@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
-import { reviewsApi } from '../../api/reviewsApi';
-import { AdminLayout } from './AdminLayout';
-import { Button } from '../../components/Common/Button';
-import { Toast } from '../../components/Common/Toast';
-import { Link } from 'react-router-dom';
-import { PendingReview } from '../../types/review';
-import './AdminReviews.css';
+import { useState, useEffect, useCallback } from "react";
+import { reviewsApi } from "../../api/reviewsApi";
+import { AdminLayout } from "./AdminLayout";
+import { Button } from "../../components/Common/Button";
+import { Toast } from "../../components/Common/Toast";
+import { Link } from "react-router-dom";
+import { PendingReview } from "../../types/review";
+import "./AdminReviews.css";
 
 export function AdminReviews() {
   const [reviews, setReviews] = useState<PendingReview[]>([]);
@@ -14,7 +14,10 @@ export function AdminReviews() {
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   const fetchReviews = useCallback(async () => {
     try {
@@ -23,7 +26,7 @@ export function AdminReviews() {
       setReviews(response.items);
       setTotalCount(response.totalCount);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load reviews');
+      setError(err instanceof Error ? err.message : "Failed to load reviews");
     } finally {
       setLoading(false);
     }
@@ -37,27 +40,27 @@ export function AdminReviews() {
     setActionLoading(reviewId);
     try {
       await reviewsApi.approveReview(reviewId);
-      setReviews(reviews.filter(r => r.id !== reviewId));
+      setReviews(reviews.filter((r) => r.id !== reviewId));
       setTotalCount(totalCount - 1);
-      setToast({ message: 'Review approved successfully', type: 'success' });
+      setToast({ message: "Review approved successfully", type: "success" });
     } catch (err) {
-      setToast({ message: 'Failed to approve review', type: 'error' });
+      setToast({ message: "Failed to approve review", type: "error" });
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleReject = async (reviewId: string) => {
-    if (!confirm('Are you sure you want to reject this review?')) return;
-    
+    if (!confirm("Are you sure you want to reject this review?")) return;
+
     setActionLoading(reviewId);
     try {
       await reviewsApi.rejectReview(reviewId);
-      setReviews(reviews.filter(r => r.id !== reviewId));
+      setReviews(reviews.filter((r) => r.id !== reviewId));
       setTotalCount(totalCount - 1);
-      setToast({ message: 'Review rejected', type: 'success' });
+      setToast({ message: "Review rejected", type: "success" });
     } catch (err) {
-      setToast({ message: 'Failed to reject review', type: 'error' });
+      setToast({ message: "Failed to reject review", type: "error" });
     } finally {
       setActionLoading(null);
     }
@@ -66,20 +69,25 @@ export function AdminReviews() {
   const renderStars = (rating: number) => {
     return (
       <div className="review-rating-stars">
-        {Array(5).fill(0).map((_, i) => (
-          <span key={i} className={i < rating ? 'star star-full' : 'star star-empty'}>
-            {i < rating ? '★' : '☆'}
-          </span>
-        ))}
+        {Array(5)
+          .fill(0)
+          .map((_, i) => (
+            <span
+              key={i}
+              className={i < rating ? "star star-full" : "star star-empty"}
+            >
+              {i < rating ? "★" : "☆"}
+            </span>
+          ))}
       </div>
     );
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
@@ -89,7 +97,8 @@ export function AdminReviews() {
         <div className="admin-header">
           <h1>Review Moderation</h1>
           <p className="admin-subtitle">
-            {totalCount} {totalCount === 1 ? 'review' : 'reviews'} pending approval
+            {totalCount} {totalCount === 1 ? "review" : "reviews"} pending
+            approval
           </p>
         </div>
 
@@ -108,7 +117,9 @@ export function AdminReviews() {
         ) : reviews.length === 0 ? (
           <div className="empty-state">
             <p>No pending reviews</p>
-            <p className="empty-state-subtitle">All reviews have been moderated</p>
+            <p className="empty-state-subtitle">
+              All reviews have been moderated
+            </p>
           </div>
         ) : (
           <>
@@ -121,16 +132,24 @@ export function AdminReviews() {
                         {review.userName.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <div className="review-user-name-admin">{review.userName}</div>
-                        <div className="review-date-admin">{formatDate(review.reviewedAt)}</div>
+                        <div className="review-user-name-admin">
+                          {review.userName}
+                        </div>
+                        <div className="review-date-admin">
+                          {formatDate(review.reviewedAt)}
+                        </div>
                       </div>
                     </div>
                     {renderStars(review.rating)}
                   </div>
 
                   <div className="review-product-info">
-                    <Link to={`/products/${review.productId}`} className="product-link">
-                      {review.productName || 'Product'} {review.productBrand ? `by ${review.productBrand}` : ''}
+                    <Link
+                      to={`/products/${review.productId}`}
+                      className="product-link"
+                    >
+                      {review.productName || "Product"}{" "}
+                      {review.productBrand ? `by ${review.productBrand}` : ""}
                     </Link>
                   </div>
 
@@ -148,7 +167,7 @@ export function AdminReviews() {
                           src={url}
                           alt={`Review photo ${index + 1}`}
                           className="review-photo-admin"
-                          onClick={() => window.open(url, '_blank')}
+                          onClick={() => window.open(url, "_blank")}
                         />
                       ))}
                     </div>
@@ -179,7 +198,7 @@ export function AdminReviews() {
             {totalCount > 20 && (
               <div className="pagination-controls">
                 <Button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
                   variant="secondary"
                 >
@@ -189,7 +208,7 @@ export function AdminReviews() {
                   Page {page} of {Math.ceil(totalCount / 20)}
                 </span>
                 <Button
-                  onClick={() => setPage(p => p + 1)}
+                  onClick={() => setPage((p) => p + 1)}
                   disabled={page >= Math.ceil(totalCount / 20)}
                   variant="secondary"
                 >
@@ -211,4 +230,3 @@ export function AdminReviews() {
     </AdminLayout>
   );
 }
-

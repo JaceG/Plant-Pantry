@@ -1,42 +1,42 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import mongoose from 'mongoose';
-import { storeService } from '../services';
-import { storeChainService } from '../services/storeChainService';
-import { googlePlacesService } from '../services/googlePlacesService';
-import { HttpError } from '../middleware/errorHandler';
-import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth';
+import { Router, Request, Response, NextFunction } from "express";
+import mongoose from "mongoose";
+import { storeService } from "../services";
+import { storeChainService } from "../services/storeChainService";
+import { googlePlacesService } from "../services/googlePlacesService";
+import { HttpError } from "../middleware/errorHandler";
+import { authMiddleware, optionalAuthMiddleware } from "../middleware/auth";
 import {
-	Availability,
-	Product,
-	UserProduct,
-	Store,
-	StoreChain,
-	RetailerContentEdit,
-	User,
-} from '../models';
+  Availability,
+  Product,
+  UserProduct,
+  Store,
+  StoreChain,
+  RetailerContentEdit,
+  User,
+} from "../models";
 
 // Helper to get user trust level for moderation decisions
 // - Admin: trusted, no review needed
 // - Moderator/Trusted contributor: trusted, needs review by admin later
 // - Regular user: not trusted, stays pending until approved
 async function getUserTrustLevel(
-	userId: string
+  userId: string,
 ): Promise<{ isTrusted: boolean; needsReview: boolean }> {
-	const user = await User.findById(userId)
-		.select('trustedContributor role')
-		.lean();
-	if (!user) return { isTrusted: false, needsReview: true };
+  const user = await User.findById(userId)
+    .select("trustedContributor role")
+    .lean();
+  if (!user) return { isTrusted: false, needsReview: true };
 
-	if (user.role === 'admin') {
-		return { isTrusted: true, needsReview: false };
-	}
-	if (user.role === 'moderator') {
-		return { isTrusted: true, needsReview: true };
-	}
-	if (user.trustedContributor) {
-		return { isTrusted: true, needsReview: true };
-	}
-	return { isTrusted: false, needsReview: true };
+  if (user.role === "admin") {
+    return { isTrusted: true, needsReview: false };
+  }
+  if (user.role === "moderator") {
+    return { isTrusted: true, needsReview: true };
+  }
+  if (user.trustedContributor) {
+    return { isTrusted: true, needsReview: true };
+  }
+  return { isTrusted: false, needsReview: true };
 }
 
 const router = Router();
@@ -44,555 +44,532 @@ const router = Router();
 // GET /api/stores - List all stores
 // Uses optional auth to show pending stores to their creators
 router.get(
-	'/',
-	optionalAuthMiddleware,
-	async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const { q, includeChains } = req.query;
-			const withChainInfo = includeChains === 'true';
-			const userId = req.userId; // From optional auth
+  "/",
+  optionalAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { q, includeChains } = req.query;
+      const withChainInfo = includeChains === "true";
+      const userId = req.userId; // From optional auth
 
-			if (q && typeof q === 'string') {
-				const result = await storeService.searchStores(
-					q,
-					withChainInfo,
-					userId
-				);
-				res.json(result);
-			} else {
-				const result = await storeService.getStores(
-					withChainInfo,
-					userId
-				);
-				res.json(result);
-			}
-		} catch (error) {
-			next(error);
-		}
-	}
+      if (q && typeof q === "string") {
+        const result = await storeService.searchStores(
+          q,
+          withChainInfo,
+          userId,
+        );
+        res.json(result);
+      } else {
+        const result = await storeService.getStores(withChainInfo, userId);
+        res.json(result);
+      }
+    } catch (error) {
+      next(error);
+    }
+  },
 );
 
 // GET /api/stores/grouped - Get stores grouped by chain
 router.get(
-	'/grouped',
-	async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const result = await storeService.getStoresGroupedByChain();
-			res.json(result);
-		} catch (error) {
-			next(error);
-		}
-	}
+  "/grouped",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await storeService.getStoresGroupedByChain();
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
 );
 
 // GET /api/stores/chains - List all store chains
 router.get(
-	'/chains',
-	async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const chains = await storeChainService.getChains();
-			res.json({ chains });
-		} catch (error) {
-			next(error);
-		}
-	}
+  "/chains",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const chains = await storeChainService.getChains();
+      res.json({ chains });
+    } catch (error) {
+      next(error);
+    }
+  },
 );
 
 // POST /api/stores/chains - Create a new store chain (trusted users only)
 router.post(
-	'/chains',
-	authMiddleware,
-	async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const userId = req.userId;
-			if (!userId) {
-				throw new HttpError('User not authenticated', 401);
-			}
+  "/chains",
+  authMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        throw new HttpError("User not authenticated", 401);
+      }
 
-			const { name, slug, logoUrl, websiteUrl, type } = req.body;
-			if (!name || !String(name).trim()) {
-				throw new HttpError('Chain name is required', 400);
-			}
+      const { name, slug, logoUrl, websiteUrl, type } = req.body;
+      if (!name || !String(name).trim()) {
+        throw new HttpError("Chain name is required", 400);
+      }
 
-			const { isTrusted } = await getUserTrustLevel(userId);
-			if (!isTrusted) {
-				throw new HttpError(
-					'Only admins/moderators/trusted contributors can create chains',
-					403
-				);
-			}
+      const { isTrusted } = await getUserTrustLevel(userId);
+      if (!isTrusted) {
+        throw new HttpError(
+          "Only admins/moderators/trusted contributors can create chains",
+          403,
+        );
+      }
 
-			const chain = await storeChainService.createChain({
-				name: String(name).trim(),
-				slug: slug ? String(slug).trim() : undefined,
-				logoUrl: logoUrl ? String(logoUrl).trim() : undefined,
-				websiteUrl: websiteUrl ? String(websiteUrl).trim() : undefined,
-				type,
-			});
+      const chain = await storeChainService.createChain({
+        name: String(name).trim(),
+        slug: slug ? String(slug).trim() : undefined,
+        logoUrl: logoUrl ? String(logoUrl).trim() : undefined,
+        websiteUrl: websiteUrl ? String(websiteUrl).trim() : undefined,
+        type,
+      });
 
-			res.status(201).json({ chain });
-		} catch (error: any) {
-			if (error.code === 11000) {
-				next(
-					new HttpError(
-						'A chain with this name or slug already exists',
-						409
-					)
-				);
-			} else {
-				next(error);
-			}
-		}
-	}
+      res.status(201).json({ chain });
+    } catch (error: any) {
+      if (error.code === 11000) {
+        next(
+          new HttpError("A chain with this name or slug already exists", 409),
+        );
+      } else {
+        next(error);
+      }
+    }
+  },
 );
 
 // GET /api/stores/chains/:id - Get a specific chain
 router.get(
-	'/chains/:id',
-	async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const { id } = req.params;
-			const chain = await storeChainService.getChainById(id);
+  "/chains/:id",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      const chain = await storeChainService.getChainById(id);
 
-			if (!chain) {
-				throw new HttpError('Chain not found', 404);
-			}
+      if (!chain) {
+        throw new HttpError("Chain not found", 404);
+      }
 
-			res.json({ chain });
-		} catch (error) {
-			next(error);
-		}
-	}
+      res.json({ chain });
+    } catch (error) {
+      next(error);
+    }
+  },
 );
 
 // GET /api/stores/chains/:id/locations - Get stores in a chain
 router.get(
-	'/chains/:id/locations',
-	async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const { id } = req.params;
-			const { city, state, includeRelated } = req.query;
+  "/chains/:id/locations",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      const { city, state, includeRelated } = req.query;
 
-			const chain = await storeChainService.getChainById(id);
-			if (!chain) {
-				throw new HttpError('Chain not found', 404);
-			}
+      const chain = await storeChainService.getChainById(id);
+      if (!chain) {
+        throw new HttpError("Chain not found", 404);
+      }
 
-			// If includeRelated is true, get stores from all related chains (e.g., Walmart + Walmart Supercenter)
-			const shouldIncludeRelated = includeRelated === 'true';
+      // If includeRelated is true, get stores from all related chains (e.g., Walmart + Walmart Supercenter)
+      const shouldIncludeRelated = includeRelated === "true";
 
-			let stores: any[] = [];
-			let totalCount = 0;
+      let stores: any[] = [];
+      let totalCount = 0;
 
-			if (shouldIncludeRelated) {
-				const { getRelatedChainIds } = await import(
-					'../utils/chainUtils'
-				);
-				const relatedChainIds = await getRelatedChainIds(id, true);
+      if (shouldIncludeRelated) {
+        const { getRelatedChainIds } = await import("../utils/chainUtils");
+        const relatedChainIds = await getRelatedChainIds(id, true);
 
-				if (relatedChainIds.length > 0) {
-					const result = await storeService.getStoresByMultipleChains(
-						relatedChainIds.map((cid) => cid.toString()),
-						{
-							city: city as string | undefined,
-							state: state as string | undefined,
-						}
-					);
-					stores = result.items;
-					totalCount = result.items.length;
-				}
-			} else {
-				const result = await storeService.getStoresByChain(id, {
-					city: city as string | undefined,
-					state: state as string | undefined,
-				});
-				stores = result.items;
-				totalCount = result.items.length;
-			}
+        if (relatedChainIds.length > 0) {
+          const result = await storeService.getStoresByMultipleChains(
+            relatedChainIds.map((cid) => cid.toString()),
+            {
+              city: city as string | undefined,
+              state: state as string | undefined,
+            },
+          );
+          stores = result.items;
+          totalCount = result.items.length;
+        }
+      } else {
+        const result = await storeService.getStoresByChain(id, {
+          city: city as string | undefined,
+          state: state as string | undefined,
+        });
+        stores = result.items;
+        totalCount = result.items.length;
+      }
 
-			res.json({
-				chain,
-				stores,
-				totalCount,
-			});
-		} catch (error) {
-			next(error);
-		}
-	}
+      res.json({
+        chain,
+        stores,
+        totalCount,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
 );
 
 // GET /api/stores/chains/slug/:slug - Get chain page data by slug
 router.get(
-	'/chains/slug/:slug',
-	async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const { slug } = req.params;
-			const { page = '1', pageSize = '24' } = req.query;
+  "/chains/slug/:slug",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { slug } = req.params;
+      const { page = "1", pageSize = "24" } = req.query;
 
-			const chain = await storeChainService.getChainBySlug(slug);
-			if (!chain) {
-				throw new HttpError('Chain not found', 404);
-			}
+      const chain = await storeChainService.getChainBySlug(slug);
+      if (!chain) {
+        throw new HttpError("Chain not found", 404);
+      }
 
-			// Get all stores in this chain
-			const storesResult = await storeService.getStoresByChain(
-				chain.id,
-				{}
-			);
-			const stores = storesResult.items;
+      // Get all stores in this chain
+      const storesResult = await storeService.getStoresByChain(chain.id, {});
+      const stores = storesResult.items;
 
-			// Get all product IDs available at these stores
-			const storeIds = stores.map((s: any) => s.id);
+      // Get all product IDs available at these stores
+      const storeIds = stores.map((s: any) => s.id);
 
-			const availabilities = await Availability.find({
-				storeId: { $in: storeIds },
-				moderationStatus: 'confirmed',
-			})
-				.select('productId')
-				.lean();
+      const availabilities = await Availability.find({
+        storeId: { $in: storeIds },
+        moderationStatus: "confirmed",
+      })
+        .select("productId")
+        .lean();
 
-			const productIdSet = new Set(
-				availabilities.map((a: any) => a.productId.toString())
-			);
-			const productIds = Array.from(productIdSet);
+      const productIdSet = new Set(
+        availabilities.map((a: any) => a.productId.toString()),
+      );
+      const productIds = Array.from(productIdSet);
 
-			// Paginate products
-			const pageNum = parseInt(page as string, 10);
-			const pageSizeNum = parseInt(pageSize as string, 10);
-			const skip = (pageNum - 1) * pageSizeNum;
-			const paginatedIds = productIds.slice(skip, skip + pageSizeNum);
+      // Paginate products
+      const pageNum = parseInt(page as string, 10);
+      const pageSizeNum = parseInt(pageSize as string, 10);
+      const skip = (pageNum - 1) * pageSizeNum;
+      const paginatedIds = productIds.slice(skip, skip + pageSizeNum);
 
-			// Fetch product details
-			const productObjectIds = paginatedIds.map(
-				(id) => new mongoose.Types.ObjectId(id)
-			);
+      // Fetch product details
+      const productObjectIds = paginatedIds.map(
+        (id) => new mongoose.Types.ObjectId(id),
+      );
 
-			const [apiProducts, userProducts] = await Promise.all([
-				Product.find({
-					_id: { $in: productObjectIds },
-					archived: { $ne: true },
-				})
-					.select('name brand sizeOrVariant imageUrl categories tags')
-					.lean(),
-				UserProduct.find({
-					_id: { $in: productObjectIds },
-					status: 'approved',
-					archived: { $ne: true },
-				})
-					.select('name brand sizeOrVariant imageUrl categories tags')
-					.lean(),
-			]);
+      const [apiProducts, userProducts] = await Promise.all([
+        Product.find({
+          _id: { $in: productObjectIds },
+          archived: { $ne: true },
+        })
+          .select("name brand sizeOrVariant imageUrl categories tags")
+          .lean(),
+        UserProduct.find({
+          _id: { $in: productObjectIds },
+          status: "approved",
+          archived: { $ne: true },
+        })
+          .select("name brand sizeOrVariant imageUrl categories tags")
+          .lean(),
+      ]);
 
-			const products = [...apiProducts, ...userProducts].map(
-				(p: any) => ({
-					id: p._id.toString(),
-					name: p.name,
-					brand: p.brand,
-					sizeOrVariant: p.sizeOrVariant,
-					imageUrl: p.imageUrl,
-					categories: p.categories || [],
-					tags: p.tags || [],
-				})
-			);
+      const products = [...apiProducts, ...userProducts].map((p: any) => ({
+        id: p._id.toString(),
+        name: p.name,
+        brand: p.brand,
+        sizeOrVariant: p.sizeOrVariant,
+        imageUrl: p.imageUrl,
+        categories: p.categories || [],
+        tags: p.tags || [],
+      }));
 
-			res.json({
-				chain,
-				stores: stores.map((s: any) => ({
-					id: s.id,
-					name: s.name,
-					type: s.type,
-					address: s.address,
-					city: s.city,
-					state: s.state,
-					zipCode: s.zipCode,
-					latitude: s.latitude,
-					longitude: s.longitude,
-					locationIdentifier: s.locationIdentifier,
-				})),
-				products,
-				totalProducts: productIds.length,
-				page: pageNum,
-				totalPages: Math.ceil(productIds.length / pageSizeNum),
-			});
-		} catch (error) {
-			console.error('Error in GET /api/stores/chains/slug/:slug:', error);
-			next(error);
-		}
-	}
+      res.json({
+        chain,
+        stores: stores.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          type: s.type,
+          address: s.address,
+          city: s.city,
+          state: s.state,
+          zipCode: s.zipCode,
+          latitude: s.latitude,
+          longitude: s.longitude,
+          locationIdentifier: s.locationIdentifier,
+        })),
+        products,
+        totalProducts: productIds.length,
+        page: pageNum,
+        totalPages: Math.ceil(productIds.length / pageSizeNum),
+      });
+    } catch (error) {
+      console.error("Error in GET /api/stores/chains/slug/:slug:", error);
+      next(error);
+    }
+  },
 );
 
 // GET /api/stores/:id/page - Get individual store page data (for online retailers or independent stores)
 router.get(
-	'/:id/page',
-	async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const { id } = req.params;
-			const { page = '1', pageSize = '24' } = req.query;
+  "/:id/page",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      const { page = "1", pageSize = "24" } = req.query;
 
-			const store = await storeService.getStoreById(id);
-			if (!store) {
-				throw new HttpError('Store not found', 404);
-			}
+      const store = await storeService.getStoreById(id);
+      if (!store) {
+        throw new HttpError("Store not found", 404);
+      }
 
-			// Get all products available at this store
-			const availabilities = await Availability.find({
-				storeId: id,
-				moderationStatus: 'confirmed',
-			})
-				.select('productId')
-				.lean();
+      // Get all products available at this store
+      const availabilities = await Availability.find({
+        storeId: id,
+        moderationStatus: "confirmed",
+      })
+        .select("productId")
+        .lean();
 
-			const productIdSet = new Set(
-				availabilities.map((a: any) => a.productId.toString())
-			);
-			const productIds = Array.from(productIdSet);
+      const productIdSet = new Set(
+        availabilities.map((a: any) => a.productId.toString()),
+      );
+      const productIds = Array.from(productIdSet);
 
-			// Paginate products
-			const pageNum = parseInt(page as string, 10);
-			const pageSizeNum = parseInt(pageSize as string, 10);
-			const skip = (pageNum - 1) * pageSizeNum;
-			const paginatedIds = productIds.slice(skip, skip + pageSizeNum);
+      // Paginate products
+      const pageNum = parseInt(page as string, 10);
+      const pageSizeNum = parseInt(pageSize as string, 10);
+      const skip = (pageNum - 1) * pageSizeNum;
+      const paginatedIds = productIds.slice(skip, skip + pageSizeNum);
 
-			// Fetch product details
-			const productObjectIds = paginatedIds.map(
-				(id) => new mongoose.Types.ObjectId(id)
-			);
+      // Fetch product details
+      const productObjectIds = paginatedIds.map(
+        (id) => new mongoose.Types.ObjectId(id),
+      );
 
-			const [apiProducts, userProducts] = await Promise.all([
-				Product.find({
-					_id: { $in: productObjectIds },
-					archived: { $ne: true },
-				})
-					.select('name brand sizeOrVariant imageUrl categories tags')
-					.lean(),
-				UserProduct.find({
-					_id: { $in: productObjectIds },
-					status: 'approved',
-					archived: { $ne: true },
-				})
-					.select('name brand sizeOrVariant imageUrl categories tags')
-					.lean(),
-			]);
+      const [apiProducts, userProducts] = await Promise.all([
+        Product.find({
+          _id: { $in: productObjectIds },
+          archived: { $ne: true },
+        })
+          .select("name brand sizeOrVariant imageUrl categories tags")
+          .lean(),
+        UserProduct.find({
+          _id: { $in: productObjectIds },
+          status: "approved",
+          archived: { $ne: true },
+        })
+          .select("name brand sizeOrVariant imageUrl categories tags")
+          .lean(),
+      ]);
 
-			const products = [...apiProducts, ...userProducts].map(
-				(p: any) => ({
-					id: p._id.toString(),
-					name: p.name,
-					brand: p.brand,
-					sizeOrVariant: p.sizeOrVariant,
-					imageUrl: p.imageUrl,
-					categories: p.categories || [],
-					tags: p.tags || [],
-				})
-			);
+      const products = [...apiProducts, ...userProducts].map((p: any) => ({
+        id: p._id.toString(),
+        name: p.name,
+        brand: p.brand,
+        sizeOrVariant: p.sizeOrVariant,
+        imageUrl: p.imageUrl,
+        categories: p.categories || [],
+        tags: p.tags || [],
+      }));
 
-			res.json({
-				store,
-				products,
-				totalProducts: productIds.length,
-				page: pageNum,
-				totalPages: Math.ceil(productIds.length / pageSizeNum),
-			});
-		} catch (error) {
-			console.error('Error in GET /api/stores/:id/page:', error);
-			next(error);
-		}
-	}
+      res.json({
+        store,
+        products,
+        totalProducts: productIds.length,
+        page: pageNum,
+        totalPages: Math.ceil(productIds.length / pageSizeNum),
+      });
+    } catch (error) {
+      console.error("Error in GET /api/stores/:id/page:", error);
+      next(error);
+    }
+  },
 );
 
 // IMPORTANT: Place-specific routes MUST come BEFORE /:id to avoid "places" being matched as an id
 // GET /api/stores/places/autocomplete - Search Google Places
 router.get(
-	'/places/autocomplete',
-	async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const { input, types, lat, lng, radius } = req.query;
+  "/places/autocomplete",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { input, types, lat, lng, radius } = req.query;
 
-			if (!input || typeof input !== 'string') {
-				throw new HttpError('Input query is required', 400);
-			}
+      if (!input || typeof input !== "string") {
+        throw new HttpError("Input query is required", 400);
+      }
 
-			if (input.trim().length < 2) {
-				throw new HttpError(
-					'Input query must be at least 2 characters',
-					400
-				);
-			}
+      if (input.trim().length < 2) {
+        throw new HttpError("Input query must be at least 2 characters", 400);
+      }
 
-			const location =
-				lat && lng
-					? {
-							lat: parseFloat(lat as string),
-							lng: parseFloat(lng as string),
-					  }
-					: undefined;
+      const location =
+        lat && lng
+          ? {
+              lat: parseFloat(lat as string),
+              lng: parseFloat(lng as string),
+            }
+          : undefined;
 
-			const predictions = await googlePlacesService.autocompletePlaces(
-				input,
-				types ? (types as string).split(',') : undefined,
-				location,
-				radius ? parseInt(radius as string, 10) : undefined
-			);
+      const predictions = await googlePlacesService.autocompletePlaces(
+        input,
+        types ? (types as string).split(",") : undefined,
+        location,
+        radius ? parseInt(radius as string, 10) : undefined,
+      );
 
-			res.json({ predictions });
-		} catch (error) {
-			console.error('Error in /places/autocomplete:', error);
-			next(error);
-		}
-	}
+      res.json({ predictions });
+    } catch (error) {
+      console.error("Error in /places/autocomplete:", error);
+      next(error);
+    }
+  },
 );
 
 // GET /api/stores/places/details/:placeId - Get Google Place details
 router.get(
-	'/places/details/:placeId',
-	async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const { placeId } = req.params;
+  "/places/details/:placeId",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { placeId } = req.params;
 
-			if (!placeId || placeId.trim().length === 0) {
-				throw new HttpError('Place ID is required', 400);
-			}
+      if (!placeId || placeId.trim().length === 0) {
+        throw new HttpError("Place ID is required", 400);
+      }
 
-			const placeDetails = await googlePlacesService.getPlaceDetails(
-				placeId
-			);
+      const placeDetails = await googlePlacesService.getPlaceDetails(placeId);
 
-			if (!placeDetails) {
-				throw new HttpError('Place not found or API error', 404);
-			}
+      if (!placeDetails) {
+        throw new HttpError("Place not found or API error", 404);
+      }
 
-			// Parse address components
-			const addressComponents =
-				googlePlacesService.parseAddressComponents(
-					placeDetails.address_components
-				);
+      // Parse address components
+      const addressComponents = googlePlacesService.parseAddressComponents(
+        placeDetails.address_components,
+      );
 
-			res.json({
-				place: {
-					placeId: placeDetails.place_id,
-					name: placeDetails.name,
-					formattedAddress: placeDetails.formatted_address,
-					website: placeDetails.website,
-					phoneNumber: placeDetails.formatted_phone_number,
-					latitude: placeDetails.geometry?.location.lat,
-					longitude: placeDetails.geometry?.location.lng,
-					...addressComponents,
-				},
-			});
-		} catch (error) {
-			console.error('Error in /places/details:', error);
-			next(error);
-		}
-	}
+      res.json({
+        place: {
+          placeId: placeDetails.place_id,
+          name: placeDetails.name,
+          formattedAddress: placeDetails.formatted_address,
+          website: placeDetails.website,
+          phoneNumber: placeDetails.formatted_phone_number,
+          latitude: placeDetails.geometry?.location.lat,
+          longitude: placeDetails.geometry?.location.lng,
+          ...addressComponents,
+        },
+      });
+    } catch (error) {
+      console.error("Error in /places/details:", error);
+      next(error);
+    }
+  },
 );
 
 // POST /api/stores - Create a new store (requires auth)
 router.post(
-	'/',
-	authMiddleware,
-	async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const userId = req.userId;
-			if (!userId) {
-				throw new HttpError('User not authenticated', 401);
-			}
+  "/",
+  authMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        throw new HttpError("User not authenticated", 401);
+      }
 
-			const {
-				name,
-				type,
-				regionOrScope,
-				websiteUrl,
-				address,
-				city,
-				state,
-				zipCode,
-				country,
-				latitude,
-				longitude,
-				googlePlaceId,
-				phoneNumber,
-				chainId,
-				locationIdentifier,
-				skipDuplicateCheck,
-			} = req.body;
+      const {
+        name,
+        type,
+        regionOrScope,
+        websiteUrl,
+        address,
+        city,
+        state,
+        zipCode,
+        country,
+        latitude,
+        longitude,
+        googlePlaceId,
+        phoneNumber,
+        chainId,
+        locationIdentifier,
+        skipDuplicateCheck,
+      } = req.body;
 
-			if (!name || !type) {
-				throw new HttpError('Name and type are required', 400);
-			}
+      if (!name || !type) {
+        throw new HttpError("Name and type are required", 400);
+      }
 
-			const storeInput = {
-				name,
-				type,
-				regionOrScope: regionOrScope || 'Unknown',
-				websiteUrl,
-				address,
-				city,
-				state,
-				zipCode,
-				country: country || 'US',
-				latitude,
-				longitude,
-				googlePlaceId,
-				phoneNumber,
-				chainId,
-				locationIdentifier,
-				createdBy: userId, // Track who created the store
-			};
+      const storeInput = {
+        name,
+        type,
+        regionOrScope: regionOrScope || "Unknown",
+        websiteUrl,
+        address,
+        city,
+        state,
+        zipCode,
+        country: country || "US",
+        latitude,
+        longitude,
+        googlePlaceId,
+        phoneNumber,
+        chainId,
+        locationIdentifier,
+        createdBy: userId, // Track who created the store
+      };
 
-			// Check for duplicates unless explicitly skipped
-			if (!skipDuplicateCheck) {
-				const duplicateCheck = await storeService.checkForDuplicates(
-					storeInput
-				);
+      // Check for duplicates unless explicitly skipped
+      if (!skipDuplicateCheck) {
+        const duplicateCheck =
+          await storeService.checkForDuplicates(storeInput);
 
-				if (duplicateCheck.hasDuplicates) {
-					// If exact match found, return the existing store
-					if (duplicateCheck.exactMatch) {
-						return res.status(200).json({
-							store: duplicateCheck.exactMatch,
-							isDuplicate: true,
-							duplicateType: 'exact',
-							message: 'An identical store already exists',
-						});
-					}
+        if (duplicateCheck.hasDuplicates) {
+          // If exact match found, return the existing store
+          if (duplicateCheck.exactMatch) {
+            return res.status(200).json({
+              store: duplicateCheck.exactMatch,
+              isDuplicate: true,
+              duplicateType: "exact",
+              message: "An identical store already exists",
+            });
+          }
 
-					// If similar stores found, return them as a warning
-					if (duplicateCheck.similarStores.length > 0) {
-						return res.status(200).json({
-							store: null,
-							isDuplicate: true,
-							duplicateType: 'similar',
-							similarStores: duplicateCheck.similarStores,
-							message:
-								'Similar stores found. Please review before creating.',
-						});
-					}
-				}
-			}
+          // If similar stores found, return them as a warning
+          if (duplicateCheck.similarStores.length > 0) {
+            return res.status(200).json({
+              store: null,
+              isDuplicate: true,
+              duplicateType: "similar",
+              similarStores: duplicateCheck.similarStores,
+              message: "Similar stores found. Please review before creating.",
+            });
+          }
+        }
+      }
 
-			const store = await storeService.createStore(storeInput);
+      const store = await storeService.createStore(storeInput);
 
-			res.status(201).json({ store, isDuplicate: false });
-		} catch (error) {
-			next(error);
-		}
-	}
+      res.status(201).json({ store, isDuplicate: false });
+    } catch (error) {
+      next(error);
+    }
+  },
 );
 
 // GET /api/stores/:id - Get store by ID (must come AFTER /places/* routes)
-router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
-	try {
-		const { id } = req.params;
-		const store = await storeService.getStoreById(id);
+router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const store = await storeService.getStoreById(id);
 
-		if (!store) {
-			throw new HttpError('Store not found', 404);
-		}
+    if (!store) {
+      throw new HttpError("Store not found", 404);
+    }
 
-		res.json({ store });
-	} catch (error) {
-		next(error);
-	}
+    res.json({ store });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // ============================================
@@ -601,230 +578,230 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 
 // POST /api/stores/chains/:id/suggest-edit - Submit a suggested edit for a chain
 router.post(
-	'/chains/:id/suggest-edit',
-	authMiddleware,
-	async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const { id } = req.params;
-			const { field, suggestedValue, reason } = req.body;
-			const userId = req.userId;
+  "/chains/:id/suggest-edit",
+  authMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      const { field, suggestedValue, reason } = req.body;
+      const userId = req.userId;
 
-			if (!userId) {
-				throw new HttpError('User not authenticated', 401);
-			}
+      if (!userId) {
+        throw new HttpError("User not authenticated", 401);
+      }
 
-			// Validate field
-			const validFields = ['name', 'description', 'websiteUrl'];
-			if (!field || !validFields.includes(field)) {
-				throw new HttpError(
-					'Invalid field. Must be name, description, or websiteUrl',
-					400
-				);
-			}
+      // Validate field
+      const validFields = ["name", "description", "websiteUrl"];
+      if (!field || !validFields.includes(field)) {
+        throw new HttpError(
+          "Invalid field. Must be name, description, or websiteUrl",
+          400,
+        );
+      }
 
-			if (suggestedValue === undefined || suggestedValue === null) {
-				throw new HttpError('suggestedValue is required', 400);
-			}
+      if (suggestedValue === undefined || suggestedValue === null) {
+        throw new HttpError("suggestedValue is required", 400);
+      }
 
-			// Get the chain
-			const chain = await StoreChain.findById(id).lean();
-			if (!chain) {
-				throw new HttpError('Chain not found', 404);
-			}
+      // Get the chain
+      const chain = await StoreChain.findById(id).lean();
+      if (!chain) {
+        throw new HttpError("Chain not found", 404);
+      }
 
-			// Get the original value (may be undefined/null)
-			const originalValue =
-				(chain[field as keyof typeof chain] as string) || '';
+      // Get the original value (may be undefined/null)
+      const originalValue =
+        (chain[field as keyof typeof chain] as string) || "";
 
-			// Don't create edit if values are the same
-			const trimmedValue =
-				typeof suggestedValue === 'string'
-					? suggestedValue.trim()
-					: suggestedValue;
-			if (originalValue === trimmedValue) {
-				throw new HttpError(
-					'Suggested value is the same as the current value',
-					400
-				);
-			}
+      // Don't create edit if values are the same
+      const trimmedValue =
+        typeof suggestedValue === "string"
+          ? suggestedValue.trim()
+          : suggestedValue;
+      if (originalValue === trimmedValue) {
+        throw new HttpError(
+          "Suggested value is the same as the current value",
+          400,
+        );
+      }
 
-			// Check user trust level for moderation decisions
-			const { isTrusted, needsReview } = await getUserTrustLevel(userId);
+      // Check user trust level for moderation decisions
+      const { isTrusted, needsReview } = await getUserTrustLevel(userId);
 
-			// For trusted users (admin/mod/trusted contributor), auto-apply the edit
-			if (isTrusted) {
-				// Apply the edit directly
-				const updateData: Record<string, string> = {};
-				updateData[field] = trimmedValue;
-				await StoreChain.findByIdAndUpdate(id, updateData);
+      // For trusted users (admin/mod/trusted contributor), auto-apply the edit
+      if (isTrusted) {
+        // Apply the edit directly
+        const updateData: Record<string, string> = {};
+        updateData[field] = trimmedValue;
+        await StoreChain.findByIdAndUpdate(id, updateData);
 
-				// Create the edit record (already approved; admins don't need review, others do)
-				const contentEdit = await RetailerContentEdit.create({
-					retailerType: 'chain',
-					chainId: chain._id,
-					chainSlug: chain.slug,
-					field,
-					originalValue,
-					suggestedValue: trimmedValue,
-					reason: reason?.trim(),
-					userId: new mongoose.Types.ObjectId(userId),
-					status: 'approved',
-					trustedContribution: true,
-					autoApplied: needsReview, // Admin edits don't need review (autoApplied=false)
-				});
+        // Create the edit record (already approved; admins don't need review, others do)
+        const contentEdit = await RetailerContentEdit.create({
+          retailerType: "chain",
+          chainId: chain._id,
+          chainSlug: chain.slug,
+          field,
+          originalValue,
+          suggestedValue: trimmedValue,
+          reason: reason?.trim(),
+          userId: new mongoose.Types.ObjectId(userId),
+          status: "approved",
+          trustedContribution: true,
+          autoApplied: needsReview, // Admin edits don't need review (autoApplied=false)
+        });
 
-				return res.status(201).json({
-					message: 'Edit applied successfully',
-					edit: {
-						id: contentEdit._id.toString(),
-						field: contentEdit.field,
-						status: contentEdit.status,
-					},
-					autoApplied: needsReview,
-				});
-			}
+        return res.status(201).json({
+          message: "Edit applied successfully",
+          edit: {
+            id: contentEdit._id.toString(),
+            field: contentEdit.field,
+            status: contentEdit.status,
+          },
+          autoApplied: needsReview,
+        });
+      }
 
-			// For regular users, create pending edit
-			const contentEdit = await RetailerContentEdit.create({
-				retailerType: 'chain',
-				chainId: chain._id,
-				chainSlug: chain.slug,
-				field,
-				originalValue,
-				suggestedValue: trimmedValue,
-				reason: reason?.trim(),
-				userId: new mongoose.Types.ObjectId(userId),
-				status: 'pending',
-				trustedContribution: false,
-				autoApplied: false,
-			});
+      // For regular users, create pending edit
+      const contentEdit = await RetailerContentEdit.create({
+        retailerType: "chain",
+        chainId: chain._id,
+        chainSlug: chain.slug,
+        field,
+        originalValue,
+        suggestedValue: trimmedValue,
+        reason: reason?.trim(),
+        userId: new mongoose.Types.ObjectId(userId),
+        status: "pending",
+        trustedContribution: false,
+        autoApplied: false,
+      });
 
-			res.status(201).json({
-				message: 'Edit suggestion submitted for review',
-				edit: {
-					id: contentEdit._id.toString(),
-					field: contentEdit.field,
-					status: contentEdit.status,
-				},
-				autoApplied: false,
-			});
-		} catch (error) {
-			next(error);
-		}
-	}
+      res.status(201).json({
+        message: "Edit suggestion submitted for review",
+        edit: {
+          id: contentEdit._id.toString(),
+          field: contentEdit.field,
+          status: contentEdit.status,
+        },
+        autoApplied: false,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
 );
 
 // POST /api/stores/:id/suggest-edit - Submit a suggested edit for a store
 router.post(
-	'/:id/suggest-edit',
-	authMiddleware,
-	async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const { id } = req.params;
-			const { field, suggestedValue, reason } = req.body;
-			const userId = req.userId;
+  "/:id/suggest-edit",
+  authMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      const { field, suggestedValue, reason } = req.body;
+      const userId = req.userId;
 
-			if (!userId) {
-				throw new HttpError('User not authenticated', 401);
-			}
+      if (!userId) {
+        throw new HttpError("User not authenticated", 401);
+      }
 
-			// Validate field
-			const validFields = ['name', 'description', 'websiteUrl'];
-			if (!field || !validFields.includes(field)) {
-				throw new HttpError(
-					'Invalid field. Must be name, description, or websiteUrl',
-					400
-				);
-			}
+      // Validate field
+      const validFields = ["name", "description", "websiteUrl"];
+      if (!field || !validFields.includes(field)) {
+        throw new HttpError(
+          "Invalid field. Must be name, description, or websiteUrl",
+          400,
+        );
+      }
 
-			if (suggestedValue === undefined || suggestedValue === null) {
-				throw new HttpError('suggestedValue is required', 400);
-			}
+      if (suggestedValue === undefined || suggestedValue === null) {
+        throw new HttpError("suggestedValue is required", 400);
+      }
 
-			// Get the store
-			const store = await Store.findById(id).lean();
-			if (!store) {
-				throw new HttpError('Store not found', 404);
-			}
+      // Get the store
+      const store = await Store.findById(id).lean();
+      if (!store) {
+        throw new HttpError("Store not found", 404);
+      }
 
-			// Get the original value (may be undefined/null)
-			const originalValue =
-				(store[field as keyof typeof store] as string) || '';
+      // Get the original value (may be undefined/null)
+      const originalValue =
+        (store[field as keyof typeof store] as string) || "";
 
-			// Don't create edit if values are the same
-			const trimmedValue =
-				typeof suggestedValue === 'string'
-					? suggestedValue.trim()
-					: suggestedValue;
-			if (originalValue === trimmedValue) {
-				throw new HttpError(
-					'Suggested value is the same as the current value',
-					400
-				);
-			}
+      // Don't create edit if values are the same
+      const trimmedValue =
+        typeof suggestedValue === "string"
+          ? suggestedValue.trim()
+          : suggestedValue;
+      if (originalValue === trimmedValue) {
+        throw new HttpError(
+          "Suggested value is the same as the current value",
+          400,
+        );
+      }
 
-			// Check user trust level for moderation decisions
-			const { isTrusted, needsReview } = await getUserTrustLevel(userId);
+      // Check user trust level for moderation decisions
+      const { isTrusted, needsReview } = await getUserTrustLevel(userId);
 
-			// For trusted users (admin/mod/trusted contributor), auto-apply the edit
-			if (isTrusted) {
-				// Apply the edit directly
-				const updateData: Record<string, string> = {};
-				updateData[field] = trimmedValue;
-				await Store.findByIdAndUpdate(id, updateData);
+      // For trusted users (admin/mod/trusted contributor), auto-apply the edit
+      if (isTrusted) {
+        // Apply the edit directly
+        const updateData: Record<string, string> = {};
+        updateData[field] = trimmedValue;
+        await Store.findByIdAndUpdate(id, updateData);
 
-				// Create the edit record (already approved; admins don't need review, others do)
-				const contentEdit = await RetailerContentEdit.create({
-					retailerType: 'store',
-					storeId: store._id,
-					field,
-					originalValue,
-					suggestedValue: trimmedValue,
-					reason: reason?.trim(),
-					userId: new mongoose.Types.ObjectId(userId),
-					status: 'approved',
-					trustedContribution: true,
-					autoApplied: needsReview, // Admin edits don't need review (autoApplied=false)
-				});
+        // Create the edit record (already approved; admins don't need review, others do)
+        const contentEdit = await RetailerContentEdit.create({
+          retailerType: "store",
+          storeId: store._id,
+          field,
+          originalValue,
+          suggestedValue: trimmedValue,
+          reason: reason?.trim(),
+          userId: new mongoose.Types.ObjectId(userId),
+          status: "approved",
+          trustedContribution: true,
+          autoApplied: needsReview, // Admin edits don't need review (autoApplied=false)
+        });
 
-				return res.status(201).json({
-					message: 'Edit applied successfully',
-					edit: {
-						id: contentEdit._id.toString(),
-						field: contentEdit.field,
-						status: contentEdit.status,
-					},
-					autoApplied: needsReview,
-				});
-			}
+        return res.status(201).json({
+          message: "Edit applied successfully",
+          edit: {
+            id: contentEdit._id.toString(),
+            field: contentEdit.field,
+            status: contentEdit.status,
+          },
+          autoApplied: needsReview,
+        });
+      }
 
-			// For regular users, create pending edit
-			const contentEdit = await RetailerContentEdit.create({
-				retailerType: 'store',
-				storeId: store._id,
-				field,
-				originalValue,
-				suggestedValue: trimmedValue,
-				reason: reason?.trim(),
-				userId: new mongoose.Types.ObjectId(userId),
-				status: 'pending',
-				trustedContribution: false,
-				autoApplied: false,
-			});
+      // For regular users, create pending edit
+      const contentEdit = await RetailerContentEdit.create({
+        retailerType: "store",
+        storeId: store._id,
+        field,
+        originalValue,
+        suggestedValue: trimmedValue,
+        reason: reason?.trim(),
+        userId: new mongoose.Types.ObjectId(userId),
+        status: "pending",
+        trustedContribution: false,
+        autoApplied: false,
+      });
 
-			res.status(201).json({
-				message: 'Edit suggestion submitted for review',
-				edit: {
-					id: contentEdit._id.toString(),
-					field: contentEdit.field,
-					status: contentEdit.status,
-				},
-				autoApplied: false,
-			});
-		} catch (error) {
-			next(error);
-		}
-	}
+      res.status(201).json({
+        message: "Edit suggestion submitted for review",
+        edit: {
+          id: contentEdit._id.toString(),
+          field: contentEdit.field,
+          status: contentEdit.status,
+        },
+        autoApplied: false,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
 );
 
 export default router;

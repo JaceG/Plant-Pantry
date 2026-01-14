@@ -1,6 +1,6 @@
-import React from 'react';
-import { ReviewStats as ReviewStatsType } from '../../types/review';
-import './ReviewStats.css';
+import React from "react";
+import { ReviewStats as ReviewStatsType } from "../../types/review";
+import "./ReviewStats.css";
 
 interface ReviewStatsProps {
   stats: ReviewStatsType;
@@ -14,13 +14,21 @@ const ReviewStats: React.FC<ReviewStatsProps> = ({ stats }) => {
 
     return (
       <div className="star-rating">
-        {Array(fullStars).fill(0).map((_, i) => (
-          <span key={i} className="star star-full">★</span>
-        ))}
+        {Array(fullStars)
+          .fill(0)
+          .map((_, i) => (
+            <span key={i} className="star star-full">
+              ★
+            </span>
+          ))}
         {hasHalfStar && <span className="star star-half">★</span>}
-        {Array(emptyStars).fill(0).map((_, i) => (
-          <span key={i} className="star star-empty">☆</span>
-        ))}
+        {Array(emptyStars)
+          .fill(0)
+          .map((_, i) => (
+            <span key={i} className="star star-empty">
+              ☆
+            </span>
+          ))}
       </div>
     );
   };
@@ -41,14 +49,16 @@ const ReviewStats: React.FC<ReviewStatsProps> = ({ stats }) => {
           {renderStars(stats.averageRating)}
         </div>
         <div className="review-count">
-          {stats.totalCount} {stats.totalCount === 1 ? 'review' : 'reviews'}
+          {stats.totalCount} {stats.totalCount === 1 ? "review" : "reviews"}
         </div>
       </div>
 
       <div className="rating-distribution">
         {[5, 4, 3, 2, 1].map((rating) => {
-          const count = stats.distribution[rating as keyof typeof stats.distribution];
-          const percentage = stats.totalCount > 0 ? (count / stats.totalCount) * 100 : 0;
+          const count =
+            stats.distribution[rating as keyof typeof stats.distribution];
+          const percentage =
+            stats.totalCount > 0 ? (count / stats.totalCount) * 100 : 0;
 
           return (
             <div key={rating} className="distribution-row">
@@ -69,4 +79,3 @@ const ReviewStats: React.FC<ReviewStatsProps> = ({ stats }) => {
 };
 
 export default ReviewStats;
-

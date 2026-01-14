@@ -1,567 +1,543 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-	ProductDetail,
-	CreateUserProductInput,
-	StoreAvailabilityInput,
-	ChainAvailabilityInput,
-} from '../../types/product';
-import { userProductsApi } from '../../api/userProductsApi';
-import { productsApi } from '../../api/productsApi';
-import { Button } from '../Common';
-import { Toast } from '../Common/Toast';
-import { useToast } from '../Common/useToast';
-import { AutocompleteInput } from './AutocompleteInput';
-import { StoreAvailabilitySelector } from './StoreAvailabilitySelector';
-import { productEvents } from '../../utils/productEvents';
-import { useAuth } from '../../context/AuthContext';
-import './AddProductForm.css';
+  ProductDetail,
+  CreateUserProductInput,
+  StoreAvailabilityInput,
+  ChainAvailabilityInput,
+} from "../../types/product";
+import { userProductsApi } from "../../api/userProductsApi";
+import { productsApi } from "../../api/productsApi";
+import { Button } from "../Common";
+import { Toast } from "../Common/Toast";
+import { useToast } from "../Common/useToast";
+import { AutocompleteInput } from "./AutocompleteInput";
+import { StoreAvailabilitySelector } from "./StoreAvailabilitySelector";
+import { productEvents } from "../../utils/productEvents";
+import { useAuth } from "../../context/AuthContext";
+import "./AddProductForm.css";
 
 // Fallback tags if API fails to load
 const FALLBACK_TAGS = [
-	'vegan',
-	'organic',
-	'gluten-free',
-	'raw',
-	'no-sugar-added',
-	'fair-trade',
-	'palm-oil-free',
-	'non-gmo',
-	'soy-free',
-	'nut-free',
+  "vegan",
+  "organic",
+  "gluten-free",
+  "raw",
+  "no-sugar-added",
+  "fair-trade",
+  "palm-oil-free",
+  "non-gmo",
+  "soy-free",
+  "nut-free",
 ];
 
 // Format tag for display (e.g., "gluten-free" -> "Gluten Free")
 function formatTagLabel(tag: string): string {
-	return tag
-		.split('-')
-		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-		.join(' ');
+  return tag
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 // Normalize tag for comparison (lowercase, spaces to dashes)
 function normalizeTag(tag: string): string {
-	return tag.toLowerCase().trim().replace(/\s+/g, '-');
+  return tag.toLowerCase().trim().replace(/\s+/g, "-");
 }
 
 interface EditProductFormProps {
-	product: ProductDetail;
-	onSave: (product: ProductDetail) => void;
-	onCancel: () => void;
+  product: ProductDetail;
+  onSave: (product: ProductDetail) => void;
+  onCancel: () => void;
 }
 
 export function EditProductForm({
-	product,
-	onSave,
-	onCancel,
+  product,
+  onSave,
+  onCancel,
 }: EditProductFormProps) {
-	const { showToast, toast, hideToast } = useToast();
-	const { isAdmin, user } = useAuth();
-	const [loading, setLoading] = useState(false);
+  const { showToast, toast, hideToast } = useToast();
+  const { isAdmin, user } = useAuth();
+  const [loading, setLoading] = useState(false);
 
-	// Check if user owns this product
-	const isOwner = user?.id === product._userId;
-	const [formData, setFormData] = useState<
-		CreateUserProductInput & { sourceProductId?: string }
-	>({
-		name: product.name,
-		brand: product.brand,
-		description: product.description || '',
-		sizeOrVariant: product.sizeOrVariant,
-		categories: product.categories || [],
-		tags: product.tags || ['vegan'],
-		isStrictVegan: product.isStrictVegan,
-		imageUrl: product.imageUrl || '',
-		nutritionSummary: product.nutritionSummary || '',
-		ingredientSummary: product.ingredientSummary || '',
-		storeAvailabilities: (product.availability || []).map((avail) => ({
-			storeId: avail.storeId,
-			priceRange: avail.priceRange,
-			status: avail.status as 'known' | 'user_reported' | 'unknown',
-		})),
-		chainAvailabilities: (product as any).chainAvailabilities
-			? (((product as any).chainAvailabilities as any[]) || []).map(
-					(c: any): ChainAvailabilityInput => ({
-						chainId: c.chainId,
-						includeRelatedCompany: c.includeRelatedCompany,
-						priceRange: c.priceRange,
-					})
-			  )
-			: [],
-		sourceProductId: product._source === 'api' ? product.id : undefined,
-	});
+  // Check if user owns this product
+  const isOwner = user?.id === product._userId;
+  const [formData, setFormData] = useState<
+    CreateUserProductInput & { sourceProductId?: string }
+  >({
+    name: product.name,
+    brand: product.brand,
+    description: product.description || "",
+    sizeOrVariant: product.sizeOrVariant,
+    categories: product.categories || [],
+    tags: product.tags || ["vegan"],
+    isStrictVegan: product.isStrictVegan,
+    imageUrl: product.imageUrl || "",
+    nutritionSummary: product.nutritionSummary || "",
+    ingredientSummary: product.ingredientSummary || "",
+    storeAvailabilities: (product.availability || []).map((avail) => ({
+      storeId: avail.storeId,
+      priceRange: avail.priceRange,
+      status: avail.status as "known" | "user_reported" | "unknown",
+    })),
+    chainAvailabilities: (product as any).chainAvailabilities
+      ? (((product as any).chainAvailabilities as any[]) || []).map(
+          (c: any): ChainAvailabilityInput => ({
+            chainId: c.chainId,
+            includeRelatedCompany: c.includeRelatedCompany,
+            priceRange: c.priceRange,
+          }),
+        )
+      : [],
+    sourceProductId: product._source === "api" ? product.id : undefined,
+  });
 
-	const [newCategoryInput, setNewCategoryInput] = useState('');
-	const [availableCategories, setAvailableCategories] = useState<string[]>(
-		[]
-	);
-	const [availableTags, setAvailableTags] = useState<string[]>(FALLBACK_TAGS);
-	const [loadingOptions, setLoadingOptions] = useState(true);
+  const [newCategoryInput, setNewCategoryInput] = useState("");
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>(FALLBACK_TAGS);
+  const [loadingOptions, setLoadingOptions] = useState(true);
 
-	// Fetch available categories and tags on mount
-	useEffect(() => {
-		const fetchOptions = async () => {
-			try {
-				const [categoriesRes, tagsRes] = await Promise.all([
-					productsApi.getAllCategories(),
-					productsApi.getAllTags(),
-				]);
-				setAvailableCategories(categoriesRes.categories);
-				if (tagsRes.tags && tagsRes.tags.length > 0) {
-					setAvailableTags(tagsRes.tags);
-				}
-			} catch (error) {
-				console.error('Failed to fetch options:', error);
-				showToast('Failed to load options', 'error');
-			} finally {
-				setLoadingOptions(false);
-			}
-		};
-		fetchOptions();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []); // Only run once on mount
+  // Fetch available categories and tags on mount
+  useEffect(() => {
+    const fetchOptions = async () => {
+      try {
+        const [categoriesRes, tagsRes] = await Promise.all([
+          productsApi.getAllCategories(),
+          productsApi.getAllTags(),
+        ]);
+        setAvailableCategories(categoriesRes.categories);
+        if (tagsRes.tags && tagsRes.tags.length > 0) {
+          setAvailableTags(tagsRes.tags);
+        }
+      } catch (error) {
+        console.error("Failed to fetch options:", error);
+        showToast("Failed to load options", "error");
+      } finally {
+        setLoadingOptions(false);
+      }
+    };
+    fetchOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
-	// Combine available tags with any additional tags from the product
-	const allTags = useMemo(() => {
-		const productTags = product.tags || [];
-		const combined = new Set(availableTags.map(normalizeTag));
-		// Add any product tags that aren't in the available list
-		productTags.forEach((tag) => {
-			combined.add(normalizeTag(tag));
-		});
-		// Return unique normalized tags
-		return Array.from(combined);
-	}, [product.tags, availableTags]);
+  // Combine available tags with any additional tags from the product
+  const allTags = useMemo(() => {
+    const productTags = product.tags || [];
+    const combined = new Set(availableTags.map(normalizeTag));
+    // Add any product tags that aren't in the available list
+    productTags.forEach((tag) => {
+      combined.add(normalizeTag(tag));
+    });
+    // Return unique normalized tags
+    return Array.from(combined);
+  }, [product.tags, availableTags]);
 
-	const handleChange = (
-		e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-	) => {
-		const { name, value } = e.target;
-		setFormData((prev) => ({
-			...prev,
-			[name]: value,
-		}));
-	};
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
 
-	const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const { name, checked } = e.target;
-		setFormData((prev) => ({
-			...prev,
-			[name]: checked,
-		}));
-	};
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: checked,
+    }));
+  };
 
-	const addCategory = useCallback(
-		(category: string) => {
-			if (
-				category.trim() &&
-				!formData.categories?.includes(category.trim())
-			) {
-				setFormData((prev) => ({
-					...prev,
-					categories: [...(prev.categories || []), category.trim()],
-				}));
-				setNewCategoryInput('');
-			}
-		},
-		[formData.categories]
-	);
+  const addCategory = useCallback(
+    (category: string) => {
+      if (category.trim() && !formData.categories?.includes(category.trim())) {
+        setFormData((prev) => ({
+          ...prev,
+          categories: [...(prev.categories || []), category.trim()],
+        }));
+        setNewCategoryInput("");
+      }
+    },
+    [formData.categories],
+  );
 
-	const removeCategory = useCallback((category: string) => {
-		setFormData((prev) => ({
-			...prev,
-			categories: prev.categories?.filter((c) => c !== category) || [],
-		}));
-	}, []);
+  const removeCategory = useCallback((category: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      categories: prev.categories?.filter((c) => c !== category) || [],
+    }));
+  }, []);
 
-	const toggleTag = useCallback((tag: string) => {
-		setFormData((prev) => {
-			const currentTags = prev.tags || [];
-			const isSelected = currentTags.includes(tag);
+  const toggleTag = useCallback((tag: string) => {
+    setFormData((prev) => {
+      const currentTags = prev.tags || [];
+      const isSelected = currentTags.includes(tag);
 
-			if (isSelected) {
-				// Remove tag
-				return {
-					...prev,
-					tags: currentTags.filter((t) => t !== tag),
-				};
-			} else {
-				// Add tag
-				return {
-					...prev,
-					tags: [...currentTags, tag],
-				};
-			}
-		});
-	}, []);
+      if (isSelected) {
+        // Remove tag
+        return {
+          ...prev,
+          tags: currentTags.filter((t) => t !== tag),
+        };
+      } else {
+        // Add tag
+        return {
+          ...prev,
+          tags: [...currentTags, tag],
+        };
+      }
+    });
+  }, []);
 
-	const handleStoreAvailabilitiesChange = useCallback(
-		(availabilities: StoreAvailabilityInput[]) => {
-			setFormData((prev) => ({
-				...prev,
-				storeAvailabilities: availabilities,
-			}));
-		},
-		[]
-	);
+  const handleStoreAvailabilitiesChange = useCallback(
+    (availabilities: StoreAvailabilityInput[]) => {
+      setFormData((prev) => ({
+        ...prev,
+        storeAvailabilities: availabilities,
+      }));
+    },
+    [],
+  );
 
-	const handleChainAvailabilitiesChange = useCallback(
-		(chainAvailabilities: ChainAvailabilityInput[]) => {
-			setFormData((prev) => ({
-				...prev,
-				chainAvailabilities,
-			}));
-		},
-		[]
-	);
+  const handleChainAvailabilitiesChange = useCallback(
+    (chainAvailabilities: ChainAvailabilityInput[]) => {
+      setFormData((prev) => ({
+        ...prev,
+        chainAvailabilities,
+      }));
+    },
+    [],
+  );
 
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-		if (!formData.name.trim() || !formData.brand.trim()) {
-			showToast('Name and brand are required', 'error');
-			return;
-		}
+    if (!formData.name.trim() || !formData.brand.trim()) {
+      showToast("Name and brand are required", "error");
+      return;
+    }
 
-		setLoading(true);
-		try {
-			let response;
-			let isPendingEdit = false;
+    setLoading(true);
+    try {
+      let response;
+      let isPendingEdit = false;
 
-			// Determine which API to use based on permissions:
-			// 1. Admin editing API product → editApiProduct (immediate)
-			// 2. Admin editing user product → updateProduct (immediate)
-			// 3. Owner editing their own product → updateProduct (immediate)
-			// 4. Regular user editing any product → suggestEdit (pending review)
+      // Determine which API to use based on permissions:
+      // 1. Admin editing API product → editApiProduct (immediate)
+      // 2. Admin editing user product → updateProduct (immediate)
+      // 3. Owner editing their own product → updateProduct (immediate)
+      // 4. Regular user editing any product → suggestEdit (pending review)
 
-			if (isAdmin) {
-				// Admins can edit anything directly
-				if (product._source === 'api') {
-					response = await userProductsApi.editApiProduct({
-						sourceProductId: product.id,
-						name: formData.name,
-						brand: formData.brand,
-						description: formData.description,
-						sizeOrVariant: formData.sizeOrVariant,
-						categories: formData.categories,
-						tags: formData.tags,
-						isStrictVegan: formData.isStrictVegan,
-						imageUrl: formData.imageUrl,
-						nutritionSummary: formData.nutritionSummary,
-						ingredientSummary: formData.ingredientSummary,
-						storeAvailabilities: formData.storeAvailabilities,
-						chainAvailabilities: formData.chainAvailabilities,
-					});
-				} else {
-					const { sourceProductId, ...updateData } = formData;
-					response = await userProductsApi.updateProduct(
-						product.id,
-						updateData
-					);
-				}
-			} else if (isOwner && product._source === 'user_contribution') {
-				// Owner editing their own user-contributed product
-				const { sourceProductId, ...updateData } = formData;
-				response = await userProductsApi.updateProduct(
-					product.id,
-					updateData
-				);
-			} else {
-				// Regular user suggesting an edit (goes to pending review)
-				isPendingEdit = true;
-				response = await userProductsApi.suggestEdit({
-					sourceProductId: product.id,
-					name: formData.name,
-					brand: formData.brand,
-					description: formData.description,
-					sizeOrVariant: formData.sizeOrVariant,
-					categories: formData.categories,
-					tags: formData.tags,
-					isStrictVegan: formData.isStrictVegan,
-					imageUrl: formData.imageUrl,
-					nutritionSummary: formData.nutritionSummary,
-					ingredientSummary: formData.ingredientSummary,
-					storeAvailabilities: formData.storeAvailabilities,
-					chainAvailabilities: formData.chainAvailabilities,
-				});
-			}
+      if (isAdmin) {
+        // Admins can edit anything directly
+        if (product._source === "api") {
+          response = await userProductsApi.editApiProduct({
+            sourceProductId: product.id,
+            name: formData.name,
+            brand: formData.brand,
+            description: formData.description,
+            sizeOrVariant: formData.sizeOrVariant,
+            categories: formData.categories,
+            tags: formData.tags,
+            isStrictVegan: formData.isStrictVegan,
+            imageUrl: formData.imageUrl,
+            nutritionSummary: formData.nutritionSummary,
+            ingredientSummary: formData.ingredientSummary,
+            storeAvailabilities: formData.storeAvailabilities,
+            chainAvailabilities: formData.chainAvailabilities,
+          });
+        } else {
+          const { sourceProductId, ...updateData } = formData;
+          response = await userProductsApi.updateProduct(
+            product.id,
+            updateData,
+          );
+        }
+      } else if (isOwner && product._source === "user_contribution") {
+        // Owner editing their own user-contributed product
+        const { sourceProductId, ...updateData } = formData;
+        response = await userProductsApi.updateProduct(product.id, updateData);
+      } else {
+        // Regular user suggesting an edit (goes to pending review)
+        isPendingEdit = true;
+        response = await userProductsApi.suggestEdit({
+          sourceProductId: product.id,
+          name: formData.name,
+          brand: formData.brand,
+          description: formData.description,
+          sizeOrVariant: formData.sizeOrVariant,
+          categories: formData.categories,
+          tags: formData.tags,
+          isStrictVegan: formData.isStrictVegan,
+          imageUrl: formData.imageUrl,
+          nutritionSummary: formData.nutritionSummary,
+          ingredientSummary: formData.ingredientSummary,
+          storeAvailabilities: formData.storeAvailabilities,
+          chainAvailabilities: formData.chainAvailabilities,
+        });
+      }
 
-			if (isPendingEdit) {
-				showToast(
-					'Your edit has been submitted for review. It will be visible after admin approval.',
-					'success'
-				);
-			} else {
-				showToast('Product updated successfully!', 'success');
-			}
-			// Emit event so other pages can refresh their product data
-			console.log(
-				'[EditProductForm] About to emit product:updated for:',
-				response.product?.id
-			);
-			productEvents.emit('product:updated', response.product.id);
-			console.log('[EditProductForm] Emit complete, calling onSave');
-			onSave(response.product);
-		} catch (error: any) {
-			showToast(error.message || 'Failed to update product', 'error');
-		} finally {
-			setLoading(false);
-		}
-	};
+      if (isPendingEdit) {
+        showToast(
+          "Your edit has been submitted for review. It will be visible after admin approval.",
+          "success",
+        );
+      } else {
+        showToast("Product updated successfully!", "success");
+      }
+      // Emit event so other pages can refresh their product data
+      console.log(
+        "[EditProductForm] About to emit product:updated for:",
+        response.product?.id,
+      );
+      productEvents.emit("product:updated", response.product.id);
+      console.log("[EditProductForm] Emit complete, calling onSave");
+      onSave(response.product);
+    } catch (error: any) {
+      showToast(error.message || "Failed to update product", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-	// Determine if this edit will need review
-	const willNeedReview = !isAdmin && !isOwner;
+  // Determine if this edit will need review
+  const willNeedReview = !isAdmin && !isOwner;
 
-	return (
-		<div className='add-product-form-container'>
-			<div className='add-product-form-header'>
-				<h1>{willNeedReview ? 'Suggest Edit' : 'Edit Product'}</h1>
-				<p className='form-subtitle'>
-					{willNeedReview
-						? 'Your suggested changes will be submitted for admin review.'
-						: product._source === 'api'
-						? 'Editing API-sourced product. Changes will override the original.'
-						: 'Edit product details'}
-				</p>
-			</div>
+  return (
+    <div className="add-product-form-container">
+      <div className="add-product-form-header">
+        <h1>{willNeedReview ? "Suggest Edit" : "Edit Product"}</h1>
+        <p className="form-subtitle">
+          {willNeedReview
+            ? "Your suggested changes will be submitted for admin review."
+            : product._source === "api"
+              ? "Editing API-sourced product. Changes will override the original."
+              : "Edit product details"}
+        </p>
+      </div>
 
-			<form onSubmit={handleSubmit} className='add-product-form'>
-				<div className='form-section'>
-					<h2>Basic Information</h2>
+      <form onSubmit={handleSubmit} className="add-product-form">
+        <div className="form-section">
+          <h2>Basic Information</h2>
 
-					<div className='form-group'>
-						<label htmlFor='name'>
-							Product Name <span className='required'>*</span>
-						</label>
-						<input
-							type='text'
-							id='name'
-							name='name'
-							value={formData.name}
-							onChange={handleChange}
-							required
-							placeholder='e.g., Almond Milk'
-						/>
-					</div>
+          <div className="form-group">
+            <label htmlFor="name">
+              Product Name <span className="required">*</span>
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              required
+              placeholder="e.g., Almond Milk"
+            />
+          </div>
 
-					<div className='form-group'>
-						<label htmlFor='brand'>
-							Brand <span className='required'>*</span>
-						</label>
-						<input
-							type='text'
-							id='brand'
-							name='brand'
-							value={formData.brand}
-							onChange={handleChange}
-							required
-							placeholder='e.g., Silk'
-						/>
-					</div>
+          <div className="form-group">
+            <label htmlFor="brand">
+              Brand <span className="required">*</span>
+            </label>
+            <input
+              type="text"
+              id="brand"
+              name="brand"
+              value={formData.brand}
+              onChange={handleChange}
+              required
+              placeholder="e.g., Silk"
+            />
+          </div>
 
-					<div className='form-group'>
-						<label htmlFor='sizeOrVariant'>Size or Variant</label>
-						<input
-							type='text'
-							id='sizeOrVariant'
-							name='sizeOrVariant'
-							value={formData.sizeOrVariant}
-							onChange={handleChange}
-							placeholder='e.g., 32 fl oz, Original'
-						/>
-					</div>
+          <div className="form-group">
+            <label htmlFor="sizeOrVariant">Size or Variant</label>
+            <input
+              type="text"
+              id="sizeOrVariant"
+              name="sizeOrVariant"
+              value={formData.sizeOrVariant}
+              onChange={handleChange}
+              placeholder="e.g., 32 fl oz, Original"
+            />
+          </div>
 
-					<div className='form-group'>
-						<label htmlFor='description'>Description</label>
-						<textarea
-							id='description'
-							name='description'
-							value={formData.description}
-							onChange={handleChange}
-							rows={3}
-							placeholder='Brief description of the product...'
-						/>
-					</div>
-				</div>
+          <div className="form-group">
+            <label htmlFor="description">Description</label>
+            <textarea
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              rows={3}
+              placeholder="Brief description of the product..."
+            />
+          </div>
+        </div>
 
-				<div className='form-section'>
-					<h2>Image</h2>
+        <div className="form-section">
+          <h2>Image</h2>
 
-					<div className='form-group'>
-						<label htmlFor='imageUrl'>Image URL</label>
-						<input
-							type='url'
-							id='imageUrl'
-							name='imageUrl'
-							value={formData.imageUrl}
-							onChange={handleChange}
-							placeholder='https://example.com/image.jpg'
-						/>
-						{formData.imageUrl && (
-							<div className='image-preview'>
-								<img
-									src={formData.imageUrl}
-									alt='Preview'
-									onError={(e) => {
-										(
-											e.target as HTMLImageElement
-										).style.display = 'none';
-									}}
-								/>
-							</div>
-						)}
-					</div>
-				</div>
+          <div className="form-group">
+            <label htmlFor="imageUrl">Image URL</label>
+            <input
+              type="url"
+              id="imageUrl"
+              name="imageUrl"
+              value={formData.imageUrl}
+              onChange={handleChange}
+              placeholder="https://example.com/image.jpg"
+            />
+            {formData.imageUrl && (
+              <div className="image-preview">
+                <img
+                  src={formData.imageUrl}
+                  alt="Preview"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
 
-				<div className='form-section'>
-					<h2>Categories</h2>
+        <div className="form-section">
+          <h2>Categories</h2>
 
-					<div className='form-group'>
-						<label htmlFor='category-input'>Add Categories</label>
-						<AutocompleteInput
-							value={newCategoryInput}
-							onChange={setNewCategoryInput}
-							onSelect={addCategory}
-							options={availableCategories}
-							placeholder={
-								loadingOptions
-									? 'Loading categories...'
-									: 'Search or add category'
-							}
-							disabled={loadingOptions}
-							allowNew={true}
-							newItemLabel='Add new category'
-						/>
-						{formData.categories &&
-							formData.categories.length > 0 && (
-								<div className='tag-list'>
-									{formData.categories.map((cat) => (
-										<span key={cat} className='tag-item'>
-											{cat}
-											<button
-												type='button'
-												onClick={() =>
-													removeCategory(cat)
-												}
-												className='tag-remove'>
-												×
-											</button>
-										</span>
-									))}
-								</div>
-							)}
-					</div>
-				</div>
+          <div className="form-group">
+            <label htmlFor="category-input">Add Categories</label>
+            <AutocompleteInput
+              value={newCategoryInput}
+              onChange={setNewCategoryInput}
+              onSelect={addCategory}
+              options={availableCategories}
+              placeholder={
+                loadingOptions
+                  ? "Loading categories..."
+                  : "Search or add category"
+              }
+              disabled={loadingOptions}
+              allowNew={true}
+              newItemLabel="Add new category"
+            />
+            {formData.categories && formData.categories.length > 0 && (
+              <div className="tag-list">
+                {formData.categories.map((cat) => (
+                  <span key={cat} className="tag-item">
+                    {cat}
+                    <button
+                      type="button"
+                      onClick={() => removeCategory(cat)}
+                      className="tag-remove"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
-				<div className='form-section'>
-					<h2>Tags</h2>
+        <div className="form-section">
+          <h2>Tags</h2>
 
-					<div className='form-group'>
-						<label>Select Tags</label>
-						<div className='tag-selection-list'>
-							{allTags.map((tag) => {
-								const isSelected =
-									formData.tags?.includes(tag) || false;
-								return (
-									<button
-										key={tag}
-										type='button'
-										className={`tag-selection-button ${
-											isSelected ? 'selected' : ''
-										}`}
-										onClick={() => toggleTag(tag)}>
-										{formatTagLabel(tag)}
-										{isSelected && (
-											<span className='tag-check'>✓</span>
-										)}
-									</button>
-								);
-							})}
-						</div>
-					</div>
-				</div>
+          <div className="form-group">
+            <label>Select Tags</label>
+            <div className="tag-selection-list">
+              {allTags.map((tag) => {
+                const isSelected = formData.tags?.includes(tag) || false;
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    className={`tag-selection-button ${
+                      isSelected ? "selected" : ""
+                    }`}
+                    onClick={() => toggleTag(tag)}
+                  >
+                    {formatTagLabel(tag)}
+                    {isSelected && <span className="tag-check">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
 
-				<div className='form-section'>
-					<h2>Where to Buy</h2>
-					<StoreAvailabilitySelector
-						value={formData.storeAvailabilities || []}
-						chainValue={formData.chainAvailabilities || []}
-						onChange={handleStoreAvailabilitiesChange}
-						onChainChange={handleChainAvailabilitiesChange}
-					/>
-				</div>
+        <div className="form-section">
+          <h2>Where to Buy</h2>
+          <StoreAvailabilitySelector
+            value={formData.storeAvailabilities || []}
+            chainValue={formData.chainAvailabilities || []}
+            onChange={handleStoreAvailabilitiesChange}
+            onChainChange={handleChainAvailabilitiesChange}
+          />
+        </div>
 
-				<div className='form-section'>
-					<h2>Additional Information</h2>
+        <div className="form-section">
+          <h2>Additional Information</h2>
 
-					<div className='form-group'>
-						<label htmlFor='nutritionSummary'>
-							Nutrition Summary
-						</label>
-						<textarea
-							id='nutritionSummary'
-							name='nutritionSummary'
-							value={formData.nutritionSummary}
-							onChange={handleChange}
-							rows={2}
-							placeholder='e.g., 60 calories per serving, 2g protein'
-						/>
-					</div>
+          <div className="form-group">
+            <label htmlFor="nutritionSummary">Nutrition Summary</label>
+            <textarea
+              id="nutritionSummary"
+              name="nutritionSummary"
+              value={formData.nutritionSummary}
+              onChange={handleChange}
+              rows={2}
+              placeholder="e.g., 60 calories per serving, 2g protein"
+            />
+          </div>
 
-					<div className='form-group'>
-						<label htmlFor='ingredientSummary'>
-							Ingredient Summary
-						</label>
-						<textarea
-							id='ingredientSummary'
-							name='ingredientSummary'
-							value={formData.ingredientSummary}
-							onChange={handleChange}
-							rows={2}
-							placeholder='e.g., Almonds, water, vitamins'
-						/>
-					</div>
+          <div className="form-group">
+            <label htmlFor="ingredientSummary">Ingredient Summary</label>
+            <textarea
+              id="ingredientSummary"
+              name="ingredientSummary"
+              value={formData.ingredientSummary}
+              onChange={handleChange}
+              rows={2}
+              placeholder="e.g., Almonds, water, vitamins"
+            />
+          </div>
 
-					<div className='form-group checkbox-group'>
-						<label>
-							<input
-								type='checkbox'
-								name='isStrictVegan'
-								checked={formData.isStrictVegan}
-								onChange={handleCheckboxChange}
-							/>
-							<span>
-								Strictly vegan (no animal products or
-								by-products)
-							</span>
-						</label>
-					</div>
-				</div>
+          <div className="form-group checkbox-group">
+            <label>
+              <input
+                type="checkbox"
+                name="isStrictVegan"
+                checked={formData.isStrictVegan}
+                onChange={handleCheckboxChange}
+              />
+              <span>Strictly vegan (no animal products or by-products)</span>
+            </label>
+          </div>
+        </div>
 
-				<div className='form-actions'>
-					<Button
-						type='button'
-						variant='secondary'
-						onClick={onCancel}
-						disabled={loading}>
-						Cancel
-					</Button>
-					<Button type='submit' variant='primary' disabled={loading}>
-						{loading
-							? 'Saving...'
-							: willNeedReview
-							? 'Submit for Review'
-							: 'Save Changes'}
-					</Button>
-				</div>
-			</form>
+        <div className="form-actions">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onCancel}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" disabled={loading}>
+            {loading
+              ? "Saving..."
+              : willNeedReview
+                ? "Submit for Review"
+                : "Save Changes"}
+          </Button>
+        </div>
+      </form>
 
-			{toast && (
-				<Toast
-					message={toast.message}
-					type={toast.type}
-					onClose={hideToast}
-				/>
-			)}
-		</div>
-	);
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={hideToast} />
+      )}
+    </div>
+  );
 }

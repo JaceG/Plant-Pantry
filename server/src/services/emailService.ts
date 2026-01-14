@@ -1,4 +1,4 @@
-import { ServerClient } from 'postmark';
+import { ServerClient } from "postmark";
 
 // Lazy-initialized Postmark client
 let client: ServerClient | null = null;
@@ -9,81 +9,81 @@ let initialized = false;
  * This ensures dotenv has loaded before we read environment variables
  */
 function getClient(): ServerClient | null {
-	if (!initialized) {
-		initialized = true;
-		const apiKey = process.env.POSTMARK_API_KEY;
+  if (!initialized) {
+    initialized = true;
+    const apiKey = process.env.POSTMARK_API_KEY;
 
-		if (apiKey) {
-			client = new ServerClient(apiKey);
-			console.log('✅ Postmark email service configured');
-		} else {
-			console.warn(
-				'⚠️  Postmark API key not configured. Password reset emails will be logged to console.'
-			);
-		}
-	}
-	return client;
+    if (apiKey) {
+      client = new ServerClient(apiKey);
+      console.log("✅ Postmark email service configured");
+    } else {
+      console.warn(
+        "⚠️  Postmark API key not configured. Password reset emails will be logged to console.",
+      );
+    }
+  }
+  return client;
 }
 
 function getFromEmail(): string {
-	return process.env.POSTMARK_FROM_EMAIL || 'noreply@veganaisle.com';
+  return process.env.POSTMARK_FROM_EMAIL || "noreply@veganaisle.com";
 }
 
 function getClientUrl(): string {
-	return process.env.CLIENT_URL || 'http://localhost:5173';
+  return process.env.CLIENT_URL || "http://localhost:5173";
 }
 
 export interface SendEmailOptions {
-	to: string;
-	subject: string;
-	htmlBody: string;
-	textBody?: string;
+  to: string;
+  subject: string;
+  htmlBody: string;
+  textBody?: string;
 }
 
 export const emailService = {
-	/**
-	 * Send an email via Postmark
-	 */
-	async sendEmail(options: SendEmailOptions): Promise<boolean> {
-		const { to, subject, htmlBody, textBody } = options;
-		const postmarkClient = getClient();
+  /**
+   * Send an email via Postmark
+   */
+  async sendEmail(options: SendEmailOptions): Promise<boolean> {
+    const { to, subject, htmlBody, textBody } = options;
+    const postmarkClient = getClient();
 
-		// If no Postmark client (no API key), log to console in development
-		if (!postmarkClient) {
-			console.log('\n========== EMAIL (Dev Mode) ==========');
-			console.log(`To: ${to}`);
-			console.log(`Subject: ${subject}`);
-			console.log(`Body:\n${textBody || htmlBody}`);
-			console.log('=======================================\n');
-			return true;
-		}
+    // If no Postmark client (no API key), log to console in development
+    if (!postmarkClient) {
+      console.log("\n========== EMAIL (Dev Mode) ==========");
+      console.log(`To: ${to}`);
+      console.log(`Subject: ${subject}`);
+      console.log(`Body:\n${textBody || htmlBody}`);
+      console.log("=======================================\n");
+      return true;
+    }
 
-		try {
-			await postmarkClient.sendEmail({
-				From: getFromEmail(),
-				To: to,
-				Subject: subject,
-				HtmlBody: htmlBody,
-				TextBody: textBody || htmlBody.replace(/<[^>]*>/g, ''), // Strip HTML for plain text
-			});
-			console.log(`✅ Email sent to ${to}`);
-			return true;
-		} catch (error) {
-			console.error('Failed to send email via Postmark:', error);
-			return false;
-		}
-	},
+    try {
+      await postmarkClient.sendEmail({
+        From: getFromEmail(),
+        To: to,
+        Subject: subject,
+        HtmlBody: htmlBody,
+        TextBody: textBody || htmlBody.replace(/<[^>]*>/g, ""), // Strip HTML for plain text
+      });
+      console.log(`✅ Email sent to ${to}`);
+      return true;
+    } catch (error) {
+      console.error("Failed to send email via Postmark:", error);
+      return false;
+    }
+  },
 
-	/**
-	 * Send password reset email
-	 */
-	async sendPasswordResetEmail(
-		email: string,
-		resetToken: string
-	): Promise<boolean> {
-		const resetUrl = `${getClientUrl()}/reset-password?token=${resetToken}`;
+  /**
+   * Send password reset email
+   */
+  async sendPasswordResetEmail(
+    email: string,
+    resetToken: string,
+  ): Promise<boolean> {
+    const resetUrl = `${getClientUrl()}/reset-password?token=${resetToken}`;
 
-		const htmlBody = `
+    const htmlBody = `
 			<!DOCTYPE html>
 			<html>
 			<head>
@@ -119,7 +119,7 @@ export const emailService = {
 			</html>
 		`;
 
-		const textBody = `
+    const textBody = `
 Reset Your Password
 
 We received a request to reset your password for your Vegan Aisle account.
@@ -130,11 +130,11 @@ ${resetUrl}
 If you didn't request a password reset, you can safely ignore this email.
 		`;
 
-		return this.sendEmail({
-			to: email,
-			subject: 'Reset Your Password - Vegan Aisle',
-			htmlBody,
-			textBody,
-		});
-	},
+    return this.sendEmail({
+      to: email,
+      subject: "Reset Your Password - Vegan Aisle",
+      htmlBody,
+      textBody,
+    });
+  },
 };

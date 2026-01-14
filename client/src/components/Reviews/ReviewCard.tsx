@@ -1,7 +1,7 @@
-import React from 'react';
-import { Review } from '../../types/review';
-import { useAuth } from '../../context/AuthContext';
-import './ReviewCard.css';
+import React from "react";
+import { Review } from "../../types/review";
+import { useAuth } from "../../context/AuthContext";
+import "./ReviewCard.css";
 
 interface ReviewCardProps {
   review: Review;
@@ -22,24 +22,26 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
   const renderStars = (rating: number) => {
     return (
       <div className="review-stars">
-        {Array(5).fill(0).map((_, i) => (
-          <span
-            key={i}
-            className={i < rating ? 'star star-full' : 'star star-empty'}
-          >
-            {i < rating ? '★' : '☆'}
-          </span>
-        ))}
+        {Array(5)
+          .fill(0)
+          .map((_, i) => (
+            <span
+              key={i}
+              className={i < rating ? "star star-full" : "star star-empty"}
+            >
+              {i < rating ? "★" : "☆"}
+            </span>
+          ))}
       </div>
     );
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
@@ -58,9 +60,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
         {renderStars(review.rating)}
       </div>
 
-      {review.title && (
-        <h4 className="review-title">{review.title}</h4>
-      )}
+      {review.title && <h4 className="review-title">{review.title}</h4>}
 
       <p className="review-comment">{review.comment}</p>
 
@@ -72,7 +72,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
               src={url}
               alt={`Review photo ${index + 1}`}
               className="review-photo"
-              onClick={() => window.open(url, '_blank')}
+              onClick={() => window.open(url, "_blank")}
             />
           ))}
         </div>
@@ -80,7 +80,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
 
       <div className="review-footer">
         <button
-          className={`helpful-button ${review.isHelpful ? 'active' : ''}`}
+          className={`helpful-button ${review.isHelpful ? "active" : ""}`}
           onClick={onVoteHelpful}
           disabled={!onVoteHelpful}
         >
@@ -107,4 +107,3 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
 };
 
 export default ReviewCard;
-

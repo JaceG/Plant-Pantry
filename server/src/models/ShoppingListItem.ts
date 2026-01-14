@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Document, Schema } from "mongoose";
 
 export interface IShoppingListItem extends Document {
   _id: mongoose.Types.ObjectId;
@@ -13,13 +13,13 @@ const shoppingListItemSchema = new Schema<IShoppingListItem>(
   {
     shoppingListId: {
       type: Schema.Types.ObjectId,
-      ref: 'ShoppingList',
+      ref: "ShoppingList",
       required: true,
       index: true,
     },
     productId: {
       type: Schema.Types.ObjectId,
-      ref: 'Product',
+      ref: "Product",
       required: true,
     },
     quantity: {
@@ -38,13 +38,12 @@ const shoppingListItemSchema = new Schema<IShoppingListItem>(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 shoppingListItemSchema.index({ shoppingListId: 1, productId: 1 });
 
 export const ShoppingListItem = mongoose.model<IShoppingListItem>(
-  'ShoppingListItem',
-  shoppingListItemSchema
+  "ShoppingListItem",
+  shoppingListItemSchema,
 );
-

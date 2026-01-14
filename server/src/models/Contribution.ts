@@ -1,6 +1,8 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Document, Schema } from "mongoose";
 
-export type ContributionType = 'product_suggestion' | 'availability_confirmation';
+export type ContributionType =
+  | "product_suggestion"
+  | "availability_confirmation";
 
 export interface IContribution extends Document {
   _id: mongoose.Types.ObjectId;
@@ -14,12 +16,12 @@ const contributionSchema = new Schema<IContribution>(
   {
     userId: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       index: true,
     },
     type: {
       type: String,
-      enum: ['product_suggestion', 'availability_confirmation'],
+      enum: ["product_suggestion", "availability_confirmation"],
       required: true,
     },
     payloadJson: {
@@ -29,10 +31,12 @@ const contributionSchema = new Schema<IContribution>(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 contributionSchema.index({ type: 1, createdAt: -1 });
 
-export const Contribution = mongoose.model<IContribution>('Contribution', contributionSchema);
-
+export const Contribution = mongoose.model<IContribution>(
+  "Contribution",
+  contributionSchema,
+);

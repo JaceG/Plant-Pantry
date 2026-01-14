@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
-import { CreateReviewInput, UpdateReviewInput, Review } from '../../types/review';
-import './ReviewForm.css';
+import React, { useState } from "react";
+import {
+  CreateReviewInput,
+  UpdateReviewInput,
+  Review,
+} from "../../types/review";
+import "./ReviewForm.css";
 
 interface ReviewFormProps {
   review?: Review;
@@ -8,31 +12,35 @@ interface ReviewFormProps {
   onCancel?: () => void;
 }
 
-const ReviewForm: React.FC<ReviewFormProps> = ({ review, onSubmit, onCancel }) => {
+const ReviewForm: React.FC<ReviewFormProps> = ({
+  review,
+  onSubmit,
+  onCancel,
+}) => {
   const [rating, setRating] = useState<number>(review?.rating || 0);
-  const [title, setTitle] = useState<string>(review?.title || '');
-  const [comment, setComment] = useState<string>(review?.comment || '');
+  const [title, setTitle] = useState<string>(review?.title || "");
+  const [comment, setComment] = useState<string>(review?.comment || "");
   const [photoUrls, setPhotoUrls] = useState<string[]>(review?.photoUrls || []);
-  const [newPhotoUrl, setNewPhotoUrl] = useState<string>('');
+  const [newPhotoUrl, setNewPhotoUrl] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     if (rating < 1 || rating > 5) {
-      setError('Please select a rating');
+      setError("Please select a rating");
       return;
     }
 
     if (!comment.trim()) {
-      setError('Please write a comment');
+      setError("Please write a comment");
       return;
     }
 
     if (photoUrls.length > 5) {
-      setError('Maximum 5 photos allowed');
+      setError("Maximum 5 photos allowed");
       return;
     }
 
@@ -42,12 +50,12 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ review, onSubmit, onCancel }) =
         rating,
         title: title.trim() || undefined,
         comment: comment.trim(),
-        photoUrls: photoUrls.filter(url => url.trim()),
+        photoUrls: photoUrls.filter((url) => url.trim()),
       };
 
       await onSubmit(input);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit review');
+      setError(err instanceof Error ? err.message : "Failed to submit review");
     } finally {
       setIsSubmitting(false);
     }
@@ -56,7 +64,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ review, onSubmit, onCancel }) =
   const handleAddPhoto = () => {
     if (newPhotoUrl.trim() && photoUrls.length < 5) {
       setPhotoUrls([...photoUrls, newPhotoUrl.trim()]);
-      setNewPhotoUrl('');
+      setNewPhotoUrl("");
     }
   };
 
@@ -71,17 +79,19 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ review, onSubmit, onCancel }) =
           <button
             key={value}
             type="button"
-            className={`star-button ${value <= selectedRating ? 'selected' : ''}`}
+            className={`star-button ${value <= selectedRating ? "selected" : ""}`}
             onClick={() => setRating(value)}
             onMouseEnter={() => {
               // Optional: highlight on hover
             }}
           >
-            {value <= selectedRating ? '★' : '☆'}
+            {value <= selectedRating ? "★" : "☆"}
           </button>
         ))}
         {selectedRating > 0 && (
-          <span className="rating-label">{selectedRating} {selectedRating === 1 ? 'star' : 'stars'}</span>
+          <span className="rating-label">
+            {selectedRating} {selectedRating === 1 ? "star" : "stars"}
+          </span>
         )}
       </div>
     );
@@ -89,7 +99,9 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ review, onSubmit, onCancel }) =
 
   return (
     <form className="review-form" onSubmit={handleSubmit}>
-      <h3 className="form-title">{review ? 'Edit Review' : 'Write a Review'}</h3>
+      <h3 className="form-title">
+        {review ? "Edit Review" : "Write a Review"}
+      </h3>
 
       {error && <div className="form-error">{error}</div>}
 
@@ -115,7 +127,8 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ review, onSubmit, onCancel }) =
 
       <div className="form-group">
         <label htmlFor="comment" className="form-label">
-          Review *</label>
+          Review *
+        </label>
         <textarea
           id="comment"
           className="form-textarea"
@@ -154,7 +167,11 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ review, onSubmit, onCancel }) =
           <div className="photo-preview-list">
             {photoUrls.map((url, index) => (
               <div key={index} className="photo-preview-item">
-                <img src={url} alt={`Preview ${index + 1}`} className="photo-preview" />
+                <img
+                  src={url}
+                  alt={`Preview ${index + 1}`}
+                  className="photo-preview"
+                />
                 <button
                   type="button"
                   className="remove-photo-button"
@@ -175,7 +192,11 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ review, onSubmit, onCancel }) =
           </button>
         )}
         <button type="submit" className="submit-button" disabled={isSubmitting}>
-          {isSubmitting ? 'Submitting...' : review ? 'Update Review' : 'Submit Review'}
+          {isSubmitting
+            ? "Submitting..."
+            : review
+              ? "Update Review"
+              : "Submit Review"}
         </button>
       </div>
     </form>
@@ -183,4 +204,3 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ review, onSubmit, onCancel }) =
 };
 
 export default ReviewForm;
-

@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { productsApi } from '../api';
-import { ProductDetail } from '../types';
-import { productEvents } from '../utils/productEvents';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { productsApi } from "../api";
+import { ProductDetail } from "../types";
+import { productEvents } from "../utils/productEvents";
 
 interface UseProductDetailState {
   product: ProductDetail | null;
@@ -14,7 +14,9 @@ interface UseProductDetailReturn extends UseProductDetailState {
   setProduct: (product: ProductDetail) => void;
 }
 
-export function useProductDetail(productId: string | undefined): UseProductDetailReturn {
+export function useProductDetail(
+  productId: string | undefined,
+): UseProductDetailReturn {
   const [state, setState] = useState<UseProductDetailState>({
     product: null,
     loading: false,
@@ -27,12 +29,14 @@ export function useProductDetail(productId: string | undefined): UseProductDetai
       setState({ product: null, loading: false, error: null });
       return;
     }
-    
+
     setState((prev) => ({ ...prev, loading: true, error: null }));
-    
+
     try {
       // Always bust cache to ensure fresh data
-      const response = await productsApi.getProductById(productId, { bustCache: true });
+      const response = await productsApi.getProductById(productId, {
+        bustCache: true,
+      });
       setState({
         product: response.product,
         loading: false,
@@ -40,7 +44,8 @@ export function useProductDetail(productId: string | undefined): UseProductDetai
       });
       lastFetchTimeRef.current = Date.now();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch product';
+      const message =
+        err instanceof Error ? err.message : "Failed to fetch product";
       setState({ product: null, loading: false, error: message });
     }
   }, [productId]);
@@ -67,7 +72,7 @@ export function useProductDetail(productId: string | undefined): UseProductDetai
   // Note: We always refetch because the emitted productId might be a UserProduct ID
   // while our productId is the original API product ID (for edited products)
   useEffect(() => {
-    const unsubscribe = productEvents.on('product:updated', (detail) => {
+    const unsubscribe = productEvents.on("product:updated", (detail) => {
       // Check if the update happened after our last fetch
       if (detail.timestamp > lastFetchTimeRef.current) {
         fetchProduct();
@@ -83,4 +88,3 @@ export function useProductDetail(productId: string | undefined): UseProductDetai
     setProduct,
   };
 }
-

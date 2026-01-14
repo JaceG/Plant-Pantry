@@ -1,8 +1,15 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { authApi } from '../api/authApi';
-import { oauthApi } from '../api/oauthApi';
-import { httpClient } from '../api/httpClient';
-import { User, AuthState, SignupInput, LoginInput } from '../types/auth';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from "react";
+import { authApi } from "../api/authApi";
+import { oauthApi } from "../api/oauthApi";
+import { httpClient } from "../api/httpClient";
+import { User, AuthState, SignupInput, LoginInput } from "../types/auth";
 
 interface OAuthResult {
   success: boolean;
@@ -14,7 +21,10 @@ interface AuthContextType extends AuthState {
   login: (input: LoginInput) => Promise<{ success: boolean; error?: string }>;
   signup: (input: SignupInput) => Promise<{ success: boolean; error?: string }>;
   loginWithGoogle: (credential: string) => Promise<OAuthResult>;
-  loginWithApple: (identityToken: string, user?: { name?: string; email?: string }) => Promise<OAuthResult>;
+  loginWithApple: (
+    identityToken: string,
+    user?: { name?: string; email?: string },
+  ) => Promise<OAuthResult>;
   logout: () => void;
   updateUser: (user: User) => void;
 }
@@ -31,13 +41,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   const isAuthenticated = !!user && !!token;
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === "admin";
 
   // Load user from token on mount
   useEffect(() => {
     const loadUser = async () => {
       const storedToken = httpClient.getToken();
-      
+
       if (!storedToken) {
         setIsLoading(false);
         return;
@@ -45,20 +55,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       try {
         // Add timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Auth check timeout")), 5000),
         );
-        
-        const response = await Promise.race([
+
+        const response = (await Promise.race([
           authApi.getMe(),
-          timeoutPromise
-        ]) as { user: User };
-        
+          timeoutPromise,
+        ])) as { user: User };
+
         setUser(response.user);
         setToken(storedToken);
       } catch (error) {
         // Token is invalid or expired, or request timed out
-        console.error('Failed to load user:', error);
+        console.error("Failed to load user:", error);
         httpClient.removeToken();
       } finally {
         setIsLoading(false);
@@ -68,72 +78,91 @@ export function AuthProvider({ children }: AuthProviderProps) {
     loadUser();
   }, []);
 
-  const login = useCallback(async (input: LoginInput): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const response = await authApi.login(input);
-      
-      // Store token
-      httpClient.setToken(response.token);
-      setToken(response.token);
-      setUser(response.user);
-      
-      return { success: true };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Login failed';
-      return { success: false, error: message };
-    }
-  }, []);
+  const login = useCallback(
+    async (
+      input: LoginInput,
+    ): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const response = await authApi.login(input);
 
-  const signup = useCallback(async (input: SignupInput): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const response = await authApi.signup(input);
-      
-      // Store token
-      httpClient.setToken(response.token);
-      setToken(response.token);
-      setUser(response.user);
-      
-      return { success: true };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Signup failed';
-      return { success: false, error: message };
-    }
-  }, []);
+        // Store token
+        httpClient.setToken(response.token);
+        setToken(response.token);
+        setUser(response.user);
 
-  const loginWithGoogle = useCallback(async (credential: string): Promise<OAuthResult> => {
-    try {
-      const response = await oauthApi.google(credential);
-      
-      // Store token
-      httpClient.setToken(response.token);
-      setToken(response.token);
-      setUser(response.user);
-      
-      return { success: true, isNewUser: response.isNewUser };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Google sign-in failed';
-      return { success: false, error: message };
-    }
-  }, []);
+        return { success: true };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Login failed";
+        return { success: false, error: message };
+      }
+    },
+    [],
+  );
 
-  const loginWithApple = useCallback(async (
-    identityToken: string, 
-    userData?: { name?: string; email?: string }
-  ): Promise<OAuthResult> => {
-    try {
-      const response = await oauthApi.apple(identityToken, userData);
-      
-      // Store token
-      httpClient.setToken(response.token);
-      setToken(response.token);
-      setUser(response.user);
-      
-      return { success: true, isNewUser: response.isNewUser };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Apple sign-in failed';
-      return { success: false, error: message };
-    }
-  }, []);
+  const signup = useCallback(
+    async (
+      input: SignupInput,
+    ): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const response = await authApi.signup(input);
+
+        // Store token
+        httpClient.setToken(response.token);
+        setToken(response.token);
+        setUser(response.user);
+
+        return { success: true };
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Signup failed";
+        return { success: false, error: message };
+      }
+    },
+    [],
+  );
+
+  const loginWithGoogle = useCallback(
+    async (credential: string): Promise<OAuthResult> => {
+      try {
+        const response = await oauthApi.google(credential);
+
+        // Store token
+        httpClient.setToken(response.token);
+        setToken(response.token);
+        setUser(response.user);
+
+        return { success: true, isNewUser: response.isNewUser };
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Google sign-in failed";
+        return { success: false, error: message };
+      }
+    },
+    [],
+  );
+
+  const loginWithApple = useCallback(
+    async (
+      identityToken: string,
+      userData?: { name?: string; email?: string },
+    ): Promise<OAuthResult> => {
+      try {
+        const response = await oauthApi.apple(identityToken, userData);
+
+        // Store token
+        httpClient.setToken(response.token);
+        setToken(response.token);
+        setUser(response.user);
+
+        return { success: true, isNewUser: response.isNewUser };
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Apple sign-in failed";
+        return { success: false, error: message };
+      }
+    },
+    [],
+  );
 
   const logout = useCallback(() => {
     httpClient.removeToken();
@@ -159,20 +188,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     updateUser,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
-  
+
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
-  
+
   return context;
 }
 

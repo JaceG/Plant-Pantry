@@ -1,2 +1,2 @@
-export { AddProductToStoreModal } from './AddProductToStoreModal';
-export { SuggestStoreModal } from './SuggestStoreModal';
+export { AddProductToStoreModal } from "./AddProductToStoreModal";
+export { SuggestStoreModal } from "./SuggestStoreModal";

@@ -1,10 +1,10 @@
-import { httpClient } from './httpClient';
+import { httpClient } from "./httpClient";
 import {
   ShoppingListsResponse,
   ShoppingListSummary,
   ShoppingListDetail,
   AddItemInput,
-} from '../types';
+} from "../types";
 
 interface CreateListResponse {
   list: ShoppingListSummary;
@@ -26,27 +26,31 @@ interface DeleteItemResponse {
 
 export const listsApi = {
   getLists(): Promise<ShoppingListsResponse> {
-    return httpClient.get<ShoppingListsResponse>('/lists');
+    return httpClient.get<ShoppingListsResponse>("/lists");
   },
-  
+
   getDefaultList(): Promise<CreateListResponse> {
-    return httpClient.get<CreateListResponse>('/lists/default');
+    return httpClient.get<CreateListResponse>("/lists/default");
   },
-  
+
   createList(name: string): Promise<CreateListResponse> {
-    return httpClient.post<CreateListResponse>('/lists', { name });
+    return httpClient.post<CreateListResponse>("/lists", { name });
   },
-  
+
   getListById(id: string): Promise<ShoppingListDetail> {
     return httpClient.get<ShoppingListDetail>(`/lists/${id}`);
   },
-  
+
   addItemToList(listId: string, input: AddItemInput): Promise<AddItemResponse> {
     return httpClient.post<AddItemResponse>(`/lists/${listId}/items`, input);
   },
-  
-  removeItemFromList(listId: string, itemId: string): Promise<DeleteItemResponse> {
-    return httpClient.delete<DeleteItemResponse>(`/lists/${listId}/items/${itemId}`);
+
+  removeItemFromList(
+    listId: string,
+    itemId: string,
+  ): Promise<DeleteItemResponse> {
+    return httpClient.delete<DeleteItemResponse>(
+      `/lists/${listId}/items/${itemId}`,
+    );
   },
 };
-

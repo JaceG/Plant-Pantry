@@ -7,7 +7,7 @@ export interface Review {
   title?: string;
   comment: string;
   photoUrls: string[];
-  status: 'pending' | 'approved' | 'rejected';
+  status: "pending" | "approved" | "rejected";
   helpfulCount: number;
   isHelpful: boolean;
   reviewedAt: string;
@@ -61,4 +61,3 @@ export interface PendingReview extends Review {
   productName?: string;
   productBrand?: string;
 }
-

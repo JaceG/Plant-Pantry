@@ -1,60 +1,55 @@
-import { httpClient } from './httpClient';
+import { httpClient } from "./httpClient";
 import {
-	ProductDetail,
-	ProductListResponse,
-	CreateUserProductInput,
-} from '../types/product';
+  ProductDetail,
+  ProductListResponse,
+  CreateUserProductInput,
+} from "../types/product";
 
 export const userProductsApi = {
-	createProduct(
-		input: CreateUserProductInput
-	): Promise<{ product: ProductDetail }> {
-		return httpClient.post<{ product: ProductDetail }>(
-			'/user-products',
-			input
-		);
-	},
+  createProduct(
+    input: CreateUserProductInput,
+  ): Promise<{ product: ProductDetail }> {
+    return httpClient.post<{ product: ProductDetail }>("/user-products", input);
+  },
 
-	getUserProducts(): Promise<ProductListResponse> {
-		return httpClient.get<ProductListResponse>('/user-products');
-	},
+  getUserProducts(): Promise<ProductListResponse> {
+    return httpClient.get<ProductListResponse>("/user-products");
+  },
 
-	getUserProductById(id: string): Promise<{ product: ProductDetail }> {
-		return httpClient.get<{ product: ProductDetail }>(
-			`/user-products/${id}`
-		);
-	},
+  getUserProductById(id: string): Promise<{ product: ProductDetail }> {
+    return httpClient.get<{ product: ProductDetail }>(`/user-products/${id}`);
+  },
 
-	updateProduct(
-		id: string,
-		input: Partial<CreateUserProductInput>
-	): Promise<{ product: ProductDetail }> {
-		return httpClient.put<{ product: ProductDetail }>(
-			`/user-products/${id}`,
-			input
-		);
-	},
+  updateProduct(
+    id: string,
+    input: Partial<CreateUserProductInput>,
+  ): Promise<{ product: ProductDetail }> {
+    return httpClient.put<{ product: ProductDetail }>(
+      `/user-products/${id}`,
+      input,
+    );
+  },
 
-	deleteProduct(id: string): Promise<{ message: string }> {
-		return httpClient.delete<{ message: string }>(`/user-products/${id}`);
-	},
+  deleteProduct(id: string): Promise<{ message: string }> {
+    return httpClient.delete<{ message: string }>(`/user-products/${id}`);
+  },
 
-	editApiProduct(
-		input: CreateUserProductInput & { sourceProductId: string }
-	): Promise<{ product: ProductDetail }> {
-		return httpClient.post<{ product: ProductDetail }>(
-			'/user-products/edit-api-product',
-			input
-		);
-	},
+  editApiProduct(
+    input: CreateUserProductInput & { sourceProductId: string },
+  ): Promise<{ product: ProductDetail }> {
+    return httpClient.post<{ product: ProductDetail }>(
+      "/user-products/edit-api-product",
+      input,
+    );
+  },
 
-	// Suggest an edit to any product (for regular users - goes to pending review)
-	suggestEdit(
-		input: CreateUserProductInput & { sourceProductId: string }
-	): Promise<{ product: ProductDetail }> {
-		return httpClient.post<{ product: ProductDetail }>(
-			'/user-products/suggest-edit',
-			input
-		);
-	},
+  // Suggest an edit to any product (for regular users - goes to pending review)
+  suggestEdit(
+    input: CreateUserProductInput & { sourceProductId: string },
+  ): Promise<{ product: ProductDetail }> {
+    return httpClient.post<{ product: ProductDetail }>(
+      "/user-products/suggest-edit",
+      input,
+    );
+  },
 };

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { productsApi } from '../api';
+import { useState, useEffect, useCallback } from "react";
+import { productsApi } from "../api";
 
 interface UseCategoriesState {
   categories: string[];
@@ -20,7 +20,7 @@ export function useCategories(): UseCategoriesReturn {
 
   const fetchCategories = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
-    
+
     try {
       const response = await productsApi.getCategories();
       setState({
@@ -29,7 +29,8 @@ export function useCategories(): UseCategoriesReturn {
         error: null,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch categories';
+      const message =
+        err instanceof Error ? err.message : "Failed to fetch categories";
       setState((prev) => ({ ...prev, loading: false, error: message }));
     }
   }, []);
@@ -47,4 +48,3 @@ export function useCategories(): UseCategoriesReturn {
     refresh,
   };
 }
-

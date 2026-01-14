@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { productsApi } from '../api';
-import { ProductSummary, ProductFilters } from '../types';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { productsApi } from "../api";
+import { ProductSummary, ProductFilters } from "../types";
 
 interface UseProductsState {
   products: ProductSummary[];
@@ -18,7 +18,9 @@ interface UseProductsReturn extends UseProductsState {
   totalPages: number;
 }
 
-export function useProducts(initialFilters: ProductFilters = {}): UseProductsReturn {
+export function useProducts(
+  initialFilters: ProductFilters = {},
+): UseProductsReturn {
   const [state, setState] = useState<UseProductsState>({
     products: [],
     loading: false,
@@ -27,8 +29,9 @@ export function useProducts(initialFilters: ProductFilters = {}): UseProductsRet
     pageSize: 20,
     totalCount: 0,
   });
-  
-  const [currentFilters, setCurrentFilters] = useState<ProductFilters>(initialFilters);
+
+  const [currentFilters, setCurrentFilters] =
+    useState<ProductFilters>(initialFilters);
   const filtersRef = useRef<ProductFilters>(initialFilters);
   const pageSizeRef = useRef(initialFilters.pageSize || 20);
 
@@ -36,7 +39,7 @@ export function useProducts(initialFilters: ProductFilters = {}): UseProductsRet
   useEffect(() => {
     filtersRef.current = currentFilters;
   }, [currentFilters]);
-  
+
   // Keep pageSizeRef in sync with state
   useEffect(() => {
     pageSizeRef.current = state.pageSize;
@@ -46,17 +49,17 @@ export function useProducts(initialFilters: ProductFilters = {}): UseProductsRet
     setState((prev) => ({ ...prev, loading: true, error: null }));
     setCurrentFilters(filters);
     filtersRef.current = filters;
-    
+
     // Always start at page 1 when filters change
     const pageToFetch = filters.page || 1;
-    
+
     try {
       const response = await productsApi.getProducts({
         ...filters,
         page: pageToFetch,
         pageSize: filters.pageSize || 20,
       });
-      
+
       setState({
         products: response.items,
         loading: false,
@@ -66,28 +69,28 @@ export function useProducts(initialFilters: ProductFilters = {}): UseProductsRet
         totalCount: response.totalCount,
       });
     } catch (err: any) {
-      console.error('Error fetching products:', err);
-      const message = err?.message || err?.error || 'Failed to fetch products';
+      console.error("Error fetching products:", err);
+      const message = err?.message || err?.error || "Failed to fetch products";
       setState((prev) => ({ ...prev, loading: false, error: message }));
     }
   }, []);
 
   const goToPage = useCallback(async (page: number) => {
     if (page < 1) return;
-    
+
     setState((prev) => ({ ...prev, loading: true, error: null }));
-    
+
     try {
       // Use filtersRef to ensure we have the latest filters
       const filtersToUse = filtersRef.current;
-      
+
       // Use pageSizeRef to get current pageSize
       const response = await productsApi.getProducts({
         ...filtersToUse,
         page: page,
         pageSize: pageSizeRef.current,
       });
-      
+
       setState({
         products: response.items,
         loading: false,
@@ -97,7 +100,8 @@ export function useProducts(initialFilters: ProductFilters = {}): UseProductsRet
         totalCount: response.totalCount,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load page';
+      const message =
+        err instanceof Error ? err.message : "Failed to load page";
       setState((prev) => ({ ...prev, loading: false, error: message }));
     }
   }, []);
@@ -122,4 +126,3 @@ export function useProducts(initialFilters: ProductFilters = {}): UseProductsRet
     totalPages,
   };
 }
-

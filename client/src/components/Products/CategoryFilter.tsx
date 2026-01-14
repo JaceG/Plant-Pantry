@@ -1,4 +1,4 @@
-import './CategoryFilter.css';
+import "./CategoryFilter.css";
 
 interface CategoryFilterProps {
   categories: string[];
@@ -7,7 +7,12 @@ interface CategoryFilterProps {
   loading?: boolean;
 }
 
-export function CategoryFilter({ categories, selectedCategory, onSelect, loading }: CategoryFilterProps) {
+export function CategoryFilter({
+  categories,
+  selectedCategory,
+  onSelect,
+  loading,
+}: CategoryFilterProps) {
   if (loading) {
     return (
       <div className="category-filter loading">
@@ -21,7 +26,7 @@ export function CategoryFilter({ categories, selectedCategory, onSelect, loading
   return (
     <div className="category-filter">
       <button
-        className={`category-chip ${selectedCategory === null ? 'active' : ''}`}
+        className={`category-chip ${selectedCategory === null ? "active" : ""}`}
         onClick={() => onSelect(null)}
       >
         All
@@ -29,7 +34,7 @@ export function CategoryFilter({ categories, selectedCategory, onSelect, loading
       {categories.map((category) => (
         <button
           key={category}
-          className={`category-chip ${selectedCategory === category ? 'active' : ''}`}
+          className={`category-chip ${selectedCategory === category ? "active" : ""}`}
           onClick={() => onSelect(category)}
         >
           {category}
@@ -38,4 +43,3 @@ export function CategoryFilter({ categories, selectedCategory, onSelect, loading
     </div>
   );
 }
-

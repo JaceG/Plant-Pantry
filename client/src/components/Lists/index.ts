@@ -1,2 +1,1 @@
-export { ShoppingListItemCard } from './ShoppingListItemCard';
-
+export { ShoppingListItemCard } from "./ShoppingListItemCard";

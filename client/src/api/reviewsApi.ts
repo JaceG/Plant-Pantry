@@ -1,15 +1,18 @@
-import { httpClient } from './httpClient';
+import { httpClient } from "./httpClient";
 import {
   CreateReviewInput,
   UpdateReviewInput,
   ReviewListResponse,
   ReviewStatsResponse,
   ReviewResponse,
-} from '../types/review';
+} from "../types/review";
 
 export const reviewsApi = {
-  createReview(productId: string, input: CreateReviewInput): Promise<ReviewResponse> {
-    return httpClient.post<ReviewResponse>('/reviews', {
+  createReview(
+    productId: string,
+    input: CreateReviewInput,
+  ): Promise<ReviewResponse> {
+    return httpClient.post<ReviewResponse>("/reviews", {
       productId,
       ...input,
     });
@@ -19,15 +22,15 @@ export const reviewsApi = {
     productId: string,
     page: number = 1,
     pageSize: number = 20,
-    sortBy: 'newest' | 'oldest' | 'helpful' | 'rating' = 'newest'
+    sortBy: "newest" | "oldest" | "helpful" | "rating" = "newest",
   ): Promise<ReviewListResponse> {
     const params = new URLSearchParams();
-    params.set('page', page.toString());
-    params.set('pageSize', pageSize.toString());
-    if (sortBy) params.set('sortBy', sortBy);
+    params.set("page", page.toString());
+    params.set("pageSize", pageSize.toString());
+    if (sortBy) params.set("sortBy", sortBy);
 
     return httpClient.get<ReviewListResponse>(
-      `/reviews/product/${productId}?${params.toString()}`
+      `/reviews/product/${productId}?${params.toString()}`,
     );
   },
 
@@ -35,7 +38,10 @@ export const reviewsApi = {
     return httpClient.get<ReviewResponse>(`/reviews/product/${productId}/user`);
   },
 
-  updateReview(reviewId: string, updates: UpdateReviewInput): Promise<ReviewResponse> {
+  updateReview(
+    reviewId: string,
+    updates: UpdateReviewInput,
+  ): Promise<ReviewResponse> {
     return httpClient.put<ReviewResponse>(`/reviews/${reviewId}`, updates);
   },
 
@@ -48,24 +54,36 @@ export const reviewsApi = {
   },
 
   getReviewStats(productId: string): Promise<ReviewStatsResponse> {
-    return httpClient.get<ReviewStatsResponse>(`/reviews/product/${productId}/stats`);
+    return httpClient.get<ReviewStatsResponse>(
+      `/reviews/product/${productId}/stats`,
+    );
   },
 
   // Admin methods
-  getPendingReviews(page: number = 1, pageSize: number = 20): Promise<ReviewListResponse> {
+  getPendingReviews(
+    page: number = 1,
+    pageSize: number = 20,
+  ): Promise<ReviewListResponse> {
     const params = new URLSearchParams();
-    params.set('page', page.toString());
-    params.set('pageSize', pageSize.toString());
+    params.set("page", page.toString());
+    params.set("pageSize", pageSize.toString());
 
-    return httpClient.get<ReviewListResponse>(`/admin/reviews/pending?${params.toString()}`);
+    return httpClient.get<ReviewListResponse>(
+      `/admin/reviews/pending?${params.toString()}`,
+    );
   },
 
   approveReview(reviewId: string): Promise<ReviewResponse> {
-    return httpClient.post<ReviewResponse>(`/admin/reviews/${reviewId}/approve`, {});
+    return httpClient.post<ReviewResponse>(
+      `/admin/reviews/${reviewId}/approve`,
+      {},
+    );
   },
 
   rejectReview(reviewId: string): Promise<ReviewResponse> {
-    return httpClient.post<ReviewResponse>(`/admin/reviews/${reviewId}/reject`, {});
+    return httpClient.post<ReviewResponse>(
+      `/admin/reviews/${reviewId}/reject`,
+      {},
+    );
   },
 };
-

@@ -1,6 +1,6 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Document, Schema } from "mongoose";
 
-export type FilterType = 'category' | 'tag';
+export type FilterType = "category" | "tag";
 
 export interface IArchivedFilter extends Document {
   _id: mongoose.Types.ObjectId;
@@ -16,7 +16,7 @@ const archivedFilterSchema = new Schema<IArchivedFilter>(
   {
     type: {
       type: String,
-      enum: ['category', 'tag'],
+      enum: ["category", "tag"],
       required: true,
       index: true,
     },
@@ -28,7 +28,7 @@ const archivedFilterSchema = new Schema<IArchivedFilter>(
     },
     archivedBy: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
     },
     archivedAt: {
@@ -38,11 +38,13 @@ const archivedFilterSchema = new Schema<IArchivedFilter>(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Compound index to ensure uniqueness of type+value
 archivedFilterSchema.index({ type: 1, value: 1 }, { unique: true });
 
-export const ArchivedFilter = mongoose.model<IArchivedFilter>('ArchivedFilter', archivedFilterSchema);
-
+export const ArchivedFilter = mongoose.model<IArchivedFilter>(
+  "ArchivedFilter",
+  archivedFilterSchema,
+);
